@@ -1,0 +1,42 @@
+import type { Platform } from "../schemas/selector.js";
+
+export interface StepResult {
+  command: string;
+  selector?: unknown;
+  status: "passed" | "failed";
+  durationMs: number;
+  error?: string;
+  attachments?: Attachment[];
+}
+
+export interface Attachment {
+  name: string;
+  contentType: string; // "image/png", "application/json", "text/plain"
+  path: string;
+}
+
+export interface FlowResult {
+  name: string;
+  platform: Platform;
+  status: "passed" | "failed" | "skipped";
+  durationMs: number;
+  error?: { message: string; stack?: string };
+  steps?: StepResult[];
+}
+
+export interface RunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  durationMs: number;
+  results: FlowResult[];
+  platforms: Platform[];
+}
+
+export interface Reporter {
+  onFlowStart?(name: string, platform: Platform): void;
+  onFlowPass?(result: FlowResult): void;
+  onFlowFail?(result: FlowResult): void;
+  onRunComplete(summary: RunSummary): void;
+}
