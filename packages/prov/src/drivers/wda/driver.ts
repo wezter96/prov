@@ -13,7 +13,7 @@ function msToSec(ms: number): number {
 export function createWDADriver(
   host: string,
   port: number,
-  bundleId: string,
+  _bundleId: string,
 ): Effect.Effect<RawDriverService, DriverError> {
   return Effect.gen(function* () {
     const client = new WDAClient(host, port);
