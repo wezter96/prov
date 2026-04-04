@@ -11,8 +11,10 @@ import { parseAndroidHierarchy } from "../drivers/uiautomator2/pagesource.js";
 import { createUiAutomator2Driver } from "../drivers/uiautomator2/driver.js";
 import { parseIOSHierarchy } from "../drivers/wda/pagesource.js";
 import { createWDADriver } from "../drivers/wda/driver.js";
-import { firstAndroidDevice, adbForward } from "../device/android.js";
+import { firstAndroidDevice } from "../device/android.js";
 import { firstIOSSimulator, bootSimulator } from "../device/ios.js";
+import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
+import { setupWDA } from "../drivers/wda/installer.js";
 
 export interface TestCommandOptions {
   platforms: Platform[];
@@ -94,17 +96,12 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         continue;
       }
       const packageName = config.apps?.android?.packageName ?? "";
-      // Dynamic port for UiAutomator2 server
       const hostPort = 8200 + Math.floor(Math.random() * 100);
-      const devicePort = 6790;
       try {
-        adbForward(device.serial, hostPort, devicePort);
-      } catch {
-        // Port forwarding may already exist or server not started yet
-      }
-      try {
+        // Auto-setup: install APK if needed, start server, forward port
+        const conn = await setupUiAutomator2(device.serial, hostPort);
         const driver = await Effect.runPromise(
-          createUiAutomator2Driver("localhost", hostPort, packageName),
+          createUiAutomator2Driver(conn.host, conn.port, packageName),
         );
         const engineConfig: EngineConfig = {
           appId: packageName,
@@ -123,8 +120,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         };
         platformConfigs.push({ platform, driver, engineConfig });
       } catch (e) {
-        console.log(`Failed to connect to UiAutomator2 on ${device.serial}: ${e}`);
-        console.log("Make sure the UiAutomator2 server APK is installed and running.");
+        console.log(`Android setup failed on ${device.serial}: ${e instanceof Error ? e.message : e}`);
       }
     }
 
@@ -140,11 +136,12 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         bootSimulator(simulator.udid);
       }
       const bundleId = config.apps?.ios?.bundleId ?? "";
-      // Dynamic port for WDA
       const wdaPort = 8100 + Math.floor(Math.random() * 100);
       try {
+        // Auto-setup: build WDA if needed, start it, wait for ready
+        const conn = await setupWDA(simulator.udid, wdaPort);
         const driver = await Effect.runPromise(
-          createWDADriver("localhost", wdaPort, bundleId),
+          createWDADriver(conn.host, conn.port, bundleId),
         );
         const engineConfig: EngineConfig = {
           appId: bundleId,
@@ -163,8 +160,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         };
         platformConfigs.push({ platform, driver, engineConfig });
       } catch (e) {
-        console.log(`Failed to connect to WebDriverAgent on ${simulator.name}: ${e}`);
-        console.log("Make sure WebDriverAgent is installed and running on the simulator.");
+        console.log(`iOS setup failed on ${simulator.name}: ${e instanceof Error ? e.message : e}`);
       }
     }
   }

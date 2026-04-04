@@ -86,13 +86,15 @@ export class WDAClient {
    * @param bundleId - the app bundle ID to attach to (e.g. "com.example.app")
    * @param alertAction - optional auto-alert handling: "accept" | "dismiss"
    */
-  async createSession(bundleId: string, alertAction?: string): Promise<string> {
+  async createSession(bundleId?: string, alertAction?: string): Promise<string> {
     const alwaysMatch: Record<string, unknown> = {
-      bundleId,
       shouldWaitForQuiescence: false,
       waitForIdleTimeout: 0,
       shouldUseTestManagerForVisibilityDetection: false,
     };
+    if (bundleId) {
+      alwaysMatch["bundleId"] = bundleId;
+    }
     if (alertAction) {
       alwaysMatch["defaultAlertAction"] = alertAction;
     }

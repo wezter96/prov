@@ -20,7 +20,7 @@ export function createWDADriver(
 
     // Create session — must succeed before we can do anything
     yield* Effect.tryPromise({
-      try: () => client.createSession(bundleId),
+      try: () => client.createSession(bundleId || undefined),
       catch: (e) =>
         new DriverError({ message: `Failed to create WDA session: ${e}` }),
     });
