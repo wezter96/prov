@@ -13,7 +13,7 @@ interface ElementData {
   resourceId?: string;
   text?: string;
   accessibilityLabel?: string;
-  bounds: Bounds;
+  bounds?: Bounds;
   enabled?: boolean;
   visible?: boolean;
   clickable?: boolean;

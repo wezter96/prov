@@ -29,8 +29,7 @@ export function createUiAutomator2Driver(
       dumpHierarchy: () =>
         Effect.tryPromise({
           try: () => client.getSource(),
-          catch: (e) =>
-            new DriverError({ message: `Failed to get page source: ${e}` }),
+          catch: (e) => new DriverError({ message: `Failed to get page source: ${e}` }),
         }),
 
       // -----------------------------------------------------------------------
@@ -45,15 +44,13 @@ export function createUiAutomator2Driver(
       doubleTapAtCoordinate: (x, y) =>
         Effect.tryPromise({
           try: () => client.performDoubleTap(x, y),
-          catch: (e) =>
-            new DriverError({ message: `Double tap failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Double tap failed: ${e}` }),
         }),
 
       longPressAtCoordinate: (x, y, duration) =>
         Effect.tryPromise({
           try: () => client.performLongPress(x, y, duration),
-          catch: (e) =>
-            new DriverError({ message: `Long press failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Long press failed: ${e}` }),
         }),
 
       swipe: (sx, sy, ex, ey, dur) =>
@@ -68,22 +65,19 @@ export function createUiAutomator2Driver(
       inputText: (text) =>
         Effect.tryPromise({
           try: () => client.sendKeys(text),
-          catch: (e) =>
-            new DriverError({ message: `Input text failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Input text failed: ${e}` }),
         }),
 
       pressKey: (key) =>
         Effect.tryPromise({
           try: () => client.pressKeyCode(parseInt(key, 10) || 0),
-          catch: (e) =>
-            new DriverError({ message: `Press key failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Press key failed: ${e}` }),
         }),
 
       hideKeyboard: () =>
         Effect.tryPromise({
           try: () => client.hideKeyboard(),
-          catch: (e) =>
-            new DriverError({ message: `Hide keyboard failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Hide keyboard failed: ${e}` }),
         }),
 
       // -----------------------------------------------------------------------
@@ -95,8 +89,7 @@ export function createUiAutomator2Driver(
             const base64 = await client.getScreenshot();
             return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
           },
-          catch: (e) =>
-            new DriverError({ message: `Screenshot failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Screenshot failed: ${e}` }),
         }),
 
       getDeviceInfo: () =>
@@ -113,8 +106,7 @@ export function createUiAutomator2Driver(
               driverType: "uiautomator2" as const,
             };
           },
-          catch: (e) =>
-            new DriverError({ message: `Get device info failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Get device info failed: ${e}` }),
         }),
 
       // -----------------------------------------------------------------------
@@ -132,8 +124,7 @@ export function createUiAutomator2Driver(
             }
             await new Promise((resolve) => setTimeout(resolve, 1000));
           },
-          catch: (e) =>
-            new DriverError({ message: `Launch app failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Launch app failed: ${e}` }),
         }),
 
       stopApp: (bundleId) =>
@@ -141,8 +132,7 @@ export function createUiAutomator2Driver(
           try: async () => {
             adbForceStop(serial, bundleId);
           },
-          catch: (e) =>
-            new DriverError({ message: `Stop app failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Stop app failed: ${e}` }),
         }),
 
       killApp: (bundleId) =>
@@ -150,8 +140,7 @@ export function createUiAutomator2Driver(
           try: async () => {
             adbForceStop(serial, bundleId);
           },
-          catch: (e) =>
-            new DriverError({ message: `Kill app failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Kill app failed: ${e}` }),
         }),
 
       clearAppState: (bundleId) =>
@@ -160,8 +149,7 @@ export function createUiAutomator2Driver(
             adbForceStop(serial, bundleId);
             adbClearApp(serial, bundleId);
           },
-          catch: (e) =>
-            new DriverError({ message: `Clear app state failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Clear app state failed: ${e}` }),
         }),
 
       // -----------------------------------------------------------------------
@@ -173,8 +161,7 @@ export function createUiAutomator2Driver(
             adbOpenLink(serial, url, packageName);
             await new Promise((resolve) => setTimeout(resolve, 1000));
           },
-          catch: (e) =>
-            new DriverError({ message: `Open link failed: ${e}` }),
+          catch: (e) => new DriverError({ message: `Open link failed: ${e}` }),
         }),
 
       back: () =>
@@ -183,6 +170,11 @@ export function createUiAutomator2Driver(
           try: () => client.pressKeyCode(4),
           catch: (e) => new DriverError({ message: `Back failed: ${e}` }),
         }),
+
+      evaluate: () =>
+        Effect.fail(
+          new DriverError({ message: "evaluate() is only supported on the web platform" }),
+        ),
     };
 
     return service;

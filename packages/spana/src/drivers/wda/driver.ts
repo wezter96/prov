@@ -292,6 +292,11 @@ export function createWDADriver(
           try: () => client.pressHome(),
           catch: (e) => new DriverError({ message: `Back failed: ${e}` }),
         }),
+
+      evaluate: () =>
+        Effect.fail(
+          new DriverError({ message: "evaluate() is only supported on the web platform" }),
+        ),
     };
 
     return service;

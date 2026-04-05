@@ -18,8 +18,18 @@ export interface RawDriverService {
   // Coordinate-level actions
   readonly tapAtCoordinate: (x: number, y: number) => Effect.Effect<void, DriverError>;
   readonly doubleTapAtCoordinate: (x: number, y: number) => Effect.Effect<void, DriverError>;
-  readonly longPressAtCoordinate: (x: number, y: number, duration: number) => Effect.Effect<void, DriverError>;
-  readonly swipe: (startX: number, startY: number, endX: number, endY: number, duration: number) => Effect.Effect<void, DriverError>;
+  readonly longPressAtCoordinate: (
+    x: number,
+    y: number,
+    duration: number,
+  ) => Effect.Effect<void, DriverError>;
+  readonly swipe: (
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
+    duration: number,
+  ) => Effect.Effect<void, DriverError>;
 
   // Text input
   readonly inputText: (text: string) => Effect.Effect<void, DriverError>;
@@ -39,6 +49,12 @@ export interface RawDriverService {
   // Navigation
   readonly openLink: (url: string) => Effect.Effect<void, DriverError>;
   readonly back: () => Effect.Effect<void, DriverError>;
+
+  // Scripting
+  readonly evaluate: <T = unknown>(
+    script: string | ((...args: unknown[]) => T),
+    ...args: unknown[]
+  ) => Effect.Effect<T, DriverError>;
 }
 
 export class RawDriver extends Context.Tag("RawDriver")<RawDriver, RawDriverService>() {}

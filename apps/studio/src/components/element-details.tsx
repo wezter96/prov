@@ -13,7 +13,7 @@ interface ElementData {
   resourceId?: string;
   text?: string;
   accessibilityLabel?: string;
-  bounds: Bounds;
+  bounds?: Bounds;
   enabled?: boolean;
   visible?: boolean;
   clickable?: boolean;
@@ -99,10 +99,10 @@ export function ElementDetails({ element, selectors }: ElementDetailsProps) {
       <div>
         <h3 className="text-sm font-semibold text-zinc-300 mb-2">Bounds</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-          <PropertyRow label="x" value={bounds.x} />
-          <PropertyRow label="y" value={bounds.y} />
-          <PropertyRow label="width" value={bounds.width} />
-          <PropertyRow label="height" value={bounds.height} />
+          <PropertyRow label="x" value={bounds?.x} />
+          <PropertyRow label="y" value={bounds?.y} />
+          <PropertyRow label="width" value={bounds?.width} />
+          <PropertyRow label="height" value={bounds?.height} />
         </div>
       </div>
 

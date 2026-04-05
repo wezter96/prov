@@ -1,14 +1,21 @@
 import { Effect, Layer } from "effect";
 import { chromium } from "playwright-core";
 import { DriverError } from "../errors.js";
-import { RawDriver, type RawDriverService, type RawHierarchy, type LaunchOptions } from "./raw-driver.js";
+import {
+  RawDriver,
+  type RawDriverService,
+  type RawHierarchy,
+  type LaunchOptions,
+} from "./raw-driver.js";
 
 interface PlaywrightConfig {
   headless?: boolean;
   baseUrl?: string;
 }
 
-export function makePlaywrightDriver(config: PlaywrightConfig): Effect.Effect<RawDriverService, DriverError> {
+export function makePlaywrightDriver(
+  config: PlaywrightConfig,
+): Effect.Effect<RawDriverService, DriverError> {
   return Effect.gen(function* () {
     const browser = yield* Effect.tryPromise({
       try: () => chromium.launch({ headless: config.headless ?? true }),
@@ -126,10 +133,7 @@ export function makePlaywrightDriver(config: PlaywrightConfig): Effect.Effect<Ra
             const steps = Math.max(Math.round(duration / 16), 5);
             for (let i = 1; i <= steps; i++) {
               const t = i / steps;
-              await page.mouse.move(
-                startX + (endX - startX) * t,
-                startY + (endY - startY) * t,
-              );
+              await page.mouse.move(startX + (endX - startX) * t, startY + (endY - startY) * t);
             }
             await page.mouse.up();
           },
@@ -178,7 +182,8 @@ export function makePlaywrightDriver(config: PlaywrightConfig): Effect.Effect<Ra
 
       launchApp: (url, opts?: LaunchOptions) =>
         Effect.tryPromise({
-          try: () => page.goto(opts?.deepLink || url || config.baseUrl || "about:blank").then(() => {}),
+          try: () =>
+            page.goto(opts?.deepLink || url || config.baseUrl || "about:blank").then(() => {}),
           catch: (e) => new DriverError({ message: `Failed to navigate to ${url}: ${e}` }),
         }),
 
@@ -214,12 +219,20 @@ export function makePlaywrightDriver(config: PlaywrightConfig): Effect.Effect<Ra
           try: () => page.goBack().then(() => {}),
           catch: (e) => new DriverError({ message: `Failed to go back: ${e}` }),
         }),
+
+      evaluate: <T = unknown>(script: string | ((...args: unknown[]) => T), ...args: unknown[]) =>
+        Effect.tryPromise({
+          try: () => page.evaluate(script as any, ...args) as Promise<T>,
+          catch: (e) => new DriverError({ message: `Evaluate failed: ${e}` }),
+        }),
     };
 
     return service;
   });
 }
 
-export function PlaywrightDriverLive(config: PlaywrightConfig = {}): Layer.Layer<RawDriver, DriverError> {
+export function PlaywrightDriverLive(
+  config: PlaywrightConfig = {},
+): Layer.Layer<RawDriver, DriverError> {
   return Layer.effect(RawDriver, makePlaywrightDriver(config));
 }
