@@ -5,7 +5,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 
 const link = new RPCLink({
-  url: "/rpc",
+  url: new URL("/rpc", window.location.origin).href,
 });
 
 export const client: RouterClient<StudioRouter> = createORPCClient(link);
