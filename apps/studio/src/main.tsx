@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/query";
 import { InspectorPage } from "./pages/inspector";
+import { RunnerPage } from "./pages/runner";
 import { Toaster } from "sonner";
 import "./index.css";
 
@@ -41,7 +42,7 @@ function App() {
         </header>
         <main className="flex-1 p-6">
           {page === "inspector" && <InspectorPage />}
-          {page === "runner" && <div>Test Runner (coming next)</div>}
+          {page === "runner" && <RunnerPage />}
         </main>
       </div>
       <Toaster theme="dark" />
