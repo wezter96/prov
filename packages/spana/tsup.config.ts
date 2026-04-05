@@ -1,37 +1,36 @@
 import { defineConfig } from "tsup";
+import { readFileSync, writeFileSync } from "node:fs";
 
-export default defineConfig([
-  {
-    entry: { index: "src/index.ts" },
-    format: ["esm"],
-    dts: true,
-    sourcemap: true,
-    clean: true,
-    shims: true,
-    external: [
-      "effect",
-      "@effect/cli",
-      "@effect/platform",
-      "@effect/platform-node",
-      "playwright-core",
-    ],
+const shared = [
+  "effect",
+  "@effect/cli",
+  "@effect/platform",
+  "@effect/platform-node",
+  "playwright-core",
+  "@cucumber/gherkin",
+  "@cucumber/messages",
+  "@cucumber/cucumber-expressions",
+];
+
+export default defineConfig({
+  entry: {
+    index: "src/index.ts",
+    "gherkin/steps": "src/gherkin/steps.ts",
+    cli: "src/cli/index.ts",
   },
-  {
-    entry: { cli: "src/cli/index.ts" },
-    format: ["esm"],
-    dts: false,
-    sourcemap: true,
-    clean: false,
-    shims: true,
-    external: [
-      "effect",
-      "@effect/cli",
-      "@effect/platform",
-      "@effect/platform-node",
-      "playwright-core",
-    ],
-    banner: {
-      js: "#!/usr/bin/env node",
-    },
+  format: ["esm"],
+  dts: { entry: { index: "src/index.ts", "gherkin/steps": "src/gherkin/steps.ts" } },
+  sourcemap: true,
+  clean: true,
+  splitting: true,
+  shims: true,
+  external: shared,
+  async onSuccess() {
+    // Add shebang to CLI entry
+    const cliPath = "dist/cli.js";
+    const content = readFileSync(cliPath, "utf-8");
+    if (!content.startsWith("#!")) {
+      writeFileSync(cliPath, `#!/usr/bin/env node\n${content}`);
+    }
   },
-]);
+});

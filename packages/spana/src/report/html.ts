@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Reporter, FlowResult, RunSummary, StepResult } from "./types.js";
+import type { Reporter, FlowResult, RunSummary, StepResult, ScenarioStepResult } from "./types.js";
 
 function escapeHtml(str: string): string {
   return str
@@ -74,7 +74,27 @@ function renderFinalScreenshot(result: FlowResult): string {
   return `<div class="final-card"><img src="${dataUri}" alt="${escapeHtml(result.platform)} final"><div class="label">${escapeHtml(result.platform)} (${driverName(result.platform)}) &bull; ${formatDuration(result.durationMs)}</div></div>`;
 }
 
+function renderScenarioStep(step: ScenarioStepResult): string {
+  const icon = step.status === "passed" ? "✓" : step.status === "failed" ? "✗" : "○";
+  const statusClass =
+    step.status === "passed" ? "pass" : step.status === "failed" ? "fail" : "skip";
+  const duration =
+    step.durationMs > 0 ? `<span class="step-selector">(${step.durationMs}ms)</span>` : "";
+  const error = step.error
+    ? `<div class="error-msg" style="margin:0.25rem 0 0.5rem 2.25rem;padding:0.5rem;font-size:.75rem">${escapeHtml(step.error)}</div>`
+    : "";
+  return `<div class="step"><span class="step-num" style="color:${statusClass === "pass" ? "#22c55e" : statusClass === "fail" ? "#ef4444" : "#525252"}">${icon}</span><span class="step-action"><strong>${escapeHtml(step.keyword)}</strong> ${escapeHtml(step.text)}</span>${duration}</div>${error}`;
+}
+
 function renderPlatform(result: FlowResult): string {
+  const scenarioStepsHtml = result.scenarioSteps
+    ? `<div class="steps">${result.scenarioSteps.map(renderScenarioStep).join("\n")}</div>`
+    : "";
+  const driverStepsHtml =
+    (result.steps ?? []).length > 0
+      ? `<div class="steps">${(result.steps ?? []).map(renderStep).join("\n")}</div>`
+      : "";
+
   return `
 <div class="platform">
   <div class="platform-header">
@@ -84,7 +104,8 @@ function renderPlatform(result: FlowResult): string {
       ${statusBadge(result.status)}
     </div>
   </div>
-  <div class="steps">${(result.steps ?? []).map(renderStep).join("\n")}</div>
+  ${scenarioStepsHtml}
+  ${driverStepsHtml}
   ${renderScreenshots(result.steps ?? [])}
   ${result.status === "failed" && result.error ? `<div class="error-msg"><strong>Error:</strong> ${escapeHtml(result.error.message)}</div>` : ""}
 </div>`;

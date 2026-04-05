@@ -1,5 +1,5 @@
 import type { Platform } from "../schemas/selector.js";
-import type { FlowResult, Reporter } from "./types.js";
+import type { FlowResult, Reporter, ScenarioStepResult } from "./types.js";
 
 function printResultAttachments(result: FlowResult): void {
   for (const attachment of result.attachments ?? []) {
@@ -9,6 +9,17 @@ function printResultAttachments(result: FlowResult): void {
   for (const [index, step] of (result.steps ?? []).entries()) {
     for (const attachment of step.attachments ?? []) {
       console.log(`    ↳ step ${index + 1} ${step.command}: ${attachment.path}`);
+    }
+  }
+}
+
+function printScenarioSteps(steps: ScenarioStepResult[]): void {
+  for (const step of steps) {
+    const icon = step.status === "passed" ? "✓" : step.status === "failed" ? "✗" : "○";
+    const duration = step.durationMs > 0 ? ` (${step.durationMs}ms)` : "";
+    console.log(`      ${icon} ${step.keyword} ${step.text}${duration}`);
+    if (step.error) {
+      console.log(`        ${step.error}`);
     }
   }
 }
@@ -23,6 +34,7 @@ export function createConsoleReporter(): Reporter {
       const platformTag = `[${result.platform}]`;
       const duration = `(${result.durationMs}ms)`;
       console.log(`  ✓ ${platformTag} ${result.name} ${duration}`);
+      if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
     },
 
@@ -30,6 +42,7 @@ export function createConsoleReporter(): Reporter {
       const platformTag = `[${result.platform}]`;
       const duration = `(${result.durationMs}ms)`;
       console.log(`  ✗ ${platformTag} ${result.name} ${duration}`);
+      if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
     },
 
@@ -57,7 +70,9 @@ export function createConsoleReporter(): Reporter {
         const symbols = results.map((r) => (r.status === "passed" ? "✓" : "✗")).join("");
         const label = `${platform} (${driverNames[platform]})`;
         const duration = Math.max(...results.map((r) => r.durationMs));
-        console.log(`${label.padEnd(25)} ${symbols}  ${passed}/${total} passed (${(duration / 1000).toFixed(1)}s)`);
+        console.log(
+          `${label.padEnd(25)} ${symbols}  ${passed}/${total} passed (${(duration / 1000).toFixed(1)}s)`,
+        );
       }
 
       // Failures detail

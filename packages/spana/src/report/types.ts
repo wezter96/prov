@@ -15,6 +15,17 @@ export interface Attachment {
   path: string;
 }
 
+export type ScenarioStepKeyword = "Given" | "When" | "Then" | "And" | "But" | "Before" | "After";
+
+export interface ScenarioStepResult {
+  keyword: ScenarioStepKeyword;
+  text: string;
+  status: "passed" | "failed" | "skipped";
+  durationMs: number;
+  error?: string;
+  steps?: StepResult[];
+}
+
 export interface FlowResult {
   name: string;
   platform: Platform;
@@ -23,6 +34,7 @@ export interface FlowResult {
   error?: { message: string; stack?: string };
   attachments?: Attachment[];
   steps?: StepResult[];
+  scenarioSteps?: ScenarioStepResult[];
 }
 
 export interface RunSummary {

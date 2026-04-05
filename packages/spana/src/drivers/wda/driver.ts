@@ -79,6 +79,17 @@ export function createWDADriver(
         }
       }
 
+      // All candidates failed — ensure we still have a valid session
+      // so subsequent operations don't fail with "no active session"
+      if (!client.hasSession()) {
+        try {
+          await client.createSession(targetBundleId);
+          await client.disableQuiescence();
+        } catch {
+          // Session recovery failed — will surface on next operation
+        }
+      }
+
       throw lastError ?? new Error(`Failed to open URL: ${url}`);
     };
 

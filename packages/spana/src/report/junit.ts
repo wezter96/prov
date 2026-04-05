@@ -71,10 +71,22 @@ function buildJUnitXML(summary: RunSummary): string {
 function buildSystemOut(result: FlowResult): string | undefined {
   const lines: string[] = [];
 
+  // Scenario-level steps (Gherkin Given/When/Then)
+  if (result.scenarioSteps) {
+    for (const step of result.scenarioSteps) {
+      const duration = step.durationMs > 0 ? ` (${step.durationMs}ms)` : "";
+      lines.push(`${step.keyword} ${step.text} [${step.status}]${duration}`);
+      if (step.error) {
+        lines.push(`  error: ${step.error}`);
+      }
+    }
+  }
+
   for (const attachment of result.attachments ?? []) {
     lines.push(`attachment ${attachment.name} (${attachment.contentType}): ${attachment.path}`);
   }
 
+  // Driver-level steps
   for (const [index, step] of (result.steps ?? []).entries()) {
     const prefix = `step ${index + 1} ${step.command} [${step.status}]`;
     if (step.selector !== undefined) {
@@ -84,7 +96,9 @@ function buildSystemOut(result: FlowResult): string | undefined {
       lines.push(`${prefix} error=${step.error}`);
     }
     for (const attachment of step.attachments ?? []) {
-      lines.push(`${prefix} attachment ${attachment.name} (${attachment.contentType}): ${attachment.path}`);
+      lines.push(
+        `${prefix} attachment ${attachment.name} (${attachment.contentType}): ${attachment.path}`,
+      );
     }
   }
 

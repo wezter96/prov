@@ -33,6 +33,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./steps": {
+      "types": "./dist/gherkin/steps.d.ts",
+      "import": "./dist/gherkin/steps.js"
     }
   },
   "scripts": {
@@ -51,9 +55,28 @@
     "playwright-core": "^1.49.0"
   },
   "devDependencies": {
+    "@cucumber/cucumber-expressions": "^19.0.0",
+    "@cucumber/gherkin": "^39.0.0",
+    "@cucumber/messages": "^32.2.0",
     "@types/bun": "^1.2.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@cucumber/cucumber-expressions": "^19.0.0",
+    "@cucumber/gherkin": "^39.0.0",
+    "@cucumber/messages": "^32.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@cucumber/cucumber-expressions": {
+      "optional": true
+    },
+    "@cucumber/gherkin": {
+      "optional": true
+    },
+    "@cucumber/messages": {
+      "optional": true
+    }
   },
   "optionalDependencies": {
     "appium-uiautomator2-server": "^9.11.1",

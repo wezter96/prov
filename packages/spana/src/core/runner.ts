@@ -1,4 +1,4 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { FlowDefinition, FlowConfig } from "../api/flow.js";
 import type { Platform } from "../schemas/selector.js";
@@ -7,6 +7,8 @@ export interface DiscoverOptions {
   tags?: string[];
   grep?: string;
   platforms?: Platform[];
+  /** Glob patterns for step definition files (relative to flowDir). */
+  stepFiles?: string[];
 }
 
 export async function loadFlowFile(filePath: string): Promise<FlowDefinition> {
@@ -30,6 +32,46 @@ export async function loadFlowFile(filePath: string): Promise<FlowDefinition> {
   return flowDef;
 }
 
+/**
+ * Load a test source file and return one or more FlowDefinitions.
+ * Handles both native .flow.ts/.test.ts files and .feature files.
+ */
+export async function loadTestSource(filePath: string): Promise<FlowDefinition[]> {
+  const absolutePath = resolve(filePath);
+
+  if (absolutePath.endsWith(".feature")) {
+    return loadFeatureFile(absolutePath);
+  }
+
+  const flow = await loadFlowFile(absolutePath);
+  return [flow];
+}
+
+async function loadFeatureFile(filePath: string): Promise<FlowDefinition[]> {
+  let compileFeature: typeof import("../gherkin/compiler.js").compileFeature;
+  try {
+    const mod = await import("../gherkin/compiler.js");
+    compileFeature = mod.compileFeature;
+  } catch {
+    throw new Error(
+      `Cannot load .feature files: install @cucumber/gherkin, @cucumber/messages, and @cucumber/cucumber-expressions as dependencies.`,
+    );
+  }
+
+  const source = await readFile(filePath, "utf-8");
+  return compileFeature(source, filePath);
+}
+
+/**
+ * Load step definition files so their Given/When/Then registrations
+ * are available before feature compilation.
+ */
+export async function loadStepFiles(paths: string[]): Promise<void> {
+  for (const p of paths) {
+    await import(resolve(p));
+  }
+}
+
 export async function discoverFlows(pathOrDir: string): Promise<string[]> {
   const absolute = resolve(pathOrDir);
   const stats = await stat(absolute);
@@ -46,8 +88,41 @@ export async function discoverFlows(pathOrDir: string): Promise<string[]> {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);
-      } else if (entry.name.endsWith(".flow.ts") || entry.name.endsWith(".test.ts")) {
+      } else if (
+        entry.name.endsWith(".flow.ts") ||
+        entry.name.endsWith(".test.ts") ||
+        entry.name.endsWith(".feature")
+      ) {
         results.push(fullPath);
+      }
+    }
+  }
+
+  await walk(absolute);
+  return results.sort();
+}
+
+/**
+ * Discover step definition files within a directory.
+ * Looks for files in steps/ directories or matching *.steps.ts pattern.
+ */
+export async function discoverStepFiles(pathOrDir: string): Promise<string[]> {
+  const absolute = resolve(pathOrDir);
+  const stats = await stat(absolute).catch(() => null);
+  if (!stats?.isDirectory()) return [];
+
+  const results: string[] = [];
+
+  async function walk(dir: string): Promise<void> {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.name.endsWith(".steps.ts") || dir.includes("/steps")) {
+        if (entry.name.endsWith(".ts")) {
+          results.push(fullPath);
+        }
       }
     }
   }

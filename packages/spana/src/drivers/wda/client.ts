@@ -26,11 +26,7 @@ export class WDAClient {
   // HTTP helpers
   // ---------------------------------------------------------------------------
 
-  private async request<T = unknown>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
+  private async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const init: RequestInit = {
       method,
@@ -138,8 +134,11 @@ export class WDAClient {
   async deleteSession(): Promise<void> {
     if (this.sessionId === null) return;
     const path = `/session/${this.sessionId}`;
-    this.sessionId = null;
-    await fetch(`${this.baseUrl}${path}`, { method: "DELETE" });
+    try {
+      await fetch(`${this.baseUrl}${path}`, { method: "DELETE" });
+    } finally {
+      this.sessionId = null;
+    }
   }
 
   hasSession(): boolean {
@@ -184,10 +183,7 @@ export class WDAClient {
    * decodes the base64 value. We follow the same pattern.
    */
   async getScreenshot(): Promise<Uint8Array> {
-    const base64 = await this.request<string>(
-      "GET",
-      this.sessionPath("/screenshot"),
-    );
+    const base64 = await this.request<string>("GET", this.sessionPath("/screenshot"));
     return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
   }
 

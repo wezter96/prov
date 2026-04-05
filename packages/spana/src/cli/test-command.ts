@@ -1,6 +1,12 @@
 import { resolve, dirname } from "node:path";
 import { Effect } from "effect";
-import { discoverFlows, loadFlowFile, filterFlows } from "../core/runner.js";
+import {
+  discoverFlows,
+  loadTestSource,
+  loadStepFiles,
+  discoverStepFiles,
+  filterFlows,
+} from "../core/runner.js";
 import { orchestrate, type PlatformConfig } from "../core/orchestrator.js";
 import type { EngineConfig } from "../core/engine.js";
 import type { ProvConfig } from "../schemas/config.js";
@@ -55,7 +61,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       ? config.reporters.join(",")
       : "console";
 
-  // 2. Discover flows
+  // 2. Discover flows and step definitions
   const flowDir = opts.flowPath ?? resolveFromConfig(config.flowDir ?? "./flows");
   const flowPaths = await discoverFlows(flowDir);
 
@@ -64,10 +70,20 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     return true;
   }
 
-  // 3. Load and filter flows
+  // Load step definition files before compiling .feature files
+  const hasFeatureFiles = flowPaths.some((p) => p.endsWith(".feature"));
+  if (hasFeatureFiles) {
+    const stepPaths = await discoverStepFiles(flowDir);
+    if (stepPaths.length > 0) {
+      await loadStepFiles(stepPaths);
+    }
+  }
+
+  // 3. Load and filter flows (supports both .flow.ts and .feature)
   const flows = [];
   for (const p of flowPaths) {
-    flows.push(await loadFlowFile(p));
+    const loaded = await loadTestSource(p);
+    flows.push(...loaded);
   }
   const filtered = filterFlows(flows, {
     tags: opts.tags,

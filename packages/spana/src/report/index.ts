@@ -3,6 +3,8 @@ export {
   type FlowResult,
   type RunSummary,
   type StepResult,
+  type ScenarioStepResult,
+  type ScenarioStepKeyword,
   type Attachment,
 } from "./types.js";
 export { createConsoleReporter } from "./console.js";
