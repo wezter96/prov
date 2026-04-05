@@ -66,12 +66,14 @@ The web driver uses [Playwright](https://playwright.dev)'s CDP API in-process. N
 The Android driver is a pure HTTP client that talks to the UiAutomator2 APK server running on the device.
 
 **Setup sequence:**
+
 1. spana pushes the bundled UiAutomator2 APK to the device via ADB if not already installed.
 2. It starts the server on the device (port 6790).
 3. ADB port-forwarding maps device port 6790 to a local port.
 4. The driver sends HTTP requests to `http://localhost:<forwarded-port>`.
 
 **Key endpoints:**
+
 - `GET /source` — returns the full UI hierarchy as XML
 - `POST /touch/perform` — performs a touch action at coordinates
 - `POST /appium/app/launch` — launches the app by package name
@@ -83,16 +85,19 @@ The driver parses the XML hierarchy in TypeScript and produces the unified `Elem
 The iOS driver is a pure HTTP client that talks to the WebDriverAgent (WDA) XCTest bundle running on the simulator or device.
 
 **Simulator setup:**
+
 1. spana installs the bundled unsigned WDA bundle into the simulator.
 2. It launches WDA (which starts an HTTP server on port 8100+).
 3. The driver sends HTTP requests to `http://localhost:8100`.
 
 **Device setup:**
+
 1. The WDA bundle must be re-signed with a user development certificate via `codesign`.
 2. `iproxy` forwards the device port to a local port.
 3. The driver connects to the forwarded port.
 
 **Key endpoints:**
+
 - `GET /source` — returns the full accessibility tree as JSON or XML
 - `POST /session/:id/element/:id/click` — taps an element
 - `POST /wda/touch/perform` — performs a touch at coordinates
@@ -101,23 +106,27 @@ The iOS driver is a pure HTTP client that talks to the WebDriverAgent (WDA) XCTe
 
 Each platform returns a different hierarchy format:
 
-| Platform | Format | Parser location |
-|---|---|---|
-| Android | XML (UiAutomator ViewHierarchy) | `src/drivers/uiautomator2/parser.ts` |
-| iOS | JSON (WDA accessibility tree) | `src/drivers/wda/parser.ts` |
-| Web | JSON (Playwright accessibility tree) | `src/drivers/playwright/parser.ts` |
+| Platform | Format                               | Parser location                      |
+| -------- | ------------------------------------ | ------------------------------------ |
+| Android  | XML (UiAutomator ViewHierarchy)      | `src/drivers/uiautomator2/parser.ts` |
+| iOS      | JSON (WDA accessibility tree)        | `src/drivers/wda/parser.ts`          |
+| Web      | JSON (Playwright accessibility tree) | `src/drivers/playwright/parser.ts`   |
 
 All parsers output the same unified `Element` type:
 
 ```ts
 interface Element {
-  role?:                string;
-  testID?:              string;
-  text?:                string;
-  accessibilityLabel?:  string;
-  bounds:               { x: number; y: number; width: number; height: number };
-  children:             Element[];
+  role?: string;
+  testID?: string;
+  text?: string;
+  accessibilityLabel?: string;
+  bounds: { x: number; y: number; width: number; height: number };
+  children: Element[];
 }
 ```
 
 `element-matcher.ts` in the Smart Layer searches this tree for the selector — no platform-specific code required.
+
+## Inspiration
+
+The thin HTTP client approach used by the WDA and UiAutomator2 drivers was inspired by [maestro-runner](https://github.com/nicklassuperset/maestro-runner), a Go project that demonstrated how minimal HTTP clients can effectively drive device interaction without heavy abstractions. The web driver follows a similar philosophy, using Playwright's CDP API directly rather than wrapping it in additional layers.
