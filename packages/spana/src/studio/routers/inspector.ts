@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { publicProcedure } from "../api.js";
+import { publicProcedure } from "../procedures.js";
 import { connect, type Session } from "../../agent/session.js";
 import type { Platform } from "../../schemas/selector.js";
 

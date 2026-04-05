@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { resolve } from "node:path";
-import { publicProcedure } from "../api.js";
+import { publicProcedure } from "../procedures.js";
 import {
   discoverFlows,
   loadTestSource,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { publicProcedure } from "../api.js";
+import { publicProcedure } from "../procedures.js";
 import { discoverDevices } from "../../device/discover.js";
 import type { Platform } from "../../schemas/selector.js";
 
