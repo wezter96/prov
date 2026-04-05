@@ -1,19 +1,44 @@
 import starlight from "@astrojs/starlight";
-// @ts-check
 import { defineConfig } from "astro/config";
 
-// https://astro.build/config
 export default defineConfig({
+  site: "https://wezter96.github.io",
+  base: "/prov",
   integrations: [
     starlight({
-      title: "My Docs",
-      social: [{ icon: "github", label: "GitHub", href: "https://github.com/withastro/starlight" }],
+      title: "prov",
+      description: "TypeScript-native E2E testing for React Native + Web",
+      social: [{ icon: "github", label: "GitHub", href: "https://github.com/wezter96/prov" }],
       sidebar: [
         {
-          label: "Guides",
+          label: "Getting Started",
           items: [
-            // Each item here is one entry in the navigation menu.
-            { label: "Example Guide", slug: "guides/example" },
+            { label: "Introduction", slug: "getting-started/introduction" },
+            { label: "Quick Start", slug: "getting-started/quick-start" },
+            { label: "Configuration", slug: "getting-started/configuration" },
+          ],
+        },
+        {
+          label: "Writing Tests",
+          items: [
+            { label: "Flows", slug: "writing-tests/flows" },
+            { label: "Selectors", slug: "writing-tests/selectors" },
+            { label: "Assertions", slug: "writing-tests/assertions" },
+            { label: "Platform-Specific", slug: "writing-tests/platform-specific" },
+          ],
+        },
+        {
+          label: "CLI",
+          items: [
+            { label: "Commands", slug: "cli/commands" },
+            { label: "Agent Commands", slug: "cli/agent-commands" },
+          ],
+        },
+        {
+          label: "Architecture",
+          items: [
+            { label: "Overview", slug: "architecture/overview" },
+            { label: "Drivers", slug: "architecture/drivers" },
           ],
         },
         {
