@@ -28,12 +28,19 @@ export interface TestCommandOptions {
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
   // 1. Load config
   let config: ProvConfig = {};
+  const configPath = resolve(opts.configPath ?? "spana.config.ts");
+  const configDir = configPath.replace(/\/[^/]+$/, "");
   try {
-    const configPath = resolve(opts.configPath ?? "spana.config.ts");
     const mod = await import(configPath);
     config = mod.default ?? {};
   } catch {
     // No config file, use defaults
+  }
+
+  // Resolve paths relative to config file location
+  const resolveFromConfig = (p: string) => resolve(configDir, p);
+  if (config.artifacts?.outputDir) {
+    config.artifacts.outputDir = resolveFromConfig(config.artifacts.outputDir);
   }
 
   const platforms: Platform[] = opts.platforms.length > 0
@@ -44,7 +51,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     : (config.reporters && config.reporters.length > 0 ? config.reporters.join(",") : "console");
 
   // 2. Discover flows
-  const flowDir = opts.flowPath ?? config.flowDir ?? "./flows";
+  const flowDir = opts.flowPath ?? resolveFromConfig(config.flowDir ?? "./flows");
   const flowPaths = await discoverFlows(flowDir);
 
   if (flowPaths.length === 0) {
@@ -150,7 +157,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         // Auto-setup: build WDA if needed, start it, wait for ready
         const conn = await setupWDA(simulator.udid, wdaPort);
         const driver = await Effect.runPromise(
-          createWDADriver(conn.host, conn.port, bundleId),
+          createWDADriver(conn.host, conn.port, bundleId, simulator.udid),
         );
         const engineConfig: EngineConfig = {
           appId: bundleId,
@@ -187,7 +194,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
   const reporters = reporterNames.split(",").map((r) => {
     switch (r.trim()) {
       case "json": return createJsonReporter();
-      case "junit": return createJUnitReporter(config.artifacts?.outputDir ?? "./spana-output");
+      case "junit": return createJUnitReporter(resolveFromConfig(config.artifacts?.outputDir ?? "./spana-output"));
       default: return createConsoleReporter();
     }
   });

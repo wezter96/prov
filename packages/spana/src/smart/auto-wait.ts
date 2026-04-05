@@ -36,13 +36,11 @@ export function waitForElement(
       if (element) return element;
       yield* Effect.sleep(Duration.millis(pollInterval));
     }
-    return yield* Effect.fail(
-      new ElementNotFoundError({
-        message: `Element not found within ${timeout}ms`,
-        selector,
-        timeoutMs: timeout,
-      }),
-    );
+    return yield* new ElementNotFoundError({
+      message: `Element not found within ${timeout}ms`,
+      selector,
+      timeoutMs: timeout,
+    });
   });
 }
 
@@ -65,12 +63,10 @@ export function waitForNotVisible(
       if (!element) return;
       yield* Effect.sleep(Duration.millis(pollInterval));
     }
-    return yield* Effect.fail(
-      new WaitTimeoutError({
-        message: `Element still visible after ${timeout}ms`,
-        selector,
-        timeoutMs: timeout,
-      }),
-    );
+    return yield* new WaitTimeoutError({
+      message: `Element still visible after ${timeout}ms`,
+      selector,
+      timeoutMs: timeout,
+    });
   });
 }

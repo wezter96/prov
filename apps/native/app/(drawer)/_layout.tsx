@@ -1,15 +1,29 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, useNavigation } from "expo-router";
+import { Pressable } from "react-native";
 import { Drawer } from "expo-router/drawer";
 import {
   DrawerContentScrollView,
   DrawerItem,
   type DrawerContentComponentProps,
 } from "@react-navigation/drawer";
-
 import { HeaderButton } from "@/components/header-button";
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
+
+function DrawerToggle({ color }: { color: string }) {
+  const navigation = useNavigation();
+  return (
+    <Pressable
+      accessibilityLabel="Show navigation menu"
+      accessibilityRole="button"
+      onPress={() => (navigation as any).toggleDrawer()}
+      style={{ marginLeft: 16, padding: 4 }}
+    >
+      <Ionicons name="menu" size={24} color={color} />
+    </Pressable>
+  );
+}
 
 function FrameworkDrawerContent({
   theme,
@@ -76,7 +90,8 @@ const DrawerLayout = () => {
         headerTitleStyle: {
           color: theme.text,
         },
-        headerTintColor: theme.text,
+        headerTintColor: theme.primary,
+        headerLeft: () => <DrawerToggle color={theme.text} />,
         drawerStyle: {
           backgroundColor: theme.background,
         },

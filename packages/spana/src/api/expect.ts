@@ -19,7 +19,7 @@ export function createPromiseExpect(
   const coord = createCoordinator(driver, config);
 
   const run = <A, E>(effect: Effect.Effect<A, E>) =>
-    Effect.runPromise(effect as Effect.Effect<A, never>);
+    Effect.runPromise(effect);
 
   const runStep = <A>(
     command: string,

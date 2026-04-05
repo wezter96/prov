@@ -5,28 +5,23 @@ interface RouteSpec {
 	name: string;
 	path: string;
 	selector: { testID: string };
-	androidPath?: string;
 }
 
 const WEB_BASE_URL = "http://127.0.0.1:8081";
 
 const routeSpecs: RouteSpec[] = [
-	{ name: "home", path: "/", androidPath: "/(drawer)", selector: { testID: "home-title" } },
+	{ name: "home", path: "/(drawer)", selector: { testID: "home-title" } },
 	{ name: "tabs-home", path: "/(drawer)/(tabs)", selector: { testID: "tab-one-title" } },
 	{ name: "tabs-explore", path: "/two", selector: { testID: "tab-two-title" } },
 	{ name: "modal", path: "/modal", selector: { testID: "modal-title" } },
 ];
 
 function routeHref(platform: Platform, route: RouteSpec): string {
-	const path = platform === "android" && route.androidPath
-		? route.androidPath
-		: route.path;
-
 	if (platform === "web") {
-		return `${WEB_BASE_URL}${path}`;
+		return `${WEB_BASE_URL}${route.path}`;
 	}
 
-	return `spana://${path}`;
+	return `spana://${route.path}`;
 }
 
 export default flow(
@@ -43,17 +38,9 @@ export default flow(
 	async ({ app, expect, platform }) => {
 		const failures: string[] = [];
 
-		if (platform === "ios") {
-			await app.stop();
-		}
-
 		for (const route of routeSpecs) {
 			try {
-				if (platform === "ios" && route.name === "home") {
-					await app.launch();
-				} else {
-					await app.openLink(routeHref(platform, route));
-				}
+				await app.openLink(routeHref(platform, route));
 				await expect(route.selector).toBeVisible({ timeout: 15_000 });
 				await app.takeScreenshot(route.name);
 			} catch (error) {

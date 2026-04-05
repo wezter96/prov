@@ -3,8 +3,8 @@ import type { Platform } from "../../src/schemas/selector.js";
 
 const WEB_BASE_URL = "http://127.0.0.1:8081";
 
-function homePath(platform: Platform): string {
-	return platform === "android" ? "/(drawer)" : "/";
+function homePath(_platform: Platform): string {
+	return "/(drawer)";
 }
 
 function homeHref(platform: Platform): string {
@@ -20,13 +20,7 @@ export default flow(
 		autoLaunch: false,
 	},
 	async ({ app, expect, platform }) => {
-		if (platform === "ios") {
-			await app.stop();
-			await app.launch();
-		} else {
-			await app.launch({ deepLink: homeHref(platform) });
-		}
-
+		await app.openLink(homeHref(platform));
 		await expect({ testID: "home-scroll" }).toBeVisible();
 		await expect({ testID: "home-content" }).toBeVisible();
 		await expect({ testID: "home-title" }).toBeVisible();

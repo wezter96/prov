@@ -2,9 +2,29 @@
   "name": "spana",
   "version": "0.0.1",
   "description": "TypeScript-native E2E testing for React Native + Web",
+  "license": "Apache-2.0",
+  "author": "Anton Wester",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wezter96/spana.git",
+    "directory": "packages/spana"
+  },
+  "keywords": [
+    "e2e",
+    "testing",
+    "react-native",
+    "playwright",
+    "ios",
+    "android",
+    "cross-platform"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -16,7 +36,7 @@
     }
   },
   "bin": {
-    "spana": "./dist/cli.js"
+    "spana": "dist/cli.js"
   },
   "scripts": {
     "dev": "tsup --watch",

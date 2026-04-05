@@ -3,8 +3,9 @@ import { DriverError } from "../../errors.js";
 import type { RawDriverService, LaunchOptions } from "../raw-driver.js";
 import { WDAClient } from "./client.js";
 import {
+  installedUrlSchemesOnSimulator,
   launchOnSimulator,
-  openUrlOnSimulator,
+  launchWithUrlOnSimulator,
   terminateOnSimulator,
 } from "../../device/ios.js";
 
@@ -15,18 +16,71 @@ function msToSec(ms: number): number {
   return ms / 1000;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function replaceUrlScheme(url: string, scheme: string): string | null {
+  const match = url.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):(\/\/.*)$/);
+  if (!match) return null;
+  return `${scheme}:${match[2]}`;
+}
+
 export function createWDADriver(
   host: string,
   port: number,
-  _bundleId: string,
+  bundleId: string,
   simulatorUdid?: string,
 ): Effect.Effect<RawDriverService, DriverError> {
   return Effect.gen(function* () {
     const client = new WDAClient(host, port);
 
+    const activateSimulatorApp = async (targetBundleId: string) => {
+      if (!targetBundleId) return;
+      await client.activateApp(targetBundleId);
+      await sleep(1000);
+    };
+
+    const openSimulatorUrl = async (url: string, targetBundleId = bundleId) => {
+      if (!simulatorUdid) {
+        await client.openUrl(url);
+        return;
+      }
+
+      const fallbackSchemes = installedUrlSchemesOnSimulator(simulatorUdid, targetBundleId);
+      const candidates = [
+        url,
+        ...fallbackSchemes
+          .map((scheme) => replaceUrlScheme(url, scheme))
+          .filter((candidate): candidate is string => Boolean(candidate)),
+      ].filter((candidate, index, all) => all.indexOf(candidate) === index);
+
+      let lastError: unknown;
+
+      for (const candidate of candidates) {
+        try {
+          // Terminate app first, then launch with URL to bypass system dialog
+          terminateOnSimulator(simulatorUdid, targetBundleId);
+          await sleep(500);
+          launchWithUrlOnSimulator(simulatorUdid, targetBundleId, candidate);
+          await sleep(3000);
+          // Re-create WDA session to attach to the freshly launched app
+          try { await client.deleteSession(); } catch { /* old session may be stale */ }
+          await client.createSession(targetBundleId);
+          await client.disableQuiescence();
+          await sleep(500);
+          return;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError ?? new Error(`Failed to open URL: ${url}`);
+    };
+
     // Create session — must succeed before we can do anything
     yield* Effect.tryPromise({
-      try: () => client.createSession(), // Don't attach to app during session creation — launchApp handles it
+      try: () => client.createSession(bundleId || undefined),
       catch: (e) =>
         new DriverError({ message: `Failed to create WDA session: ${e}` }),
     });
@@ -155,11 +209,12 @@ export function createWDADriver(
           try: async () => {
             if (simulatorUdid) {
               if (opts?.deepLink) {
-                openUrlOnSimulator(simulatorUdid, opts.deepLink);
+                await openSimulatorUrl(opts.deepLink, appBundleId);
               } else {
                 launchOnSimulator(simulatorUdid, appBundleId);
+                await sleep(500);
+                await activateSimulatorApp(appBundleId);
               }
-              await new Promise((resolve) => setTimeout(resolve, 1000));
               return;
             }
 
@@ -220,8 +275,7 @@ export function createWDADriver(
         Effect.tryPromise({
           try: async () => {
             if (simulatorUdid) {
-              openUrlOnSimulator(simulatorUdid, url);
-              await new Promise((resolve) => setTimeout(resolve, 1000));
+              await openSimulatorUrl(url);
               return;
             }
 

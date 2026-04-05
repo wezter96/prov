@@ -1,3 +1,11 @@
 {
-  "extends": "@spana/config/tsconfig.base.json"
+  "$schema": "https://raw.githubusercontent.com/Effect-TS/language-service/refs/heads/main/schema.json",
+  "extends": "@spana/config/tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  }
 }

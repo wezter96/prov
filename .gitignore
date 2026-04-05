@@ -50,8 +50,8 @@ coverage
 tmp
 temp
 
-# Prov
-prov-output/
+# Spana
+spana-output/
 .wda-builds/
 drivers/*.apk
 drivers/*.xctest

@@ -106,6 +106,41 @@ export function launchOnSimulator(udid: string, bundleId: string): void {
   execSync(`xcrun simctl launch ${udid} ${bundleId}`);
 }
 
+/** Launch app on simulator with a deep link URL (bypasses system confirmation dialog) */
+export function launchWithUrlOnSimulator(udid: string, bundleId: string, url: string): void {
+  execFileSync("xcrun", ["simctl", "launch", udid, bundleId, "--open-url", url]);
+}
+
+/** List URL schemes registered by the installed app on simulator */
+export function installedUrlSchemesOnSimulator(udid: string, bundleId: string): string[] {
+  if (!bundleId) return [];
+
+  try {
+    const appPath = execSync(`xcrun simctl get_app_container ${udid} ${bundleId} app`, {
+      encoding: "utf-8",
+    }).trim();
+
+    const raw = execFileSync("plutil", [
+      "-extract",
+      "CFBundleURLTypes",
+      "json",
+      "-o",
+      "-",
+      `${appPath}/Info.plist`,
+    ], {
+      encoding: "utf-8",
+    });
+
+    const urlTypes = JSON.parse(raw) as Array<{
+      CFBundleURLSchemes?: string[];
+    }>;
+
+    return urlTypes.flatMap((entry) => entry.CFBundleURLSchemes ?? []);
+  } catch {
+    return [];
+  }
+}
+
 /** Open a URL or deep link on simulator */
 export function openUrlOnSimulator(udid: string, url: string): void {
   execFileSync("xcrun", ["simctl", "openurl", udid, url], { stdio: "ignore" });

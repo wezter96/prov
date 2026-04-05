@@ -4,13 +4,13 @@ import astroMermaid from "astro-mermaid";
 
 export default defineConfig({
   site: "https://wezter96.github.io",
-  base: "/prov",
+  base: "/spana",
   integrations: [
     astroMermaid(),
     starlight({
-      title: "prov",
+      title: "spana",
       description: "TypeScript-native E2E testing for React Native + Web",
-      social: [{ icon: "github", label: "GitHub", href: "https://github.com/wezter96/prov" }],
+      social: [{ icon: "github", label: "GitHub", href: "https://github.com/wezter96/spana" }],
       sidebar: [
         {
           label: "Getting Started",

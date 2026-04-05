@@ -2,6 +2,8 @@
 
 TypeScript-native E2E testing for React Native + Web
 
+[Documentation](https://wezter96.github.io/spana/) | [GitHub](https://github.com/wezter96/spana) | [npm](https://www.npmjs.com/package/spana)
+
 ---
 
 ## Features
@@ -233,4 +235,4 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for details.
 
 ## License
 
-MIT
+Apache-2.0

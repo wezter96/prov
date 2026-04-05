@@ -105,14 +105,12 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       Effect.gen(function* () {
         const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
         if (element.text !== expected) {
-          return yield* Effect.fail(
-            new TextMismatchError({
-              message: `Expected text "${expected}" but got "${element.text ?? "(no text)"}"`,
-              expected,
-              actual: element.text,
-              selector,
-            }),
-          );
+          return yield* new TextMismatchError({
+            message: `Expected text "${expected}" but got "${element.text ?? "(no text)"}"`,
+            expected,
+            actual: element.text,
+            selector,
+          });
         }
       }),
   };

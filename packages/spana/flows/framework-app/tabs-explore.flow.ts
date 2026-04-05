@@ -3,8 +3,8 @@ import type { Platform } from "../../src/schemas/selector.js";
 
 const WEB_BASE_URL = "http://127.0.0.1:8081";
 
-function homePath(platform: Platform): string {
-	return platform === "android" ? "/(drawer)" : "/";
+function homePath(_platform: Platform): string {
+	return "/(drawer)";
 }
 
 function homeHref(platform: Platform): string {
@@ -25,14 +25,15 @@ export default flow(
 	},
 	async ({ app, expect, platform }) => {
 		if (platform === "ios") {
-			await app.stop();
+			// iOS deep links via openLink trigger a system confirmation dialog; use launch instead
 			await app.launch();
 		} else {
-			await app.launch({ deepLink: homeHref(platform) });
+			await app.openLink(homeHref(platform));
 		}
+		await expect({ accessibilityLabel: "Show navigation menu" }).toBeVisible({ timeout: 10_000 });
 		await app.tap({ accessibilityLabel: "Show navigation menu" });
-		await expect({ accessibilityLabel: "Navigate to tabs screen" }).toBeVisible({ timeout: 10_000 });
-		await app.tap({ accessibilityLabel: "Navigate to tabs screen" });
+		await expect({ testID: "drawer-tabs-item" }).toBeVisible({ timeout: 10_000 });
+		await app.tap({ testID: "drawer-tabs-item" });
 		await expect({ testID: "tab-one-title" }).toBeVisible();
 		await app.tap({ accessibilityLabel: "Open explore tab" });
 		await expect({ testID: "tab-two-title" }).toBeVisible();
