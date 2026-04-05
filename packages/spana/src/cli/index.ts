@@ -10,6 +10,7 @@ if (command === "test") {
   let reporter: string | undefined;
   let configPath: string | undefined;
   let flowPath: string | undefined;
+  let retries: number | undefined;
 
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!;
@@ -23,6 +24,8 @@ if (command === "test") {
       reporter = args[++i]!;
     } else if (arg === "--config" && args[i + 1]) {
       configPath = args[++i];
+    } else if (arg === "--retries" && args[i + 1]) {
+      retries = parseInt(args[++i]!, 10);
     } else if (!arg.startsWith("--")) {
       flowPath = arg;
     }
@@ -36,6 +39,7 @@ if (command === "test") {
     reporter,
     configPath,
     flowPath,
+    retries,
   });
   process.exit(success ? 0 : 1);
 } else if (command === "hierarchy" || command === "selectors") {
@@ -130,6 +134,7 @@ if (command === "test") {
   console.log(
     "  --reporter console|json|junit Reporter format (default: spana.config.ts or console)",
   );
+  console.log("  --retries <n>              Retry failed flows n times (flake detection)");
   console.log("  --config path              Config file path");
   console.log("  --pretty                   Pretty-print JSON output (hierarchy command)");
   console.log("  --port <number>            Studio port (default: 4400)");

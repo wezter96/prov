@@ -62,6 +62,7 @@ describe("console reporter", () => {
       passed: 1,
       failed: 2,
       skipped: 0,
+      flaky: 0,
       durationMs: 3456,
       platforms: ["android", "ios"],
       results: [

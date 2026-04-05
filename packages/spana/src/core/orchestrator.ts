@@ -9,19 +9,26 @@ export interface PlatformConfig {
   engineConfig: EngineConfig;
 }
 
+export interface OrchestrateOptions {
+  retries?: number;
+}
+
 export interface OrchestratorResult {
   results: TestResult[];
   totalDurationMs: number;
   passed: number;
   failed: number;
   skipped: number;
+  flaky: number;
 }
 
 export async function orchestrate(
   flows: FlowDefinition[],
   platforms: PlatformConfig[],
+  options?: OrchestrateOptions,
 ): Promise<OrchestratorResult> {
   const start = Date.now();
+  const retries = options?.retries ?? 0;
 
   // Run all platforms in parallel, flows serial within each
   const platformResults = await Promise.all(
@@ -34,7 +41,28 @@ export async function orchestrate(
       });
 
       for (const flow of platformFlows) {
-        const result = await executeFlow(flow, driver, engineConfig);
+        let result = await executeFlow(flow, driver, engineConfig);
+        let attempts = 1;
+
+        // Retry failed flows
+        if (result.status === "failed" && retries > 0) {
+          for (let retry = 0; retry < retries; retry++) {
+            const retryResult = await executeFlow(flow, driver, engineConfig);
+            attempts++;
+            if (retryResult.status === "passed") {
+              // Passed on retry — mark as flaky
+              result = { ...retryResult, flaky: true, attempts };
+              break;
+            }
+            // Still failing — keep the latest result
+            result = { ...retryResult, attempts };
+          }
+          // If never passed, mark attempts on the final failure
+          if (result.status === "failed") {
+            result = { ...result, attempts };
+          }
+        }
+
         results.push(result);
       }
       return results;
@@ -49,5 +77,6 @@ export async function orchestrate(
     passed: allResults.filter((r) => r.status === "passed").length,
     failed: allResults.filter((r) => r.status === "failed").length,
     skipped: allResults.filter((r) => r.status === "skipped").length,
+    flaky: allResults.filter((r) => r.flaky).length,
   };
 }

@@ -30,6 +30,8 @@ export interface FlowResult {
   name: string;
   platform: Platform;
   status: "passed" | "failed" | "skipped";
+  flaky?: boolean;
+  attempts?: number;
   durationMs: number;
   error?: { message: string; stack?: string };
   attachments?: Attachment[];
@@ -42,6 +44,7 @@ export interface RunSummary {
   passed: number;
   failed: number;
   skipped: number;
+  flaky: number;
   durationMs: number;
   results: FlowResult[];
   platforms: Platform[];

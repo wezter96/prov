@@ -1,5 +1,6 @@
 import type { Element } from "../schemas/element.js";
-import type { Selector } from "../schemas/selector.js";
+import type { Selector, ExtendedSelector, RelativeSelector } from "../schemas/selector.js";
+import { isRelativeSelector } from "../schemas/selector.js";
 
 /** Flatten an element tree into a list */
 export function flattenElements(root: Element): Element[] {
@@ -44,10 +45,7 @@ function isProbablyOnScreen(element: Element): boolean {
   const centerX = element.bounds.x + element.bounds.width / 2;
   const centerY = element.bounds.y + element.bounds.height / 2;
 
-  return element.bounds.width > 0
-    && element.bounds.height > 0
-    && centerX >= 0
-    && centerY >= 0;
+  return element.bounds.width > 0 && element.bounds.height > 0 && centerX >= 0 && centerY >= 0;
 }
 
 /** Find the best matching element — prefer clickable, then deepest */
@@ -70,4 +68,72 @@ export function centerOf(element: Element): { x: number; y: number } {
     x: Math.round(element.bounds.x + element.bounds.width / 2),
     y: Math.round(element.bounds.y + element.bounds.height / 2),
   };
+}
+
+/** Find an element using an extended selector (simple or relative) */
+export function findElementExtended(
+  root: Element,
+  selector: ExtendedSelector,
+): Element | undefined {
+  if (!isRelativeSelector(selector)) {
+    return findElement(root, selector);
+  }
+
+  return findRelativeElement(root, selector);
+}
+
+function findRelativeElement(root: Element, rel: RelativeSelector): Element | undefined {
+  // Find all candidates matching the base selector
+  const all = flattenElements(root).filter((el) => el.visible !== false && isProbablyOnScreen(el));
+  let candidates = all.filter((el) => matchesSelector(el, rel.selector));
+
+  if (candidates.length === 0) return undefined;
+
+  // Apply each relative constraint
+  if (rel.below) {
+    const anchor = findElement(root, rel.below);
+    if (!anchor) return undefined;
+    const anchorBottom = anchor.bounds.y + anchor.bounds.height;
+    candidates = candidates.filter((el) => el.bounds.y >= anchorBottom);
+    // Sort by proximity (closest below first)
+    candidates.sort((a, b) => a.bounds.y - b.bounds.y);
+  }
+
+  if (rel.above) {
+    const anchor = findElement(root, rel.above);
+    if (!anchor) return undefined;
+    const anchorTop = anchor.bounds.y;
+    candidates = candidates.filter((el) => el.bounds.y + el.bounds.height <= anchorTop);
+    // Sort by proximity (closest above first = highest y)
+    candidates.sort((a, b) => b.bounds.y - a.bounds.y);
+  }
+
+  if (rel.leftOf) {
+    const anchor = findElement(root, rel.leftOf);
+    if (!anchor) return undefined;
+    const anchorLeft = anchor.bounds.x;
+    candidates = candidates.filter((el) => el.bounds.x + el.bounds.width <= anchorLeft);
+    // Sort by proximity (closest left first = highest x)
+    candidates.sort((a, b) => b.bounds.x - a.bounds.x);
+  }
+
+  if (rel.rightOf) {
+    const anchor = findElement(root, rel.rightOf);
+    if (!anchor) return undefined;
+    const anchorRight = anchor.bounds.x + anchor.bounds.width;
+    candidates = candidates.filter((el) => el.bounds.x >= anchorRight);
+    // Sort by proximity (closest right first)
+    candidates.sort((a, b) => a.bounds.x - b.bounds.x);
+  }
+
+  if (rel.childOf) {
+    const parent = findElement(root, rel.childOf);
+    if (!parent) return undefined;
+    // Filter to elements that are descendants of the parent
+    const descendants = flattenElements(parent);
+    const descendantSet = new Set(descendants);
+    candidates = candidates.filter((el) => descendantSet.has(el) && el !== parent);
+  }
+
+  return candidates[0];
 }

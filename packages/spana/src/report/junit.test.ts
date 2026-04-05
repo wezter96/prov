@@ -29,6 +29,7 @@ describe("junit reporter", () => {
       passed: 0,
       failed: 1,
       skipped: 1,
+      flaky: 0,
       durationMs: 1500,
       platforms: ["web", "ios"],
       results: [

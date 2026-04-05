@@ -104,4 +104,111 @@ describe("orchestrate", () => {
       "ios:shared",
     ]);
   });
+
+  test("retries failed flows and marks flaky when passing on retry", async () => {
+    let callCount = 0;
+    const flakyFlow: FlowDefinition = {
+      name: "flaky",
+      config: {},
+      fn: async () => {
+        callCount++;
+        if (callCount <= 1) throw new Error("first attempt fails");
+      },
+    };
+
+    const result = await orchestrate(
+      [flakyFlow],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+      { retries: 2 },
+    );
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]!.status).toBe("passed");
+    expect(result.results[0]!.flaky).toBe(true);
+    expect(result.results[0]!.attempts).toBe(2);
+    expect(result.passed).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.flaky).toBe(1);
+  });
+
+  test("retries exhausted — still marks as failed with attempt count", async () => {
+    const alwaysFails: FlowDefinition = {
+      name: "always-fails",
+      config: {},
+      fn: async () => {
+        throw new Error("nope");
+      },
+    };
+
+    const result = await orchestrate(
+      [alwaysFails],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+      { retries: 2 },
+    );
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]!.status).toBe("failed");
+    expect(result.results[0]!.flaky).toBeUndefined();
+    expect(result.results[0]!.attempts).toBe(3); // 1 initial + 2 retries
+    expect(result.failed).toBe(1);
+    expect(result.flaky).toBe(0);
+  });
+
+  test("no retries by default", async () => {
+    let callCount = 0;
+    const failFlow: FlowDefinition = {
+      name: "fail",
+      config: {},
+      fn: async () => {
+        callCount++;
+        throw new Error("fail");
+      },
+    };
+
+    await orchestrate(
+      [failFlow],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+    );
+
+    expect(callCount).toBe(1);
+  });
 });

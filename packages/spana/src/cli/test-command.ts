@@ -17,8 +17,12 @@ import { parseAndroidHierarchy } from "../drivers/uiautomator2/pagesource.js";
 import { createUiAutomator2Driver } from "../drivers/uiautomator2/driver.js";
 import { parseIOSHierarchy } from "../drivers/wda/pagesource.js";
 import { createWDADriver } from "../drivers/wda/driver.js";
-import { firstAndroidDevice } from "../device/android.js";
-import { firstIOSSimulatorWithApp, bootSimulator } from "../device/ios.js";
+import { ensureAndroidDevice } from "../device/android.js";
+import {
+  ensureIOSSimulator,
+  firstIOSPhysicalDevice,
+  connectPhysicalDevice,
+} from "../device/ios.js";
 import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
 import { setupWDA } from "../drivers/wda/installer.js";
 
@@ -29,6 +33,7 @@ export interface TestCommandOptions {
   reporter?: string;
   configPath?: string;
   flowPath?: string;
+  retries?: number;
 }
 
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
@@ -124,9 +129,9 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       platformConfigs.push({ platform, driver, engineConfig });
     }
     if (platform === "android") {
-      const device = firstAndroidDevice();
+      const device = ensureAndroidDevice();
       if (!device) {
-        console.log("No Android device/emulator connected. Skipping android platform.");
+        console.log("No Android device/emulator available. Skipping android platform.");
         continue;
       }
       const packageName = config.apps?.android?.packageName ?? "";
@@ -161,19 +166,47 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
 
     if (platform === "ios") {
       const bundleId = config.apps?.ios?.bundleId ?? "";
-      const simulator = firstIOSSimulatorWithApp(bundleId);
-      if (!simulator) {
-        console.log("No iOS simulator available. Skipping ios platform.");
-        continue;
+
+      // Try physical device first, fall back to simulator
+      const physicalDevice = firstIOSPhysicalDevice();
+      if (physicalDevice) {
+        try {
+          console.log(`Found physical iOS device: ${physicalDevice.name} (${physicalDevice.udid})`);
+          const tunnel = connectPhysicalDevice(physicalDevice.udid);
+          const driver = await Effect.runPromise(
+            createWDADriver(tunnel.host, tunnel.port, bundleId),
+          );
+          const engineConfig: EngineConfig = {
+            appId: bundleId,
+            platform: "ios",
+            coordinatorConfig: {
+              parse: parseIOSHierarchy,
+              defaults: {
+                timeout: config.defaults?.waitTimeout,
+                pollInterval: config.defaults?.pollInterval,
+              },
+            },
+            autoLaunch: true,
+            flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
+            artifactConfig: config.artifacts,
+          };
+          platformConfigs.push({ platform, driver, engineConfig });
+          continue;
+        } catch (e) {
+          console.log(
+            `Physical device setup failed (${physicalDevice.name}): ${e instanceof Error ? e.message : e}. Falling back to simulator.`,
+          );
+        }
       }
-      // Boot simulator if not already booted
-      if (simulator.state !== "Booted") {
-        console.log(`Booting simulator ${simulator.name}...`);
-        bootSimulator(simulator.udid);
+
+      // Fall back to simulator
+      const simulator = ensureIOSSimulator(bundleId);
+      if (!simulator) {
+        console.log("No iOS simulator or physical device available. Skipping ios platform.");
+        continue;
       }
       const wdaPort = 8100 + Math.floor(Math.random() * 100);
       try {
-        // Auto-setup: build WDA if needed, start it, wait for ready
         const conn = await setupWDA(simulator.udid, wdaPort);
         const driver = await Effect.runPromise(
           createWDADriver(conn.host, conn.port, bundleId, simulator.udid),
@@ -200,7 +233,8 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
   }
 
   // 5. Run
-  const result = await orchestrate(filtered, platformConfigs);
+  const retries = opts.retries ?? config.defaults?.retries ?? 0;
+  const result = await orchestrate(filtered, platformConfigs, { retries });
 
   // 6. Report
   const { createConsoleReporter } = await import("../report/console.js");
@@ -242,6 +276,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       passed: result.passed,
       failed: result.failed,
       skipped: result.skipped,
+      flaky: result.flaky,
       durationMs: result.totalDurationMs,
       results: result.results.map((r) => ({
         ...r,

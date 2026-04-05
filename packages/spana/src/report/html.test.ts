@@ -44,6 +44,7 @@ describe("createHtmlReporter", () => {
       passed: 0,
       failed: 1,
       skipped: 0,
+      flaky: 0,
       durationMs: 1_234,
       platforms: ["web"],
       results: [
@@ -92,6 +93,7 @@ describe("createHtmlReporter", () => {
       passed: 1,
       failed: 0,
       skipped: 1,
+      flaky: 0,
       durationMs: 500,
       platforms: ["android", "ios"],
       results: [

@@ -33,7 +33,8 @@ export function createConsoleReporter(): Reporter {
     onFlowPass(result) {
       const platformTag = `[${result.platform}]`;
       const duration = `(${result.durationMs}ms)`;
-      console.log(`  ✓ ${platformTag} ${result.name} ${duration}`);
+      const flakyTag = result.flaky ? ` [flaky, passed on attempt ${result.attempts}]` : "";
+      console.log(`  ✓ ${platformTag} ${result.name} ${duration}${flakyTag}`);
       if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
     },
@@ -67,7 +68,9 @@ export function createConsoleReporter(): Reporter {
       for (const [platform, results] of byPlatform) {
         const passed = results.filter((r) => r.status === "passed").length;
         const total = results.length;
-        const symbols = results.map((r) => (r.status === "passed" ? "✓" : "✗")).join("");
+        const symbols = results
+          .map((r) => (r.flaky ? "~" : r.status === "passed" ? "✓" : "✗"))
+          .join("");
         const label = `${platform} (${driverNames[platform]})`;
         const duration = Math.max(...results.map((r) => r.durationMs));
         console.log(
@@ -87,9 +90,19 @@ export function createConsoleReporter(): Reporter {
         }
       }
 
+      // Flaky detail
+      const flakyResults = summary.results.filter((r) => r.flaky);
+      if (flakyResults.length > 0) {
+        console.log("\n--- Flaky ---");
+        for (const f of flakyResults) {
+          console.log(`~ [${f.platform}] ${f.name} (passed on attempt ${f.attempts})`);
+        }
+      }
+
       // Final summary
+      const flakyStr = summary.flaky > 0 ? `, ${summary.flaky} flaky` : "";
       console.log(
-        `\n${summary.passed}/${summary.total} passed, ${summary.failed} failed (${(summary.durationMs / 1000).toFixed(1)}s)`,
+        `\n${summary.passed}/${summary.total} passed, ${summary.failed} failed${flakyStr} (${(summary.durationMs / 1000).toFixed(1)}s)`,
       );
     },
   };

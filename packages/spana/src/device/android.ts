@@ -76,6 +76,99 @@ export function firstAndroidDevice(): AndroidDevice | null {
   return devices.find((d) => d.state === "device") ?? null;
 }
 
+/** Find the emulator binary */
+export function findEmulator(): string | null {
+  const candidates = [
+    "emulator",
+    `${process.env.ANDROID_HOME}/emulator/emulator`,
+    `${process.env.ANDROID_SDK_ROOT}/emulator/emulator`,
+    `${process.env.HOME}/Library/Android/sdk/emulator/emulator`,
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      execSync(`${candidate} -version`, { stdio: "ignore" });
+      return candidate;
+    } catch {
+      // try next
+    }
+  }
+  return null;
+}
+
+/** List available Android Virtual Devices */
+export function listAVDs(): string[] {
+  const emulator = findEmulator();
+  if (!emulator) return [];
+  try {
+    const output = execSync(`${emulator} -list-avds`, { encoding: "utf-8" });
+    return output
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Start an Android emulator and wait for it to boot.
+ * Returns the device serial (e.g. "emulator-5554") once ready.
+ */
+export function startEmulator(avdName: string, timeoutMs = 60_000): string {
+  const emulator = findEmulator();
+  if (!emulator) throw new Error("Android emulator not found");
+
+  // Launch in background
+  const { spawn } = require("node:child_process") as typeof import("node:child_process");
+  const proc = spawn(emulator, ["-avd", avdName, "-no-snapshot-save", "-no-audio", "-no-window"], {
+    detached: true,
+    stdio: "ignore",
+  });
+  proc.unref();
+
+  // Wait for device to appear in adb
+  const adb = findADB();
+  if (!adb) throw new Error("adb not found");
+
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const device = firstAndroidDevice();
+    if (device) {
+      // Wait for boot to complete
+      try {
+        const bootAnim = execSync(`${adb} -s ${device.serial} shell getprop sys.boot_completed`, {
+          encoding: "utf-8",
+          timeout: 5000,
+        }).trim();
+        if (bootAnim === "1") return device.serial;
+      } catch {
+        // not ready yet
+      }
+    }
+    execSync("sleep 2");
+  }
+
+  throw new Error(`Emulator "${avdName}" did not boot within ${timeoutMs / 1000}s`);
+}
+
+/**
+ * Ensure an Android device is available.
+ * If none connected, attempts to start the first available AVD.
+ * Returns the device or null if no AVDs available.
+ */
+export function ensureAndroidDevice(timeoutMs = 60_000): AndroidDevice | null {
+  const existing = firstAndroidDevice();
+  if (existing) return existing;
+
+  const avds = listAVDs();
+  if (avds.length === 0) return null;
+
+  console.log(`No Android device connected. Starting emulator "${avds[0]}"...`);
+  const serial = startEmulator(avds[0]!, timeoutMs);
+  return { serial, state: "device", type: "emulator" };
+}
+
 /** Forward a port from host to device via adb */
 export function adbForward(serial: string, hostPort: number, devicePort: number): void {
   const adb = findADB();
@@ -126,15 +219,7 @@ export function adbOpenLink(serial: string, url: string, packageName?: string): 
   const adb = findADB();
   if (!adb) throw new Error("adb not found");
 
-  const command = [
-    "am",
-    "start",
-    "-W",
-    "-a",
-    "android.intent.action.VIEW",
-    "-d",
-    shellQuote(url),
-  ];
+  const command = ["am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", shellQuote(url)];
 
   if (packageName) {
     command.push(shellQuote(packageName));

@@ -13,6 +13,8 @@ export interface TestResult {
   name: string;
   platform: Platform;
   status: "passed" | "failed" | "skipped";
+  flaky?: boolean;
+  attempts?: number;
   durationMs: number;
   error?: Error;
   attachments?: Attachment[];

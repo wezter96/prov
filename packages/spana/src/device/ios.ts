@@ -75,7 +75,7 @@ export function hasAppInstalledOnSimulator(udid: string, bundleId: string): bool
 /** Prefer a simulator that already has the requested app installed */
 export function firstIOSSimulatorWithApp(bundleId: string): IOSSimulator | null {
   const bootedWithApp = listBootedSimulators().find((sim) =>
-    hasAppInstalledOnSimulator(sim.udid, bundleId)
+    hasAppInstalledOnSimulator(sim.udid, bundleId),
   );
   if (bootedWithApp) return bootedWithApp;
 
@@ -85,6 +85,23 @@ export function firstIOSSimulatorWithApp(bundleId: string): IOSSimulator | null 
   if (availableWithApp) return availableWithApp;
 
   return firstIOSSimulator();
+}
+
+/**
+ * Ensure an iOS simulator is available and booted.
+ * If none booted, boots the first available simulator (preferring one with the app installed).
+ * Returns the simulator or null if none available.
+ */
+export function ensureIOSSimulator(bundleId?: string): IOSSimulator | null {
+  const sim = bundleId ? firstIOSSimulatorWithApp(bundleId) : firstIOSSimulator();
+  if (!sim) return null;
+
+  if (sim.state !== "Booted") {
+    console.log(`Booting iOS simulator "${sim.name}"...`);
+    bootSimulator(sim.udid);
+  }
+
+  return sim;
 }
 
 /** Boot a simulator by UDID */
@@ -120,16 +137,13 @@ export function installedUrlSchemesOnSimulator(udid: string, bundleId: string): 
       encoding: "utf-8",
     }).trim();
 
-    const raw = execFileSync("plutil", [
-      "-extract",
-      "CFBundleURLTypes",
-      "json",
-      "-o",
-      "-",
-      `${appPath}/Info.plist`,
-    ], {
-      encoding: "utf-8",
-    });
+    const raw = execFileSync(
+      "plutil",
+      ["-extract", "CFBundleURLTypes", "json", "-o", "-", `${appPath}/Info.plist`],
+      {
+        encoding: "utf-8",
+      },
+    );
 
     const urlTypes = JSON.parse(raw) as Array<{
       CFBundleURLSchemes?: string[];
@@ -153,4 +167,142 @@ export function terminateOnSimulator(udid: string, bundleId: string): void {
   } catch {
     // May not be running
   }
+}
+
+// ---------------------------------------------------------------------------
+// Physical device support
+// ---------------------------------------------------------------------------
+
+export interface IOSPhysicalDevice {
+  udid: string;
+  name: string;
+  connectionType: "USB" | "Wi-Fi" | string;
+}
+
+/**
+ * List connected physical iOS devices using xcrun devicectl (Xcode 15+).
+ * Falls back to system_profiler if devicectl is unavailable.
+ */
+export function listIOSPhysicalDevices(): IOSPhysicalDevice[] {
+  // Try xcrun devicectl first (Xcode 15+)
+  try {
+    const output = execSync("xcrun devicectl list devices --json-output /dev/stdout 2>/dev/null", {
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+    const data = JSON.parse(output);
+    const devices: IOSPhysicalDevice[] = [];
+
+    for (const device of data?.result?.devices ?? []) {
+      // Filter to connected physical devices (not simulators)
+      if (
+        device.hardwareProperties?.deviceType === "device" ||
+        device.connectionProperties?.transportType
+      ) {
+        devices.push({
+          udid: device.hardwareProperties?.udid ?? device.identifier,
+          name: device.deviceProperties?.name ?? "Unknown",
+          connectionType:
+            device.connectionProperties?.transportType === "wired"
+              ? "USB"
+              : (device.connectionProperties?.transportType ?? "unknown"),
+        });
+      }
+    }
+
+    return devices;
+  } catch {
+    // Fall back to system_profiler for older Xcode
+  }
+
+  try {
+    const output = execSync("system_profiler SPUSBDataType -json 2>/dev/null", {
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+    const data = JSON.parse(output);
+    const devices: IOSPhysicalDevice[] = [];
+
+    function walkUSB(items: any[]): void {
+      for (const item of items) {
+        // iOS devices have serial_num and contain "iPhone" or "iPad" in name
+        if (item.serial_num && /iPhone|iPad|iPod/i.test(item._name ?? "")) {
+          devices.push({
+            udid: item.serial_num.replace(/-/g, ""),
+            name: item._name ?? "iOS Device",
+            connectionType: "USB",
+          });
+        }
+        if (item._items) walkUSB(item._items);
+      }
+    }
+
+    walkUSB(data.SPUSBDataType ?? []);
+    return devices;
+  } catch {
+    return [];
+  }
+}
+
+/** Get first connected physical iOS device */
+export function firstIOSPhysicalDevice(): IOSPhysicalDevice | null {
+  const devices = listIOSPhysicalDevices();
+  return devices[0] ?? null;
+}
+
+/**
+ * Start iproxy to tunnel a port from localhost to a physical device via USB.
+ * Requires libimobiledevice (`brew install libimobiledevice`).
+ *
+ * @returns A cleanup function to kill the iproxy process.
+ */
+export function startIproxy(
+  udid: string,
+  localPort: number,
+  devicePort: number,
+): { host: string; port: number; cleanup: () => void } {
+  // Check iproxy is available
+  try {
+    execSync("which iproxy", { stdio: "ignore" });
+  } catch {
+    throw new Error("iproxy not found. Install with: brew install libimobiledevice");
+  }
+
+  const { spawn } = require("node:child_process") as typeof import("node:child_process");
+  const proc = spawn("iproxy", [String(localPort), String(devicePort), "--udid", udid], {
+    stdio: "ignore",
+    detached: true,
+  });
+  proc.unref();
+
+  // Give iproxy a moment to bind
+  execSync("sleep 1");
+
+  return {
+    host: "localhost",
+    port: localPort,
+    cleanup: () => {
+      try {
+        proc.kill();
+      } catch {
+        // already dead
+      }
+    },
+  };
+}
+
+/**
+ * Connect to a physical iOS device for testing.
+ * Sets up iproxy tunnel and returns connection info for WDA.
+ *
+ * WDA must be pre-installed and running on the device.
+ * Install with: xcodebuild -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner
+ *               -destination "id=<UDID>" test
+ */
+export function connectPhysicalDevice(
+  udid: string,
+  wdaPort = 8100,
+): { host: string; port: number; cleanup: () => void } {
+  const localPort = 8100 + Math.floor(Math.random() * 100);
+  return startIproxy(udid, localPort, wdaPort);
 }
