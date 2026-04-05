@@ -10,7 +10,7 @@ spana runs a single flow file against multiple platforms. There are two mechanis
 The `platform` value in `FlowContext` is `"web" | "android" | "ios"`. Use it for conditional logic within a flow that is mostly shared across platforms.
 
 ```ts
-import { flow } from "spana";
+import { flow } from "spana-test";
 
 export default flow("user can share content", async ({ app, expect, platform }) => {
   await app.tap({ testID: "share-button" });
@@ -38,7 +38,7 @@ export default flow("user can share content", async ({ app, expect, platform }) 
 Use `FlowConfig.platforms` to prevent a flow from running on platforms where it does not apply.
 
 ```ts
-import { flow } from "spana";
+import { flow } from "spana-test";
 
 export default flow(
   "push notification permissions",
@@ -46,7 +46,7 @@ export default flow(
   async ({ app, expect }) => {
     await app.tap({ testID: "enable-notifications" });
     await expect({ testID: "permission-granted" }).toBeVisible();
-  }
+  },
 );
 ```
 
@@ -75,9 +75,7 @@ Some elements have the same semantic purpose but different identifiers across pl
 ```ts
 export default flow("open menu", async ({ app, platform }) => {
   const menuSelector =
-    platform === "ios"
-      ? { accessibilityLabel: "Main menu" }
-      : { testID: "menu-button" };
+    platform === "ios" ? { accessibilityLabel: "Main menu" } : { testID: "menu-button" };
 
   await app.tap(menuSelector);
 });
@@ -92,7 +90,7 @@ export default flow(
   async ({ app, expect }) => {
     await app.tap({ testID: "use-biometrics" });
     await expect({ testID: "biometric-success" }).toBeVisible({ timeout: 10000 });
-  }
+  },
 );
 ```
 

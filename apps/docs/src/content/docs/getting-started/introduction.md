@@ -18,7 +18,7 @@ It replaces Maestro's JVM/YAML stack with a pure-TypeScript engine. No companion
 
 ## Key principles
 
-**Pure TypeScript.** Tests are `.ts` files. You get autocomplete, type errors, imports, and the full JS ecosystem. The test runner is Bun.
+**Pure TypeScript.** Tests are `.ts` files. You get autocomplete, type errors, imports, and the full JS ecosystem. The test runner works with both Node.js 20+ and Bun.
 
 **No app modification.** spana never requires adding a test server, special build flag, or SDK to your app. Interaction happens through the platform's accessibility layer (UiAutomator2, WebDriverAgent, Playwright CDP).
 
@@ -28,12 +28,12 @@ It replaces Maestro's JVM/YAML stack with a pure-TypeScript engine. No companion
 
 ## Platform support
 
-| Platform | Driver | Notes |
-|---|---|---|
-| Web / RN Web | Playwright (CDP) | No companion binary — Playwright is a dev dependency |
-| Android | UiAutomator2 HTTP client | Bundled APK server (~2–3 MB), ADB-forwarded |
-| iOS Simulator | WebDriverAgent HTTP client | Bundled unsigned XCTest bundle (~5 MB) |
-| iOS Device | WebDriverAgent HTTP client | Re-signed with user certificate via `codesign`; requires `iproxy` |
+| Platform      | Driver                     | Notes                                                             |
+| ------------- | -------------------------- | ----------------------------------------------------------------- |
+| Web / RN Web  | Playwright (CDP)           | No companion binary — Playwright is a dev dependency              |
+| Android       | UiAutomator2 HTTP client   | Bundled APK server (~2–3 MB), ADB-forwarded                       |
+| iOS Simulator | WebDriverAgent HTTP client | Bundled unsigned XCTest bundle (~5 MB)                            |
+| iOS Device    | WebDriverAgent HTTP client | Re-signed with user certificate via `codesign`; requires `iproxy` |
 
 ## Monorepo structure
 

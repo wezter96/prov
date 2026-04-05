@@ -6,7 +6,7 @@ description: Full reference for defineConfig() and all spana configuration optio
 Configuration lives in `spana.config.ts` at the project root. Pass the config object to `defineConfig` for type safety.
 
 ```ts
-import { defineConfig } from "spana";
+import { defineConfig } from "spana-test";
 
 export default defineConfig({
   // ...
@@ -18,7 +18,7 @@ Use `--config ./path/to/spana.config.ts` to specify a different location.
 ## Full example
 
 ```ts
-import { defineConfig } from "spana";
+import { defineConfig } from "spana-test";
 
 export default defineConfig({
   apps: {
