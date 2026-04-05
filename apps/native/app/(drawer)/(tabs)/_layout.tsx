@@ -24,6 +24,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
+          tabBarButtonTestID: "tabs-home-tab",
+          tabBarAccessibilityLabel: "Open home tab",
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
@@ -31,6 +33,8 @@ export default function TabLayout() {
         name="two"
         options={{
           title: "Explore",
+          tabBarButtonTestID: "tabs-explore-tab",
+          tabBarAccessibilityLabel: "Open explore tab",
           tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
         }}
       />

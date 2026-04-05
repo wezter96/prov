@@ -12,11 +12,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@prov/ui/components",
-    "utils": "@prov/ui/lib/utils",
-    "hooks": "@prov/ui/hooks",
-    "lib": "@prov/ui/lib",
-    "ui": "@prov/ui/components"
+    "components": "@spana/ui/components",
+    "utils": "@spana/ui/lib/utils",
+    "hooks": "@spana/ui/hooks",
+    "lib": "@spana/ui/lib",
+    "ui": "@spana/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

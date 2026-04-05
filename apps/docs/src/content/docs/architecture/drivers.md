@@ -3,7 +3,7 @@ title: Drivers
 description: Driver architecture — Playwright, UiAutomator2, WebDriverAgent, and the thin HTTP model.
 ---
 
-All platform interaction in prov flows through the `RawDriverService` interface. Platform-specific drivers implement this interface as thin HTTP clients. No selection logic, no auto-wait, no retry — just raw platform calls.
+All platform interaction in spana flows through the `RawDriverService` interface. Platform-specific drivers implement this interface as thin HTTP clients. No selection logic, no auto-wait, no retry — just raw platform calls.
 
 ## RawDriverService interface
 
@@ -66,7 +66,7 @@ The web driver uses [Playwright](https://playwright.dev)'s CDP API in-process. N
 The Android driver is a pure HTTP client that talks to the UiAutomator2 APK server running on the device.
 
 **Setup sequence:**
-1. prov pushes the bundled UiAutomator2 APK to the device via ADB if not already installed.
+1. spana pushes the bundled UiAutomator2 APK to the device via ADB if not already installed.
 2. It starts the server on the device (port 6790).
 3. ADB port-forwarding maps device port 6790 to a local port.
 4. The driver sends HTTP requests to `http://localhost:<forwarded-port>`.
@@ -83,7 +83,7 @@ The driver parses the XML hierarchy in TypeScript and produces the unified `Elem
 The iOS driver is a pure HTTP client that talks to the WebDriverAgent (WDA) XCTest bundle running on the simulator or device.
 
 **Simulator setup:**
-1. prov installs the bundled unsigned WDA bundle into the simulator.
+1. spana installs the bundled unsigned WDA bundle into the simulator.
 2. It launches WDA (which starts an HTTP server on port 8100+).
 3. The driver sends HTTP requests to `http://localhost:8100`.
 

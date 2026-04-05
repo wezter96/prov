@@ -13,7 +13,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@prov/ui/*": ["../../packages/ui/src/*"]
+      "@spana/ui/*": ["../../packages/ui/src/*"]
     }
   }
 }

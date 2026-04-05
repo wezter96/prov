@@ -1,4 +1,4 @@
-import { Toaster } from "@prov/ui/components/sonner";
+import { Toaster } from "@spana/ui/components/sonner";
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
@@ -14,11 +14,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "prov",
+        title: "spana",
       },
       {
         name: "description",
-        content: "prov is a web application",
+        content: "spana is a web application",
       },
     ],
     links: [

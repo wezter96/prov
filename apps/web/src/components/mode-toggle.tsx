@@ -1,10 +1,10 @@
-import { Button } from "@prov/ui/components/button";
+import { Button } from "@spana/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@prov/ui/components/dropdown-menu";
+} from "@spana/ui/components/dropdown-menu";
 import { Moon, Sun } from "lucide-react";
 
 import { useTheme } from "@/components/theme-provider";

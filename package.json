@@ -1,5 +1,5 @@
 {
-  "name": "prov",
+  "name": "spana",
   "private": true,
   "workspaces": {
     "packages": [
@@ -24,15 +24,16 @@
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:tui": "turbo -F tui dev",
+    "test:e2e:framework-app": "bun run --cwd packages/spana test:e2e:framework-app",
     "check": "oxlint && oxfmt --write"
   },
   "dependencies": {
-    "@prov/env": "workspace:*",
+    "@spana/env": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@prov/config": "workspace:*",
+    "@spana/config": "workspace:*",
     "lefthook": "^2.0.13",
     "oxfmt": "^0.26.0",
     "oxlint": "^1.41.0",

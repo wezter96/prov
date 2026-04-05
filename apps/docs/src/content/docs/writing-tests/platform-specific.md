@@ -3,14 +3,14 @@ title: Platform-Specific Tests
 description: Writing platform-aware tests using the platform context value and FlowConfig.platforms.
 ---
 
-prov runs a single flow file against multiple platforms. There are two mechanisms for platform-specific behavior: branching inside a flow, and restricting a flow to specific platforms entirely.
+spana runs a single flow file against multiple platforms. There are two mechanisms for platform-specific behavior: branching inside a flow, and restricting a flow to specific platforms entirely.
 
 ## Branching inside a flow
 
 The `platform` value in `FlowContext` is `"web" | "android" | "ios"`. Use it for conditional logic within a flow that is mostly shared across platforms.
 
 ```ts
-import { flow } from "prov";
+import { flow } from "spana";
 
 export default flow("user can share content", async ({ app, expect, platform }) => {
   await app.tap({ testID: "share-button" });
@@ -38,7 +38,7 @@ export default flow("user can share content", async ({ app, expect, platform }) 
 Use `FlowConfig.platforms` to prevent a flow from running on platforms where it does not apply.
 
 ```ts
-import { flow } from "prov";
+import { flow } from "spana";
 
 export default flow(
   "push notification permissions",
@@ -58,10 +58,10 @@ Regardless of per-flow `platforms` config, you can also filter at the CLI:
 
 ```bash
 # Run only on web
-prov test --platform web
+spana test --platform web
 
 # Run on android and ios only
-prov test --platform android,ios
+spana test --platform android,ios
 ```
 
 CLI filtering takes effect before per-flow filtering. A flow with `platforms: ["android"]` will not run if you pass `--platform web`, even if both are in your config.

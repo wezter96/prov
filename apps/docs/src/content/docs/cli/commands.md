@@ -1,19 +1,19 @@
 ---
 title: CLI Commands
-description: All prov CLI commands and flags.
+description: All spana CLI commands and flags.
 ---
 
-The `prov` binary is the entry point for running tests, listing devices, and introspecting the platform state.
+The `spana` binary is the entry point for running tests, listing devices, and introspecting the platform state.
 
-## `prov test`
+## `spana test`
 
 Run test flows.
 
 ```bash
-prov test [path] [options]
+spana test [path] [options]
 ```
 
-`path` is optional. If omitted, prov discovers all `.ts` files under `flowDir` (default: `./flows`).
+`path` is optional. If omitted, spana discovers all `.ts` files under `flowDir` (default: `./flows`).
 
 ### Options
 
@@ -23,53 +23,53 @@ prov test [path] [options]
 | `--tag <tag>` | Run only flows with this tag |
 | `--grep <pattern>` | Run only flows whose name matches this pattern |
 | `--reporter <name>` | Reporter: `console`, `json`, `junit`, `html`, `allure` |
-| `--config <path>` | Path to config file (default: `./prov.config.ts`) |
+| `--config <path>` | Path to config file (default: `./spana.config.ts`) |
 
 ### Examples
 
 ```bash
 # Run all flows against web (config default)
-prov test
+spana test
 
 # Run a single flow file
-prov test flows/login.ts
+spana test flows/login.ts
 
 # Run all smoke-tagged flows on Android and iOS
-prov test --tag smoke --platform android,ios
+spana test --tag smoke --platform android,ios
 
 # Filter by name pattern
-prov test --grep "log in"
+spana test --grep "log in"
 
 # Emit JSON to stdout for downstream processing
-prov test --reporter json
+spana test --reporter json
 
 # Use a non-default config
-prov test --config ./config/prov.staging.ts
+spana test --config ./config/spana.staging.ts
 ```
 
-## `prov devices`
+## `spana devices`
 
 List connected devices and simulators across all platforms.
 
 ```bash
-prov devices
+spana devices
 ```
 
 Output includes device name, platform, OS version, and connection status. Useful for confirming your device targets before running tests.
 
 ```bash
-prov devices
+spana devices
 # android  Pixel 7          API 33   connected
 # ios      iPhone 15        17.2     booted (simulator)
 ```
 
-## `prov version`
+## `spana version`
 
-Print the installed prov version and exit.
+Print the installed spana version and exit.
 
 ```bash
-prov version
-# prov 0.1.0
+spana version
+# spana 0.1.0
 ```
 
 ## Exit codes

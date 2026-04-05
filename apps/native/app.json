@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "prov",
-    "slug": "prov",
+    "name": "spana",
+    "slug": "spana",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "prov",
+    "scheme": "spana",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.mybettertapp"
     },
     "android": {
       "adaptiveIcon": {

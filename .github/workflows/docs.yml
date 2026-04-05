@@ -27,7 +27,7 @@ jobs:
       - run: cd apps/docs && bun run build
         env:
           SITE: https://wezter96.github.io
-          BASE: /prov
+          BASE: /spana
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/docs/dist

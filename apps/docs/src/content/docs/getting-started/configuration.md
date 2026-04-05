@@ -1,24 +1,24 @@
 ---
 title: Configuration
-description: Full reference for defineConfig() and all prov configuration options.
+description: Full reference for defineConfig() and all spana configuration options.
 ---
 
-Configuration lives in `prov.config.ts` at the project root. Pass the config object to `defineConfig` for type safety.
+Configuration lives in `spana.config.ts` at the project root. Pass the config object to `defineConfig` for type safety.
 
 ```ts
-import { defineConfig } from "prov";
+import { defineConfig } from "spana";
 
 export default defineConfig({
   // ...
 });
 ```
 
-Use `--config ./path/to/prov.config.ts` to specify a different location.
+Use `--config ./path/to/spana.config.ts` to specify a different location.
 
 ## Full example
 
 ```ts
-import { defineConfig } from "prov";
+import { defineConfig } from "spana";
 
 export default defineConfig({
   apps: {
@@ -36,7 +36,7 @@ export default defineConfig({
     retries:       2,
   },
   artifacts: {
-    outputDir:        ".prov/artifacts",
+    outputDir:        ".spana/artifacts",
     captureOnFailure: true,
     captureOnSuccess: false,
     screenshot:       true,
@@ -143,7 +143,7 @@ artifacts?: {
 
 | Option | Default | Description |
 |---|---|---|
-| `outputDir` | `".prov/artifacts"` | Directory to write captured artifacts |
+| `outputDir` | `".spana/artifacts"` | Directory to write captured artifacts |
 | `captureOnFailure` | `true` | Capture on failed flows |
 | `captureOnSuccess` | `false` | Capture on passed flows |
 | `screenshot` | `true` | Include screenshot in capture |

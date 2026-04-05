@@ -60,7 +60,7 @@ await expect({ testID: "user-greeting" }).toHaveText("Hello, Alice");
 
 ## Auto-wait behavior
 
-All assertions auto-wait. prov does not require manual `sleep()` calls. The assertion loop works as follows:
+All assertions auto-wait. spana does not require manual `sleep()` calls. The assertion loop works as follows:
 
 1. Dump the element hierarchy from the platform driver.
 2. Search the tree for the selector.
@@ -76,7 +76,7 @@ Timeouts are resolved in this order (highest priority first):
 
 1. `opts.timeout` passed directly to the assertion method
 2. `FlowConfig.timeout` on the containing flow
-3. `defaults.waitTimeout` in `prov.config.ts`
+3. `defaults.waitTimeout` in `spana.config.ts`
 4. Built-in default: 5000 ms
 
 ```ts

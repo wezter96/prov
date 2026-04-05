@@ -1,10 +1,10 @@
-# prov Architecture
+# spana Architecture
 
 ## 1. High-Level Architecture
 
 ```mermaid
 graph TD
-    A[flow files .flow.ts] --> B[CLI: prov test]
+    A[flow files .flow.ts] --> B[CLI: spana test]
     B --> C[TestRunner / runner.ts]
     C --> D[PlatformOrchestrator]
     D -->|parallel platforms| E1[Web: Playwright CDP]
@@ -177,19 +177,19 @@ Workers share a single atomic index into the flow array (`nextFlowIndex++`). Bec
 
 ## 6. Agent Workflow
 
-How an AI agent uses prov to discover, write, and validate flows:
+How an AI agent uses spana to discover, write, and validate flows:
 
 ```mermaid
 graph LR
-    A[Agent] -->|prov selectors --platform android| B[Discover elements\nJSON list with suggestedSelector]
+    A[Agent] -->|spana selectors --platform android| B[Discover elements\nJSON list with suggestedSelector]
     B -->|generate flow code| C[Write flow.ts]
-    C -->|prov validate| D[Validate schema\nno device needed]
-    D -->|prov test --reporter json| E[Execute on device]
+    C -->|spana validate| D[Validate schema\nno device needed]
+    D -->|spana test --reporter json| E[Execute on device]
     E -->|read JSON errors| F[Fix and retry]
     F --> C
 ```
 
-`session.ts` backs the `prov hierarchy` and `prov selectors` commands. `Session.selectors()` dumps the element tree, flattens it, and returns only visible elements that have a testID, accessibilityLabel, or text — each annotated with the best-priority selector to use in a flow file.
+`session.ts` backs the `spana hierarchy` and `spana selectors` commands. `Session.selectors()` dumps the element tree, flattens it, and returns only visible elements that have a testID, accessibilityLabel, or text — each annotated with the best-priority selector to use in a flow file.
 
 ---
 
@@ -197,12 +197,12 @@ graph LR
 
 ```mermaid
 graph TD
-    Root[prov/]
+    Root[spana/]
 
     Root --> Packages[packages/]
     Root --> Apps[apps/]
 
-    Packages --> PProvPkg[prov/ — core library and CLI]
+    Packages --> PProvPkg[spana/ — core library and CLI]
     Packages --> Config[config/ — shared TS/lint config]
     Packages --> Env[env/ — environment helpers]
     Packages --> UI[ui/ — shared UI components]
@@ -224,4 +224,4 @@ graph TD
     Src --> Schemas[schemas/ — Element, Selector, DeviceInfo types]
 ```
 
-All packages are managed by Bun workspaces and built with Turbo. The `prov` package is the only one that ships a binary (`prov` CLI). Other packages are libraries consumed by the apps or by `prov` itself.
+All packages are managed by Bun workspaces and built with Turbo. The `spana` package is the only one that ships a binary (`spana` CLI). Other packages are libraries consumed by the apps or by `spana` itself.

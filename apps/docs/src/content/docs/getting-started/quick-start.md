@@ -1,22 +1,22 @@
 ---
 title: Quick Start
-description: Install prov, configure it, and run your first flow.
+description: Install spana, configure it, and run your first flow.
 ---
 
 ## 1. Install
 
 ```bash
-bun add prov
+bun add spana
 ```
 
-prov requires [Bun](https://bun.sh) as the runtime.
+spana requires [Bun](https://bun.sh) as the runtime.
 
 ## 2. Create a config file
 
-Create `prov.config.ts` at the root of your project:
+Create `spana.config.ts` at the root of your project:
 
 ```ts
-import { defineConfig } from "prov";
+import { defineConfig } from "spana";
 
 export default defineConfig({
   apps: {
@@ -35,7 +35,7 @@ Start with `platforms: ["web"]` while getting familiar with the framework, then 
 Create `flows/login.ts`:
 
 ```ts
-import { flow } from "prov";
+import { flow } from "spana";
 
 export default flow("user can log in", async ({ app, expect }) => {
   await app.tap({ testID: "email-input" });
@@ -52,7 +52,7 @@ The `testID` selector maps to `data-testid` on web, `accessibilityIdentifier` on
 ## 4. Run
 
 ```bash
-prov test
+spana test
 ```
 
 This discovers all `*.ts` files under `./flows` (or the `flowDir` in your config) and runs them against the configured platforms.
@@ -60,19 +60,19 @@ This discovers all `*.ts` files under `./flows` (or the `flowDir` in your config
 ### Run a single file
 
 ```bash
-prov test flows/login.ts
+spana test flows/login.ts
 ```
 
 ### Target a specific platform
 
 ```bash
-prov test --platform android
+spana test --platform android
 ```
 
 ### Filter by tag
 
 ```bash
-prov test --tag smoke
+spana test --tag smoke
 ```
 
 ## 5. View results
@@ -80,14 +80,14 @@ prov test --tag smoke
 By default, results print to the console. To get structured JSON output:
 
 ```bash
-prov test --reporter json
+spana test --reporter json
 ```
 
-On failure, prov captures a screenshot and UI hierarchy dump under `.prov/artifacts/` (configurable via `artifacts.outputDir`).
+On failure, spana captures a screenshot and UI hierarchy dump under `.spana/artifacts/` (configurable via `artifacts.outputDir`).
 
 ## Next steps
 
-- [Configuration](/prov/getting-started/configuration/) — all `defineConfig` options
-- [Flows](/prov/writing-tests/flows/) — `flow()` API, tags, timeouts
-- [Selectors](/prov/writing-tests/selectors/) — all selector types
-- [CLI Commands](/prov/cli/commands/) — all flags
+- [Configuration](/spana/getting-started/configuration/) — all `defineConfig` options
+- [Flows](/spana/writing-tests/flows/) — `flow()` API, tags, timeouts
+- [Selectors](/spana/writing-tests/selectors/) — all selector types
+- [CLI Commands](/spana/cli/commands/) — all flags

@@ -3,13 +3,13 @@ title: Architecture Overview
 description: High-level architecture, layered design, and element resolution flow.
 ---
 
-prov uses a layered architecture where all logic lives in TypeScript on the host machine. Platform drivers are thin HTTP clients with no embedded intelligence.
+spana uses a layered architecture where all logic lives in TypeScript on the host machine. Platform drivers are thin HTTP clients with no embedded intelligence.
 
 ## High-level architecture
 
 ```mermaid
 graph TD
-    A[flow files .flow.ts] --> B[CLI: prov test]
+    A[flow files .flow.ts] --> B[CLI: spana test]
     B --> C[TestRunner / runner.ts]
     C --> D[PlatformOrchestrator]
     D -->|parallel platforms| E1[Web: Playwright CDP]
@@ -146,26 +146,26 @@ Workers share a single atomic index into the flow array. Because Bun is single-t
 
 ```mermaid
 graph LR
-    A[Agent] -->|prov selectors --platform android| B[Discover elements\nJSON list with suggestedSelector]
+    A[Agent] -->|spana selectors --platform android| B[Discover elements\nJSON list with suggestedSelector]
     B -->|generate flow code| C[Write flow.ts]
-    C -->|prov validate| D[Validate schema\nno device needed]
-    D -->|prov test --reporter json| E[Execute on device]
+    C -->|spana validate| D[Validate schema\nno device needed]
+    D -->|spana test --reporter json| E[Execute on device]
     E -->|read JSON errors| F[Fix and retry]
     F --> C
 ```
 
-`session.ts` backs `prov hierarchy` and `prov selectors`. `Session.selectors()` dumps the element tree, flattens it, and returns only visible elements with a `testID`, `accessibilityLabel`, or `text` — each annotated with the best-priority selector to use in a flow file.
+`session.ts` backs `spana hierarchy` and `spana selectors`. `Session.selectors()` dumps the element tree, flattens it, and returns only visible elements with a `testID`, `accessibilityLabel`, or `text` — each annotated with the best-priority selector to use in a flow file.
 
 ## Monorepo structure
 
 ```mermaid
 graph TD
-    Root[prov/]
+    Root[spana/]
 
     Root --> Packages[packages/]
     Root --> Apps[apps/]
 
-    Packages --> PProvPkg[prov/ — core library and CLI]
+    Packages --> PProvPkg[spana/ — core library and CLI]
     Packages --> Config[config/ — shared TS/lint config]
     Packages --> Env[env/ — environment helpers]
     Packages --> UI[ui/ — shared UI components]

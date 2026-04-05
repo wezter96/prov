@@ -1,4 +1,4 @@
-# prov
+# spana
 
 TypeScript-native E2E testing for React Native + Web
 
@@ -19,13 +19,13 @@ TypeScript-native E2E testing for React Native + Web
 ## Quick Start
 
 ```bash
-bun add prov
+bun add spana
 ```
 
-Create `prov.config.ts`:
+Create `spana.config.ts`:
 
 ```ts
-import { defineConfig } from "prov";
+import { defineConfig } from "spana";
 
 export default defineConfig({
   apps: {
@@ -40,7 +40,7 @@ export default defineConfig({
 Create `flows/login.ts`:
 
 ```ts
-import { flow } from "prov";
+import { flow } from "spana";
 
 export default flow("user can log in", async ({ app, expect }) => {
   await app.tap({ testID: "email-input" });
@@ -55,7 +55,7 @@ export default flow("user can log in", async ({ app, expect }) => {
 Run:
 
 ```bash
-prov test
+spana test
 ```
 
 ---
@@ -65,7 +65,7 @@ prov test
 ### Basic API
 
 ```ts
-import { flow } from "prov";
+import { flow } from "spana";
 
 export default flow("flow name", async ({ app, expect, platform }) => {
   // tap, type, scroll
@@ -111,29 +111,29 @@ export default flow(
 
 | Command | Description |
 |---|---|
-| `prov test [path]` | Run test flows (default: `./flows`) |
-| `prov hierarchy` | Dump full element hierarchy as JSON |
-| `prov selectors` | List actionable elements with suggested selectors |
-| `prov validate [path]` | Validate flow files without a device connection |
-| `prov devices` | List connected devices across all platforms |
-| `prov version` | Show version |
+| `spana test [path]` | Run test flows (default: `./flows`) |
+| `spana hierarchy` | Dump full element hierarchy as JSON |
+| `spana selectors` | List actionable elements with suggested selectors |
+| `spana validate [path]` | Validate flow files without a device connection |
+| `spana devices` | List connected devices across all platforms |
+| `spana version` | Show version |
 
 ### test options
 
 ```bash
-prov test flows/login.ts              # run a single file
-prov test --platform android,ios      # target platforms (default: web)
-prov test --tag smoke                 # filter by tag
-prov test --grep "log in"             # filter by name pattern
-prov test --reporter json             # reporter format
-prov test --config ./prov.config.ts   # explicit config path
+spana test flows/login.ts              # run a single file
+spana test --platform android,ios      # target platforms (default: web)
+spana test --tag smoke                 # filter by tag
+spana test --grep "log in"             # filter by name pattern
+spana test --reporter json             # reporter format
+spana test --config ./spana.config.ts   # explicit config path
 ```
 
 ### hierarchy / selectors options
 
 ```bash
-prov hierarchy --platform android --pretty
-prov selectors --platform ios
+spana hierarchy --platform android --pretty
+spana selectors --platform ios
 ```
 
 ---
@@ -141,7 +141,7 @@ prov selectors --platform ios
 ## Configuration
 
 ```ts
-import { defineConfig } from "prov";
+import { defineConfig } from "spana";
 
 export default defineConfig({
   apps: {
@@ -159,7 +159,7 @@ export default defineConfig({
     retries:       2,     // retries on action failure
   },
   artifacts: {
-    outputDir:        ".prov/artifacts",
+    outputDir:        ".spana/artifacts",
     captureOnFailure: true,   // screenshot + hierarchy on failure
     captureOnSuccess: false,
     screenshot:       true,
@@ -191,28 +191,28 @@ Selectors can be combined. When multiple fields are set, all must match.
 
 ## Agent Integration
 
-`prov` is designed for AI agent workflows:
+`spana` is designed for AI agent workflows:
 
-- `prov selectors --platform android` returns JSON with element details and suggested selectors — feed this to an agent to identify what to interact with
-- `prov hierarchy --platform web --pretty` dumps the full accessibility tree as structured JSON
-- `prov validate` exits non-zero on invalid flows — use in CI preflight
+- `spana selectors --platform android` returns JSON with element details and suggested selectors — feed this to an agent to identify what to interact with
+- `spana hierarchy --platform web --pretty` dumps the full accessibility tree as structured JSON
+- `spana validate` exits non-zero on invalid flows — use in CI preflight
 - `--reporter json` emits structured JSON events to stdout — pipe to an agent for result analysis
 
 Example agent loop:
 
 ```bash
 # 1. discover what's on screen
-prov selectors --platform web | jq '.[] | select(.testID != null)'
+spana selectors --platform web | jq '.[] | select(.testID != null)'
 
 # 2. run a specific flow with JSON output
-prov test flows/login.ts --reporter json 2>&1 | jq '.results'
+spana test flows/login.ts --reporter json 2>&1 | jq '.results'
 ```
 
 ---
 
 ## Architecture
 
-prov uses a layered architecture: CLI -> TestRunner -> PlatformOrchestrator -> SmartLayer -> RawDriver.
+spana uses a layered architecture: CLI -> TestRunner -> PlatformOrchestrator -> SmartLayer -> RawDriver.
 
 Raw drivers are thin HTTP clients. All selector matching, auto-wait, retry, and element resolution lives in the TypeScript SmartLayer — no logic in companion binaries.
 

@@ -1,5 +1,5 @@
 {
-  "name": "@prov/env",
+  "name": "@spana/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@prov/config": "workspace:*",
+    "@spana/config": "workspace:*",
     "typescript": "^5"
   }
 }

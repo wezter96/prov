@@ -10,10 +10,10 @@ export default function TabTwo() {
 
   return (
     <Container>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          <Text style={[styles.title, { color: theme.text }]}>Tab Two</Text>
-          <Text style={[styles.subtitle, { color: theme.text, opacity: 0.7 }]}>
+      <ScrollView testID="tab-two-scroll" style={styles.scrollView}>
+        <View testID="tab-two-content" style={styles.content}>
+          <Text testID="tab-two-title" style={[styles.title, { color: theme.text }]}>Tab Two</Text>
+          <Text testID="tab-two-subtitle" style={[styles.subtitle, { color: theme.text, opacity: 0.7 }]}>
             Discover more features and content
           </Text>
         </View>

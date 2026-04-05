@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
-    "@prov/env": "workspace:*",
-    "@prov/ui": "workspace:*",
+    "@spana/env": "workspace:*",
+    "@spana/ui": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-router": "^1.141.1",
     "dotenv": "catalog:",
@@ -25,7 +25,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@prov/config": "workspace:*",
+    "@spana/config": "workspace:*",
     "@tanstack/react-router-devtools": "^1.141.1",
     "@tanstack/router-plugin": "^1.141.1",
     "@types/node": "^22.13.14",

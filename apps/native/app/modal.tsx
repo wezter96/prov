@@ -10,9 +10,9 @@ export default function Modal() {
 
   return (
     <Container>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Modal</Text>
+      <View testID="modal-content" style={styles.container}>
+        <View testID="modal-header" style={styles.header}>
+          <Text testID="modal-title" style={[styles.title, { color: theme.text }]}>Modal</Text>
         </View>
       </View>
     </Container>

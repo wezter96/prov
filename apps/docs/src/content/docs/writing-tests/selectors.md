@@ -3,7 +3,7 @@ title: Selectors
 description: All selector types, how to use them, and how they map across platforms.
 ---
 
-A selector tells prov which element to interact with or assert on. Selectors are used by all `app` interaction methods and `expect()`.
+A selector tells spana which element to interact with or assert on. Selectors are used by all `app` interaction methods and `expect()`.
 
 ## Selector types
 
@@ -77,7 +77,7 @@ This narrows the match to an element that has both the correct `testID` and the 
 
 ## Selector priority
 
-When prov builds a suggested selector (e.g. in `prov selectors` output), it uses this priority:
+When spana builds a suggested selector (e.g. in `spana selectors` output), it uses this priority:
 
 1. `testID` — most stable, preferred
 2. `accessibilityLabel`

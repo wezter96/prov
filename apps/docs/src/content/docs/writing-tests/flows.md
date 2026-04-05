@@ -3,7 +3,7 @@ title: Flows
 description: The flow() API — defining, configuring, and exporting test flows.
 ---
 
-A flow is the basic unit of a prov test. Each flow file exports a single `FlowDefinition` as its default export.
+A flow is the basic unit of a spana test. Each flow file exports a single `FlowDefinition` as its default export.
 
 ## Defining a flow
 
@@ -20,7 +20,7 @@ flow(name: string, config: FlowConfig, fn: FlowFn): FlowDefinition
 ### Basic flow
 
 ```ts
-import { flow } from "prov";
+import { flow } from "spana";
 
 export default flow("user can log in", async ({ app, expect }) => {
   await app.tap({ testID: "email-input" });

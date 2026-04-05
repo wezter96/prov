@@ -89,7 +89,7 @@ interface FlowConfig {
 ## defineConfig options
 
 ```ts
-interface ProvConfig {
+interface SpanaConfig {
   apps?: {
     web?:     { url: string };
     android?: { packageName: string };
@@ -124,9 +124,9 @@ interface ProvConfig {
 
 | Command | Key flags |
 |---|---|
-| `prov test [path]` | `--platform`, `--tag`, `--grep`, `--reporter`, `--config` |
-| `prov hierarchy` | `--platform`, `--pretty` |
-| `prov selectors` | `--platform`, `--pretty` |
-| `prov validate [path]` | — |
-| `prov devices` | — |
-| `prov version` | — |
+| `spana test [path]` | `--platform`, `--tag`, `--grep`, `--reporter`, `--config` |
+| `spana hierarchy` | `--platform`, `--pretty` |
+| `spana selectors` | `--platform`, `--pretty` |
+| `spana validate [path]` | — |
+| `spana devices` | — |
+| `spana version` | — |
