@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
 import { onError } from "@orpc/server";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ManagedRuntime, Layer } from "effect";
 import { studioRouter } from "./api.js";
@@ -46,8 +48,33 @@ export async function startStudio(options: StudioOptions) {
   });
 
   if (staticDir) {
-    app.use("/*", serveStatic({ root: staticDir }));
-    app.get("/*", serveStatic({ root: staticDir, path: "index.html" }));
+    const mimeTypes: Record<string, string> = {
+      ".html": "text/html",
+      ".js": "application/javascript",
+      ".css": "text/css",
+      ".json": "application/json",
+      ".png": "image/png",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon",
+    };
+
+    app.get("/*", async (c) => {
+      const urlPath = c.req.path === "/" ? "/index.html" : c.req.path;
+      const filePath = join(staticDir, urlPath);
+
+      if (existsSync(filePath)) {
+        const content = await readFile(filePath);
+        const ext = urlPath.substring(urlPath.lastIndexOf("."));
+        return c.body(content, 200, {
+          "Content-Type": mimeTypes[ext] ?? "application/octet-stream",
+        });
+      }
+
+      // SPA fallback: serve index.html for unmatched routes
+      const indexPath = join(staticDir, "index.html");
+      const html = await readFile(indexPath);
+      return c.body(html, 200, { "Content-Type": "text/html" });
+    });
   }
 
   const server = serve({ fetch: app.fetch, port });

@@ -50,6 +50,7 @@ function createDriver(hierarchies: Element[]) {
     clearAppState: () => Effect.void,
     openLink: () => Effect.void,
     back: () => Effect.void,
+    evaluate: () => Effect.succeed(undefined as any),
   };
 
   return {

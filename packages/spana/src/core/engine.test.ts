@@ -93,6 +93,7 @@ function createDriver(hierarchy: Element) {
       events.push(["back"]);
       return Effect.void;
     },
+    evaluate: () => Effect.succeed(undefined as any),
   };
 
   return { driver, events };

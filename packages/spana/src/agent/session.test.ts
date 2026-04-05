@@ -56,7 +56,7 @@ describe("Session", () => {
   test("hierarchy returns parsed element tree", async () => {
     const session = new Session(mockDriver(), "web", parseHierarchy);
     const root = await session.hierarchy();
-    expect(root.tag).toBe("div");
+    expect(root.text).toBe("Click me");
     expect(root.id).toBe("btn");
   });
 
@@ -193,9 +193,9 @@ describe("Session", () => {
     const session = new Session(mockDriver({ swipe: swipeFn as any }), "web", parseHierarchy);
     await session.swipe("up");
     expect(swipeFn).toHaveBeenCalled();
-    const args = swipeFn.mock.calls[0]!;
+    const args = swipeFn.mock.calls[0] as unknown as number[];
     // Start Y should be > End Y for swipe up
-    expect(args[1]).toBeGreaterThan(args[3]);
+    expect(args[1]!).toBeGreaterThan(args[3]!);
   });
 
   test("launch calls launchApp", async () => {

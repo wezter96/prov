@@ -37,21 +37,21 @@ describe("flattenTree", () => {
     const flat = flattenTree(tree);
     expect(flat).toHaveLength(4);
 
-    expect(flat[0].depth).toBe(0);
-    expect(flat[0].path).toEqual([]);
-    expect(flat[0].element.elementType).toBe("FrameLayout");
+    expect(flat[0]!.depth).toBe(0);
+    expect(flat[0]!.path).toEqual([]);
+    expect(flat[0]!.element.elementType).toBe("FrameLayout");
 
-    expect(flat[1].depth).toBe(1);
-    expect(flat[1].path).toEqual([0]);
-    expect(flat[1].element.text).toBe("Hello World");
+    expect(flat[1]!.depth).toBe(1);
+    expect(flat[1]!.path).toEqual([0]);
+    expect(flat[1]!.element.text).toBe("Hello World");
 
-    expect(flat[2].depth).toBe(1);
-    expect(flat[2].path).toEqual([1]);
-    expect(flat[2].element.text).toBe("Submit");
+    expect(flat[2]!.depth).toBe(1);
+    expect(flat[2]!.path).toEqual([1]);
+    expect(flat[2]!.element.text).toBe("Submit");
 
-    expect(flat[3].depth).toBe(2);
-    expect(flat[3].path).toEqual([1, 0]);
-    expect(flat[3].element.resourceId).toBe("icon_submit");
+    expect(flat[3]!.depth).toBe(2);
+    expect(flat[3]!.path).toEqual([1, 0]);
+    expect(flat[3]!.element.resourceId).toBe("icon_submit");
   });
 });
 
@@ -76,9 +76,9 @@ describe("elementsAtPoint", () => {
     const results = elementsAtPoint(tree, 25, 115);
     expect(results.length).toBeGreaterThanOrEqual(3);
     // Deepest first: ImageView, then Button, then FrameLayout
-    expect(results[0].element.resourceId).toBe("icon_submit");
-    expect(results[1].element.text).toBe("Submit");
-    expect(results[2].element.elementType).toBe("FrameLayout");
+    expect(results[0]!.element.resourceId).toBe("icon_submit");
+    expect(results[1]!.element.text).toBe("Submit");
+    expect(results[2]!.element.elementType).toBe("FrameLayout");
   });
 
   it("returns empty for a point outside all bounds", () => {
@@ -90,7 +90,7 @@ describe("elementsAtPoint", () => {
     // Bottom-right of root, outside any child bounds
     const results = elementsAtPoint(tree, 350, 700);
     expect(results).toHaveLength(1);
-    expect(results[0].element.elementType).toBe("FrameLayout");
+    expect(results[0]!.element.elementType).toBe("FrameLayout");
   });
 });
 
@@ -98,25 +98,25 @@ describe("searchElements", () => {
   it("finds by text (case-insensitive)", () => {
     const results = searchElements(tree, "hello");
     expect(results).toHaveLength(1);
-    expect(results[0].element.text).toBe("Hello World");
+    expect(results[0]!.element.text).toBe("Hello World");
   });
 
   it("finds by resourceId", () => {
     const results = searchElements(tree, "icon_submit");
     expect(results).toHaveLength(1);
-    expect(results[0].element.resourceId).toBe("icon_submit");
+    expect(results[0]!.element.resourceId).toBe("icon_submit");
   });
 
   it("finds by accessibilityLabel", () => {
     const results = searchElements(tree, "SUBMIT BUTTON");
     expect(results).toHaveLength(1);
-    expect(results[0].element.accessibilityLabel).toBe("submit button");
+    expect(results[0]!.element.accessibilityLabel).toBe("submit button");
   });
 
   it("finds by elementType", () => {
     const results = searchElements(tree, "textview");
     expect(results).toHaveLength(1);
-    expect(results[0].element.elementType).toBe("TextView");
+    expect(results[0]!.element.elementType).toBe("TextView");
   });
 
   it("returns empty for no match", () => {

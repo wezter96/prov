@@ -33,6 +33,7 @@ function createDriver(platform: "android" | "ios"): RawDriverService {
     clearAppState: () => Effect.void,
     openLink: () => Effect.void,
     back: () => Effect.void,
+    evaluate: () => Effect.succeed(undefined as any),
   };
 }
 
