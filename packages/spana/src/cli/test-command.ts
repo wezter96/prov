@@ -45,6 +45,7 @@ export interface TestCommandOptions {
   parallel?: boolean;
   workers?: number;
   devices?: string[];
+  verbose?: boolean;
 }
 
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
@@ -535,6 +536,21 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
             reporter.onFlowPass?.(redacted);
           } else if (redacted.status === "failed") {
             reporter.onFlowFail?.(redacted);
+            if (opts.verbose && redacted.error) {
+              console.log(`\n[verbose] Full error for "${redacted.name}" on ${redacted.platform}:`);
+              console.log(`  Message: ${redacted.error.message}`);
+              if (redacted.error.suggestion) {
+                console.log(`  Suggestion: ${redacted.error.suggestion}`);
+              }
+              if (redacted.error.stack) {
+                console.log(
+                  `  Stack:\n${redacted.error.stack
+                    .split("\n")
+                    .map((l: string) => `    ${l}`)
+                    .join("\n")}`,
+                );
+              }
+            }
           }
         }
       },

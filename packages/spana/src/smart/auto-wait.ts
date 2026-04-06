@@ -3,8 +3,13 @@ import { type DriverError, ElementNotFoundError, WaitTimeoutError } from "../err
 import type { Element } from "../schemas/element.js";
 import type { ExtendedSelector } from "../schemas/selector.js";
 import type { RawDriverService } from "../drivers/raw-driver.js";
-import { findElementExtended, formatSelector } from "./element-matcher.js";
+import {
+  findActionElementExtended,
+  findElementExtended,
+  formatSelector,
+} from "./element-matcher.js";
 import type { HierarchyCache } from "./hierarchy-cache.js";
+import { diagnoseElementNotFound, formatDiagnostic } from "./diagnostics.js";
 
 export interface WaitOptions {
   timeout?: number; // default 5000ms
@@ -45,10 +50,11 @@ function nextInterval(elapsed: number, timeout: number, initial: number, max: nu
 }
 
 /** Poll until an element matching selector is found */
-export function waitForElement(
+function waitForResolvedElement(
   driver: RawDriverService,
   selector: ExtendedSelector,
   parse: HierarchyParser,
+  resolveElement: (root: Element, selector: ExtendedSelector) => Element | undefined,
   opts?: WaitOptions,
   cache?: HierarchyCache,
 ): Effect.Effect<Element, ElementNotFoundError | WaitTimeoutError | DriverError> {
@@ -67,14 +73,14 @@ export function waitForElement(
       isFirstPoll = false;
 
       const root = yield* getHierarchy(driver, parse, cache);
-      const element = findElementExtended(root, selector);
+      const element = resolveElement(root, selector);
       if (element) {
         if (settleTimeout > 0) {
           // Wait, then re-check with fresh data to ensure the element is stable
           yield* Effect.sleep(Duration.millis(settleTimeout));
           if (cache) cache.invalidate();
           const settledRoot = yield* getHierarchy(driver, parse, cache);
-          const settledElement = findElementExtended(settledRoot, selector);
+          const settledElement = resolveElement(settledRoot, selector);
           if (settledElement) return settledElement;
           // Element disappeared during settle — keep polling
         } else {
@@ -85,12 +91,40 @@ export function waitForElement(
       const interval = nextInterval(elapsed, timeout, initialPollInterval, pollInterval);
       yield* Effect.sleep(Duration.millis(interval));
     }
+    // Capture diagnostic info from the last hierarchy
+    if (cache) cache.invalidate();
+    const diagRoot = yield* getHierarchy(driver, parse, cache);
+    const diagnostic = diagnoseElementNotFound(diagRoot, selector);
+    const diagMessage = formatDiagnostic(diagnostic);
+
     return yield* new ElementNotFoundError({
-      message: `Element not found within ${timeout}ms — selector: ${formatSelector(selector)}`,
+      message: `Element not found within ${timeout}ms — selector: ${formatSelector(selector)}\n${diagMessage}`,
       selector,
       timeoutMs: timeout,
     });
   });
+}
+
+/** Poll until an element matching selector is found. */
+export function waitForElement(
+  driver: RawDriverService,
+  selector: ExtendedSelector,
+  parse: HierarchyParser,
+  opts?: WaitOptions,
+  cache?: HierarchyCache,
+): Effect.Effect<Element, ElementNotFoundError | WaitTimeoutError | DriverError> {
+  return waitForResolvedElement(driver, selector, parse, findElementExtended, opts, cache);
+}
+
+/** Poll until an actionable element matching selector is found. */
+export function waitForActionElement(
+  driver: RawDriverService,
+  selector: ExtendedSelector,
+  parse: HierarchyParser,
+  opts?: WaitOptions,
+  cache?: HierarchyCache,
+): Effect.Effect<Element, ElementNotFoundError | WaitTimeoutError | DriverError> {
+  return waitForResolvedElement(driver, selector, parse, findActionElementExtended, opts, cache);
 }
 
 /** Poll until element matching selector is NOT visible */

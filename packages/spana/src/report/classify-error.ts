@@ -27,15 +27,43 @@ function selectorHint(selector: unknown): string {
 
 function categorize(error: TaggedLike): { category: FailureCategory; suggestion?: string } {
   const tag = error[TAG_KEY];
+  const msg = error.message ?? "";
 
   if (tag === "ElementNotFoundError" || tag === "WaitTimeoutError") {
     const sel = selectorHint((error as any).selector);
+    if (msg.includes("scroll(s) toward")) {
+      return {
+        category: "element-not-found",
+        suggestion: [
+          `Selector ${sel} stayed off-screen while scrolling.`,
+          "Try increasing `maxScrolls` or `timeout`, or reverse the search direction",
+          'if the target is actually above the current viewport (for example `{ direction: "up" }`).',
+        ].join("\n"),
+      };
+    }
+
+    if (msg.includes("back action(s)")) {
+      return {
+        category: "element-not-found",
+        suggestion: [
+          `Selector ${sel} was not reached while navigating back.`,
+          "Try increasing `maxBacks` or `timeout`, or prefer an explicit in-app",
+          "back / close control on iOS-style screens instead of relying on system back.",
+        ].join("\n"),
+      };
+    }
+
     return {
       category: "element-not-found",
       suggestion: [
-        `Selector ${sel} was not found within ${(error as any).timeoutMs ?? "?"}ms.`,
-        "Try: run `spana selectors` to see available selectors on the current screen,",
-        "or increase the timeout with `{ timeout: 10000 }` on the assertion.",
+        msg.includes("not visible")
+          ? "The element exists but is hidden. Check if a loading state or animation is blocking it."
+          : msg.includes("off-screen")
+            ? "The element is off-screen. Use scrollUntilVisible() or scroll to the element first."
+            : msg.includes("disabled")
+              ? "The element is disabled. Wait for the app to enable it or check app state."
+              : `Selector ${sel} was not found within ${(error as any).timeoutMs ?? "?"}ms. Run \`spana selectors\` to see available selectors on the current screen.`,
+        "Consider increasing waitTimeout if the element appears after a delay.",
       ].join("\n"),
     };
   }
@@ -100,6 +128,39 @@ function categorize(error: TaggedLike): { category: FailureCategory; suggestion?
   }
 
   if (tag === "DriverError") {
+    if (msg.includes("dismissKeyboard()")) {
+      return {
+        category: "driver-error",
+        suggestion: [
+          "Keyboard dismissal failed.",
+          'On Android, try `app.dismissKeyboard({ strategy: "back" })`.',
+          "On iOS, prefer tapping a visible Done / Close control or a non-input element.",
+        ].join("\n"),
+      };
+    }
+
+    if (msg.includes("backUntilVisible()")) {
+      return {
+        category: "driver-error",
+        suggestion: [
+          "System back navigation failed before the target screen became visible.",
+          "If this route uses app-level navigation, tap the visible back / close control instead.",
+          "This is especially common on iOS where a system back button may not exist.",
+        ].join("\n"),
+      };
+    }
+
+    if (msg.includes("Input text failed")) {
+      return {
+        category: "driver-error",
+        suggestion: [
+          "Text input failed at the driver layer.",
+          "Make sure the field is focused first, and retry with shorter input chunks if needed.",
+          "If the keyboard is in the way, dismiss it before continuing the flow.",
+        ].join("\n"),
+      };
+    }
+
     return {
       category: "driver-error",
       suggestion: error.command
@@ -116,8 +177,6 @@ function categorize(error: TaggedLike): { category: FailureCategory; suggestion?
   }
 
   // Heuristic fallbacks for errors that aren't Effect TaggedErrors
-  const msg = error.message ?? "";
-
   if (msg.includes("timed out") || msg.includes("Timed out")) {
     return {
       category: "timeout",
@@ -127,10 +186,26 @@ function categorize(error: TaggedLike): { category: FailureCategory; suggestion?
   }
 
   if (msg.includes("not found") || msg.includes("not visible")) {
+    if (msg.includes("scroll(s) toward")) {
+      return {
+        category: "element-not-found",
+        suggestion:
+          "The target stayed off-screen while scrolling. Increase `maxScrolls` / `timeout`, or reverse the scroll search direction.",
+      };
+    }
+
     return {
       category: "element-not-found",
       suggestion:
         "An element was not found. Run `spana selectors` to check available selectors on the current screen.",
+    };
+  }
+
+  if (msg.includes("dismissKeyboard()")) {
+    return {
+      category: "driver-error",
+      suggestion:
+        'Keyboard dismissal failed. On Android try `app.dismissKeyboard({ strategy: "back" })`; on iOS prefer an explicit Done / Close control.',
     };
   }
 

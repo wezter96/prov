@@ -25,6 +25,7 @@ if (command === "test") {
   let parallel = false;
   let workers: number | undefined;
   let devices: string[] | undefined;
+  let verbose = false;
 
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!;
@@ -87,6 +88,8 @@ if (command === "test") {
       workers = parseInt(args[++i]!, 10);
     } else if (arg === "--devices" && args[i + 1]) {
       devices = args[++i]!.split(",");
+    } else if (arg === "--verbose") {
+      verbose = true;
     } else if (!arg.startsWith("--")) {
       flowPath = arg;
     }
@@ -115,6 +118,7 @@ if (command === "test") {
     parallel,
     workers,
     devices,
+    verbose,
   });
   process.exit(success ? 0 : 1);
 } else if (command === "hierarchy" || command === "selectors") {
@@ -248,6 +252,7 @@ if (command === "test") {
   console.log("  --parallel                 Auto-discover devices and run in parallel");
   console.log("  --workers <n>              Max parallel workers per platform");
   console.log("  --devices <id1>,<id2>      Select specific devices for parallel execution");
+  console.log("  --verbose                  Dump full element hierarchy on failure");
   console.log("  --validate-config          Validate config and exit");
   console.log("  --config path              Config file path");
   console.log("  --pretty                   Pretty-print JSON output (hierarchy command)");
