@@ -86,13 +86,15 @@ describe("SauceLabsProvider", () => {
       );
 
       expect(calls).toHaveLength(1);
-      expect(calls[0].url).toBe("https://api.us-west-1.saucelabs.com/rest/v1/myuser/jobs/sess-abc");
-      expect(calls[0].init?.method).toBe("PUT");
-      expect(calls[0].init?.headers).toEqual({
+      expect(calls[0]!.url).toBe(
+        "https://api.us-west-1.saucelabs.com/rest/v1/myuser/jobs/sess-abc",
+      );
+      expect(calls[0]!.init?.method).toBe("PUT");
+      expect(calls[0]!.init?.headers).toEqual({
         "Content-Type": "application/json",
         Authorization: `Basic ${btoa("myuser:mykey")}`,
       });
-      const body = JSON.parse(calls[0].init?.body as string);
+      const body = JSON.parse(calls[0]!.init?.body as string);
       expect(body.passed).toBe(true);
       expect(body.name).toBe("spana android");
     });
@@ -106,10 +108,10 @@ describe("SauceLabsProvider", () => {
         { passed: false, name: "spana ios" },
       );
 
-      expect(calls[0].url).toBe(
+      expect(calls[0]!.url).toBe(
         "https://api.eu-central-1.saucelabs.com/rest/v1/user/jobs/sess-def",
       );
-      const body = JSON.parse(calls[0].init?.body as string);
+      const body = JSON.parse(calls[0]!.init?.body as string);
       expect(body.passed).toBe(false);
     });
   });

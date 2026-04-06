@@ -44,7 +44,7 @@ async function makeClient(): Promise<{
   calls: ReturnType<typeof queueFetch>;
 }> {
   // We pre-queue the session creation response, then swap to fresh queues per test
-  const _sessionCalls = queueFetch([
+  queueFetch([
     {
       body: {
         value: {

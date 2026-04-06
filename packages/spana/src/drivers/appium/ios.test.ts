@@ -43,7 +43,7 @@ async function makeClient(): Promise<{
   client: AppiumClient;
   calls: ReturnType<typeof queueFetch>;
 }> {
-  const _sessionCalls = queueFetch([
+  queueFetch([
     {
       body: {
         value: {

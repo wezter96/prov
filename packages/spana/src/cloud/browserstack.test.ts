@@ -86,15 +86,15 @@ describe("BrowserStackProvider", () => {
       );
 
       expect(calls).toHaveLength(1);
-      expect(calls[0].url).toBe(
+      expect(calls[0]!.url).toBe(
         "https://api-cloud.browserstack.com/app-automate/sessions/sess-abc.json",
       );
-      expect(calls[0].init?.method).toBe("PUT");
-      expect(calls[0].init?.headers).toEqual({
+      expect(calls[0]!.init?.method).toBe("PUT");
+      expect(calls[0]!.init?.headers).toEqual({
         "Content-Type": "application/json",
         Authorization: `Basic ${btoa("myuser:mykey")}`,
       });
-      const body = JSON.parse(calls[0].init?.body as string);
+      const body = JSON.parse(calls[0]!.init?.body as string);
       expect(body.status).toBe("passed");
       expect(body.name).toBe("spana android");
       expect(body.reason).toBe("");
@@ -109,7 +109,7 @@ describe("BrowserStackProvider", () => {
         { passed: false, name: "spana ios", reason: "assertion failed" },
       );
 
-      const body = JSON.parse(calls[0].init?.body as string);
+      const body = JSON.parse(calls[0]!.init?.body as string);
       expect(body.status).toBe("failed");
       expect(body.reason).toBe("assertion failed");
     });

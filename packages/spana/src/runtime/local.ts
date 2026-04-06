@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import type { ProvConfig } from "../schemas/config.js";
 import type { EngineConfig } from "../core/engine.js";
+import type { CoordinatorConfig } from "../smart/coordinator.js";
 import type { DiscoveredDevice } from "../device/discover.js";
 import type { RuntimeResult } from "./types.js";
 import { makePlaywrightDriver } from "../drivers/playwright.js";
@@ -33,7 +34,7 @@ async function safeCleanup(...fns: Array<() => Promise<unknown>>): Promise<void>
 function buildEngineConfig(
   appId: string,
   platform: "web" | "android" | "ios",
-  parseFn: (raw: string) => unknown,
+  parseFn: CoordinatorConfig["parse"],
   config: ProvConfig,
 ): EngineConfig {
   return {
