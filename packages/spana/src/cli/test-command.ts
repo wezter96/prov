@@ -43,6 +43,8 @@ export interface TestCommandOptions {
   debugOnFailure?: boolean;
   quiet?: boolean;
   parallel?: boolean;
+  workers?: number;
+  devices?: string[];
 }
 
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
@@ -74,6 +76,16 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     console.log(
       "Cannot use --parallel with --device. Remove --device to auto-discover all devices.",
     );
+    return false;
+  }
+
+  if (opts.devices && opts.device) {
+    console.log("Cannot use --devices with --device. Use --devices for multi-device selection.");
+    return false;
+  }
+
+  if (opts.device && opts.workers) {
+    console.log("Cannot use --workers with --device. --device targets a single device.");
     return false;
   }
 
@@ -288,22 +300,77 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       runCleanups.push(() => cloudHelper.cleanup());
     }
 
-    if (opts.parallel) {
-      const { discoverDevices } = await import("../device/discover.js");
-      const allDevices = discoverDevices(platforms);
+    if (opts.parallel || opts.workers || opts.devices) {
+      const { discoverDevices, findDeviceById } = await import("../device/discover.js");
+
+      let allDevices;
+      if (opts.devices) {
+        // Use explicitly specified devices
+        allDevices = [];
+        for (const id of opts.devices) {
+          const found = findDeviceById(id);
+          if (found) {
+            allDevices.push(found);
+          } else {
+            console.log(`Warning: Device "${id}" not found, skipping.`);
+          }
+        }
+        // Infer platforms from selected devices if not explicitly set
+        if (opts.platforms.length === 0) {
+          const inferredPlatforms = [...new Set(allDevices.map((d) => d.platform))];
+          platforms.length = 0;
+          platforms.push(...inferredPlatforms);
+        }
+      } else {
+        allDevices = discoverDevices(platforms);
+      }
+
+      const maxWorkers = opts.workers ?? config.defaults?.workers;
 
       for (const platform of platforms) {
-        const platformDevices = allDevices.filter((d) => d.platform === platform);
+        let platformDevices = allDevices.filter((d) => d.platform === platform);
+
+        // Cap to maxWorkers if set
+        if (maxWorkers && platformDevices.length > maxWorkers) {
+          platformDevices = platformDevices.slice(0, maxWorkers);
+        }
 
         if (platform === "web") {
-          // Web always gets exactly 1 runtime
-          const result = await buildWebRuntime(config);
-          runtimes.push(result.runtime);
-          platformConfigs.push({
-            platform,
-            driver: result.runtime.driver,
-            engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
-          });
+          const webWorkers = maxWorkers ?? 1;
+          if (webWorkers > 1) {
+            // Build primary web runtime
+            const primaryResult = await buildWebRuntime(config);
+            runtimes.push(primaryResult.runtime);
+
+            // Build additional web contexts
+            const additionalWorkers: DeviceWorkerConfig[] = [];
+            for (let i = 1; i < webWorkers; i++) {
+              const result = await buildWebRuntime(config);
+              runtimes.push(result.runtime);
+              additionalWorkers.push({
+                id: `web-context-${i + 1}`,
+                name: `Chromium #${i + 1}`,
+                driver: result.runtime.driver,
+                engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+              });
+            }
+
+            platformConfigs.push({
+              platform,
+              driver: primaryResult.runtime.driver,
+              engineConfig: { ...primaryResult.engineConfig, debugOnFailure: opts.debugOnFailure },
+              additionalWorkers: additionalWorkers.length > 0 ? additionalWorkers : undefined,
+            });
+          } else {
+            // Single web runtime (existing behavior)
+            const result = await buildWebRuntime(config);
+            runtimes.push(result.runtime);
+            platformConfigs.push({
+              platform,
+              driver: result.runtime.driver,
+              engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+            });
+          }
         } else if (platformDevices.length === 0) {
           console.log(`No ${platform} devices found. Skipping ${platform} platform.`);
         } else {
@@ -455,7 +522,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       retries,
       retryDelay,
       bail: opts.bail,
-      parallelPlatforms: opts.parallel,
+      parallelPlatforms: opts.parallel || !!opts.workers || !!opts.devices,
       onFlowStart(name, platform, workerName) {
         for (const reporter of reporters) {
           reporter.onFlowStart?.(name, platform, workerName);

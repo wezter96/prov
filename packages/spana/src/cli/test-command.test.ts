@@ -606,6 +606,28 @@ describe("runTestCommand", () => {
     expect(result).toBe(false);
   });
 
+  test("--devices + --device returns error", async () => {
+    const result = await (
+      await importFreshTestCommand()
+    ).runTestCommand({
+      platforms: ["android"],
+      devices: ["emu1", "emu2"],
+      device: "emu1",
+    });
+    expect(result).toBe(false);
+  });
+
+  test("--device + --workers returns error", async () => {
+    const result = await (
+      await importFreshTestCommand()
+    ).runTestCommand({
+      platforms: ["android"],
+      device: "emu1",
+      workers: 2,
+    });
+    expect(result).toBe(false);
+  });
+
   test("returns early when the filters remove every discovered flow", async () => {
     const tempDir = createTempDir();
     const configPath = writeConfigFile(tempDir, {

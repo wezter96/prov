@@ -123,6 +123,8 @@ export interface ProvConfig {
     hierarchyCacheTtl?: number;
     /** Delay in ms between retry attempts of a failed flow. Default: 0 (immediate). */
     retryDelay?: number;
+    /** Max workers per platform when using --parallel. */
+    workers?: number;
   };
   platforms?: Platform[];
   /** Run platforms concurrently when they use independent resources. Default: false (serial). */
@@ -280,6 +282,7 @@ export const provConfigSchema = z
         initialPollInterval: z.number().positive().optional(),
         hierarchyCacheTtl: z.number().nonnegative().optional(),
         retryDelay: z.number().nonnegative().optional(),
+        workers: z.number().int().positive().optional(),
       })
       .strict()
       .optional(),
