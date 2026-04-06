@@ -53,6 +53,22 @@ function FrameworkDrawerContent({
         }}
       />
       <DrawerItem
+        testID="drawer-playground-item"
+        accessibilityLabel="Navigate to interaction playground"
+        label="Playground"
+        focused={activeRouteName === "playground"}
+        activeTintColor={theme.primary}
+        inactiveTintColor={theme.text}
+        labelStyle={{ color: theme.text }}
+        icon={({ size, color }) => (
+          <Ionicons name="game-controller-outline" size={size} color={color} />
+        )}
+        onPress={() => {
+          props.navigation.navigate("playground");
+          props.navigation.closeDrawer();
+        }}
+      />
+      <DrawerItem
         testID="drawer-tabs-item"
         accessibilityLabel="Navigate to demo tabs screen"
         label="Demo Tabs"
@@ -102,6 +118,16 @@ const DrawerLayout = () => {
           drawerLabel: "Home",
           drawerIcon: ({ size, color }) => (
             <Ionicons name="home-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="playground"
+        options={{
+          headerTitle: "Playground",
+          drawerLabel: "Playground",
+          drawerIcon: ({ size, color }) => (
+            <Ionicons name="game-controller-outline" size={size} color={color} />
           ),
         }}
       />

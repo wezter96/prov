@@ -12,6 +12,9 @@ export const HeaderButton = forwardRef<View, { onPress?: () => void }>(({ onPres
   return (
     <Pressable
       ref={ref}
+      testID="modal-open-button"
+      accessibilityLabel="Open modal"
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,

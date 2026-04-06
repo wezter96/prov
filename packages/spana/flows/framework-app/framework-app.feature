@@ -23,6 +23,15 @@ Feature: Framework app (BDD)
     Then I should see the element "tab-two-title"
     And the element "tab-two-subtitle" should have text "Browse more of the Spana demo experience"
 
+  @showcase @web @android @ios
+  Scenario: Playground text input and toggle
+    Given I navigate to "/playground"
+    Then I should see the element "playground-title" within 10000ms
+    When I type "Hello BDD" into the "playground-input" field
+    Then the element "playground-input-mirror" should have text "Hello BDD"
+    When I tap the "playground-toggle" element
+    Then I should see the element "playground-details-text"
+
   @web @android @ios
   Scenario Outline: Direct route navigation to <screen>
     Given I navigate to "<path>"
@@ -31,7 +40,8 @@ Feature: Framework app (BDD)
 
     Examples:
       | screen       | path            | selector       |
-      | home         | /               | home-title     |
-      | tabs-home    | /(drawer)/(tabs)| tab-one-title  |
-      | tabs-explore | /two            | tab-two-title  |
-      | modal        | /modal          | modal-title    |
+      | home         | /               | home-title        |
+      | tabs-home    | /(drawer)/(tabs)| tab-one-title     |
+      | tabs-explore | /two            | tab-two-title     |
+      | modal        | /modal          | modal-title       |
+      | playground   | /playground     | playground-title  |

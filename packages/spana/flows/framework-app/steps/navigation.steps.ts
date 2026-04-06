@@ -64,6 +64,18 @@ When("I take a screenshot named {string}", async ({ app }, name) => {
   await app.takeScreenshot(name as string);
 });
 
+// --- Interaction steps ---
+
+When("I type {string} into the {string} field", async ({ app }, text, testID) => {
+  await app.tap({ testID: testID as string });
+  await app.inputText(text as string);
+  await app.hideKeyboard();
+});
+
+When("I tap the {string} element", async ({ app }, testID) => {
+  await app.tap({ testID: testID as string });
+});
+
 // --- Assertion steps ---
 
 Then("I should see the element {string}", async ({ expect }, testID) => {

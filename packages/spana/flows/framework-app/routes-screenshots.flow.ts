@@ -14,6 +14,7 @@ const routeSpecs: RouteSpec[] = [
   { name: "tabs-home", path: "/(drawer)/(tabs)", selector: { testID: "tab-one-title" } },
   { name: "tabs-explore", path: "/two", selector: { testID: "tab-two-title" } },
   { name: "modal", path: "/modal", selector: { testID: "modal-title" } },
+  { name: "playground", path: "/playground", selector: { testID: "playground-title" } },
 ];
 
 function routeHref(platform: Platform, route: RouteSpec): string {
