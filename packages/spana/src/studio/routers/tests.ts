@@ -43,23 +43,56 @@ const platformEnum = z.enum(["web", "android", "ios"]);
 
 async function discoverAndLoad(flowDir: string): Promise<FlowDefinition[]> {
   const dir = resolve(flowDir);
-  const flowPaths = await discoverFlows(dir);
 
-  // Load step definitions for .feature files
-  const hasFeature = flowPaths.some((p) => p.endsWith(".feature"));
-  if (hasFeature) {
-    const stepPaths = await discoverStepFiles(dir);
-    if (stepPaths.length > 0) {
-      await loadStepFiles(stepPaths);
+  // Flow files import from the spana source package, which requires bun/tsx to load.
+  // Use bun subprocess to discover and serialize flow metadata.
+  try {
+    const { execSync } = await import("node:child_process");
+    const script = `
+      import { discoverFlows, loadTestSource } from '${resolve(dir, "../../src/core/runner.ts")}';
+      const paths = await discoverFlows('${dir}');
+      const flows = [];
+      for (const p of paths) {
+        try {
+          const loaded = await loadTestSource(p);
+          flows.push(...loaded.map(f => ({ name: f.name, tags: f.config.tags ?? [], platforms: f.config.platforms ?? [] })));
+        } catch {}
+      }
+      console.log(JSON.stringify(flows));
+    `;
+    const json = execSync(`bun -e "${script.replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8",
+      timeout: 15_000,
+      cwd: dir,
+    }).trim();
+    const metadata = JSON.parse(json) as Array<{
+      name: string;
+      tags: string[];
+      platforms: string[];
+    }>;
+    // Return as minimal FlowDefinitions (metadata only — enough for listing)
+    return metadata.map((m) => ({
+      name: m.name,
+      fn: async () => {},
+      config: { tags: m.tags, platforms: m.platforms as Platform[] },
+    }));
+  } catch {
+    // Fallback: try direct import (works under Bun runtime)
+    const flowPaths = await discoverFlows(dir);
+    const hasFeature = flowPaths.some((p) => p.endsWith(".feature"));
+    if (hasFeature) {
+      const stepPaths = await discoverStepFiles(dir);
+      if (stepPaths.length > 0) {
+        await loadStepFiles(stepPaths);
+      }
     }
+    const flows: FlowDefinition[] = [];
+    for (const p of flowPaths) {
+      const loaded = await loadTestSource(p);
+      flows.push(...loaded);
+    }
+    return flows;
   }
-
-  const flows: FlowDefinition[] = [];
-  for (const p of flowPaths) {
-    const loaded = await loadTestSource(p);
-    flows.push(...loaded);
-  }
-  return flows;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,12 +112,13 @@ export const testsRouter = {
         })
         .optional(),
     )
-    .handler(async ({ input }) => {
-      const flowDir = input?.flowDir ?? "./flows";
+    .handler(async ({ input, context }) => {
+      const flowDir = input?.flowDir ?? context.config.flowDir ?? "./flows";
       let flows: FlowDefinition[];
       try {
         flows = await discoverAndLoad(flowDir);
-      } catch {
+      } catch (err) {
+        console.error("[studio] Failed to discover flows:", err);
         return { flows: [] };
       }
 
@@ -115,7 +149,7 @@ export const testsRouter = {
         grep: z.string().optional(),
       }),
     )
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
       const runId = nextRunId();
       const run: ActiveRun = { id: runId, status: "running", results: [] };
       activeRuns.set(runId, run);
@@ -123,7 +157,7 @@ export const testsRouter = {
       // Fire-and-forget: run tests in background
       void (async () => {
         try {
-          const flowDir = input.flowDir ?? "./flows";
+          const flowDir = input.flowDir ?? context.config.flowDir ?? "./flows";
           const flows = await discoverAndLoad(flowDir);
           const platforms = input.platforms as Platform[];
           const filtered = filterFlows(flows, {

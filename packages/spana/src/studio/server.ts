@@ -19,7 +19,7 @@ export interface StudioOptions {
 }
 
 export async function startStudio(options: StudioOptions) {
-  const { port, open, config: _config, staticDir } = options;
+  const { port, open, config, staticDir } = options;
   const app = new Hono();
 
   const StudioLayer = Layer.empty;
@@ -36,7 +36,7 @@ export async function startStudio(options: StudioOptions) {
   app.use("/*", cors({ origin: `http://localhost:${port}` }));
 
   app.use("/rpc/*", async (c) => {
-    const context: StudioContext = { runtime };
+    const context: StudioContext = { runtime, config };
     const result = await rpcHandler.handle(c.req.raw, {
       prefix: "/rpc",
       context,

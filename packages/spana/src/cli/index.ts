@@ -88,18 +88,44 @@ if (command === "test") {
 } else if (command === "studio") {
   let port = 4400;
   let open = true;
+  let configPath: string | undefined;
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "--port" && args[i + 1]) port = Number(args[++i]);
     if (args[i] === "--no-open") open = false;
+    if (args[i] === "--config" && args[i + 1]) configPath = args[++i];
   }
-  // Load config
-  const { resolve } = await import("node:path");
+  // Load config — try explicit path, then common locations
+  const { resolve, dirname } = await import("node:path");
+  const { existsSync } = await import("node:fs");
   let config: Record<string, any> = {};
-  try {
-    const mod = await import(resolve("spana.config.ts"));
-    config = mod.default ?? {};
-  } catch {
-    /* no config */
+  const candidates = configPath
+    ? [resolve(configPath)]
+    : [resolve("spana.config.ts"), resolve("packages/spana/spana.config.ts")];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      try {
+        // Try direct import first (works under Bun)
+        const mod = await import(candidate);
+        config = mod.default ?? {};
+      } catch {
+        // Fall back to spawning bun to evaluate the config (Node.js can't import .ts)
+        try {
+          const { execSync } = await import("node:child_process");
+          const json = execSync(
+            `bun -e "import c from '${candidate}'; console.log(JSON.stringify(c))"`,
+            { encoding: "utf-8", timeout: 10_000 },
+          ).trim();
+          config = JSON.parse(json);
+        } catch {
+          continue;
+        }
+      }
+      // Resolve flowDir relative to config file location
+      if (config.flowDir && !config.flowDir.startsWith("/")) {
+        config.flowDir = resolve(dirname(candidate), config.flowDir);
+      }
+      break;
+    }
   }
   const { runStudioCommand } = await import("./studio-command.js");
   await runStudioCommand({ port, open, config: config as any });

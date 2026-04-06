@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { publicProcedure } from "../procedures.js";
-import { connect, type Session } from "../../agent/session.js";
+import { connect, type Session, type ConnectOptions } from "../../agent/session.js";
 import type { Platform } from "../../schemas/selector.js";
+import type { ProvConfig } from "../../schemas/config.js";
 
 const sessions = new Map<string, Session>();
 
@@ -9,12 +10,34 @@ function sessionKey(platform: string, deviceId?: string): string {
   return `${platform}:${deviceId ?? "default"}`;
 }
 
-async function getOrCreateSession(platform: Platform, deviceId?: string): Promise<Session> {
+function connectOptsFromConfig(
+  platform: Platform,
+  config: ProvConfig,
+  deviceId?: string,
+): ConnectOptions {
+  const opts: ConnectOptions = { platform, device: deviceId };
+  if (platform === "web") {
+    opts.baseUrl = config.apps?.web?.url ?? "http://localhost:3000";
+    opts.headless = false; // Studio needs visible browser for screenshots
+  } else if (platform === "android") {
+    opts.packageName = config.apps?.android?.packageName ?? "";
+  } else if (platform === "ios") {
+    opts.bundleId = config.apps?.ios?.bundleId ?? "";
+  }
+  return opts;
+}
+
+async function getOrCreateSession(
+  platform: Platform,
+  config: ProvConfig,
+  deviceId?: string,
+): Promise<Session> {
   const key = sessionKey(platform, deviceId);
   const existing = sessions.get(key);
   if (existing) return existing;
 
-  const session = await connect({ platform, device: deviceId });
+  const opts = connectOptsFromConfig(platform, config, deviceId);
+  const session = await connect(opts);
   sessions.set(key, session);
   return session;
 }
@@ -25,20 +48,20 @@ const inspectorInput = z.object({
 });
 
 export const inspectorRouter = {
-  screenshot: publicProcedure.input(inspectorInput).handler(async ({ input }) => {
-    const session = await getOrCreateSession(input.platform, input.deviceId);
+  screenshot: publicProcedure.input(inspectorInput).handler(async ({ input, context }) => {
+    const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
     const data = await session.screenshot();
     const base64 = Buffer.from(data).toString("base64");
     return { image: base64 };
   }),
 
-  hierarchy: publicProcedure.input(inspectorInput).handler(async ({ input }) => {
-    const session = await getOrCreateSession(input.platform, input.deviceId);
+  hierarchy: publicProcedure.input(inspectorInput).handler(async ({ input, context }) => {
+    const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
     return session.hierarchy();
   }),
 
-  selectors: publicProcedure.input(inspectorInput).handler(async ({ input }) => {
-    const session = await getOrCreateSession(input.platform, input.deviceId);
+  selectors: publicProcedure.input(inspectorInput).handler(async ({ input, context }) => {
+    const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
     return session.selectors();
   }),
 
