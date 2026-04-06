@@ -21,7 +21,8 @@ function routeHref(platform: Platform, route: RouteSpec): string {
     return `${WEB_BASE_URL}${route.path}`;
   }
 
-  return `spana://${route.path}`;
+  const normalizedPath = route.path === "/" ? "" : route.path.replace(/^\/+/, "");
+  return `spana://${normalizedPath}`;
 }
 
 export default flow(

@@ -36,6 +36,24 @@ export function createWDADriver(
   return Effect.gen(function* () {
     const client = new WDAClient(host, port);
 
+    const createSessionWithRetry = async (targetBundleId?: string) => {
+      let lastError: unknown;
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          return await client.createSession(targetBundleId);
+        } catch (error) {
+          lastError = error;
+          if (attempt === 4) {
+            throw error;
+          }
+          await sleep(1000);
+        }
+      }
+
+      throw lastError ?? new Error("Failed to create WDA session");
+    };
+
     const activateSimulatorApp = async (targetBundleId: string) => {
       if (!targetBundleId) return;
       await client.activateApp(targetBundleId);
@@ -46,6 +64,34 @@ export function createWDADriver(
       if (!simulatorUdid) {
         await client.openUrl(url);
         return;
+      }
+
+      try {
+        await activateSimulatorApp(targetBundleId);
+        await client.openUrl(url);
+        await sleep(1000);
+        return;
+      } catch {
+        // Some simulator sessions lose their WDA attachment while the app stays
+        // alive. Recreate the session and retry /url once before falling back
+        // to a simulator relaunch.
+        try {
+          await client.deleteSession();
+        } catch {
+          /* old session may already be gone */
+        }
+
+        try {
+          await createSessionWithRetry(targetBundleId);
+          await client.disableQuiescence();
+          await activateSimulatorApp(targetBundleId);
+          await client.openUrl(url);
+          await sleep(1000);
+          return;
+        } catch {
+          // Fall back to simulator relaunch below if WDA still can't route the
+          // URL through the active session on this environment.
+        }
       }
 
       const fallbackSchemes = installedUrlSchemesOnSimulator(simulatorUdid, targetBundleId);
@@ -60,7 +106,8 @@ export function createWDADriver(
 
       for (const candidate of candidates) {
         try {
-          // Terminate app first, then launch with URL to bypass system dialog
+          // Terminate app first, then relaunch with the URL to bypass the
+          // system confirmation dialog that simctl openurl can trigger.
           terminateOnSimulator(simulatorUdid, targetBundleId);
           await sleep(500);
           launchWithUrlOnSimulator(simulatorUdid, targetBundleId, candidate);
@@ -71,9 +118,9 @@ export function createWDADriver(
           } catch {
             /* old session may be stale */
           }
-          await client.createSession(targetBundleId);
+          await createSessionWithRetry(targetBundleId);
           await client.disableQuiescence();
-          await sleep(500);
+          await activateSimulatorApp(targetBundleId);
           return;
         } catch (error) {
           lastError = error;
@@ -84,7 +131,7 @@ export function createWDADriver(
       // so subsequent operations don't fail with "no active session"
       if (!client.hasSession()) {
         try {
-          await client.createSession(targetBundleId);
+          await createSessionWithRetry(targetBundleId);
           await client.disableQuiescence();
         } catch {
           // Session recovery failed — will surface on next operation
@@ -96,7 +143,7 @@ export function createWDADriver(
 
     // Create session — must succeed before we can do anything
     yield* Effect.tryPromise({
-      try: () => client.createSession(bundleId || undefined),
+      try: () => createSessionWithRetry(bundleId || undefined),
       catch: (e) => new DriverError({ message: `Failed to create WDA session: ${e}` }),
     });
 

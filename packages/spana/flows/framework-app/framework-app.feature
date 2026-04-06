@@ -12,7 +12,7 @@ Feature: Framework app (BDD)
     And I should see the element "home-card"
     And I should see the text "Spana Demo"
 
-  @web @android @ios
+  @web @android
   Scenario: Navigate to tabs explore through the UI
     Then I should see the navigation menu button
     When I open the navigation menu

@@ -45,97 +45,107 @@ export async function orchestrate(
     }
   };
 
-  // Run all platforms in parallel, flows serial within each
-  const platformResults = await Promise.all(
-    platforms.map(async ({ platform, driver, engineConfig }) => {
-      const results: TestResult[] = [];
-      // Filter flows for this platform
-      const platformFlows = flows.filter((f) => {
-        const fp = f.config.platforms;
-        return !fp || fp.includes(platform);
-      });
+  // Run platforms serially so each runtime has exclusive access to its
+  // simulator/emulator/browser resources. Flows still run serially within each
+  // platform.
+  const platformResults: TestResult[][] = [];
 
-      // beforeAll hook
-      const hooks = engineConfig.hooks;
-      if (hooks?.beforeAll) {
-        try {
-          await hooks.beforeAll({ app: undefined, platform } as any);
-        } catch (error) {
-          for (const flow of platformFlows) {
-            results.push({
-              name: flow.name,
-              platform,
-              status: "failed",
-              durationMs: 0,
-              error: error instanceof Error ? error : new Error(String(error)),
-            });
-          }
-          noteFailure(platformFlows.length);
-          return results;
+  for (const { platform, driver, engineConfig } of platforms) {
+    const results: TestResult[] = [];
+    const platformFlows = flows.filter((f) => {
+      const fp = f.config.platforms;
+      return !fp || fp.includes(platform);
+    });
+
+    if (shouldBail()) {
+      bailedOut = true;
+      for (const flow of platformFlows) {
+        results.push({
+          name: flow.name,
+          platform,
+          status: "skipped",
+          durationMs: 0,
+        });
+      }
+      platformResults.push(results);
+      continue;
+    }
+
+    const hooks = engineConfig.hooks;
+    if (hooks?.beforeAll) {
+      try {
+        await hooks.beforeAll({ app: undefined, platform } as any);
+      } catch (error) {
+        for (const flow of platformFlows) {
+          results.push({
+            name: flow.name,
+            platform,
+            status: "failed",
+            durationMs: 0,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
         }
+        noteFailure(platformFlows.length);
+        platformResults.push(results);
+        continue;
+      }
+    }
+
+    for (let index = 0; index < platformFlows.length; index++) {
+      const flow = platformFlows[index]!;
+      if (shouldBail()) {
+        bailedOut = true;
+        for (const skippedFlow of platformFlows.slice(index)) {
+          results.push({
+            name: skippedFlow.name,
+            platform,
+            status: "skipped",
+            durationMs: 0,
+          });
+        }
+        break;
       }
 
-      for (let index = 0; index < platformFlows.length; index++) {
-        const flow = platformFlows[index]!;
-        if (shouldBail()) {
-          bailedOut = true;
-          for (const skippedFlow of platformFlows.slice(index)) {
-            results.push({
-              name: skippedFlow.name,
-              platform,
-              status: "skipped",
-              durationMs: 0,
-            });
+      let result = await executeFlow(flow, driver, engineConfig);
+      let attempts = 1;
+
+      if (result.status === "failed" && retries > 0) {
+        for (let retry = 0; retry < retries; retry++) {
+          if (shouldBail()) {
+            bailedOut = true;
+            break;
           }
-          break;
+          const retryResult = await executeFlow(flow, driver, engineConfig);
+          attempts++;
+          if (retryResult.status === "passed") {
+            result = { ...retryResult, flaky: true, attempts };
+            break;
+          }
+          result = { ...retryResult, attempts };
         }
-
-        let result = await executeFlow(flow, driver, engineConfig);
-        let attempts = 1;
-
-        // Retry failed flows
-        if (result.status === "failed" && retries > 0) {
-          for (let retry = 0; retry < retries; retry++) {
-            if (shouldBail()) {
-              bailedOut = true;
-              break;
-            }
-            const retryResult = await executeFlow(flow, driver, engineConfig);
-            attempts++;
-            if (retryResult.status === "passed") {
-              // Passed on retry — mark as flaky
-              result = { ...retryResult, flaky: true, attempts };
-              break;
-            }
-            // Still failing — keep the latest result
-            result = { ...retryResult, attempts };
-          }
-          // If never passed, mark attempts on the final failure
-          if (result.status === "failed") {
-            result = { ...result, attempts };
-          }
-        }
-
-        results.push(result);
         if (result.status === "failed") {
-          noteFailure();
+          result = { ...result, attempts };
         }
       }
 
-      // afterAll hook
-      if (hooks?.afterAll) {
-        try {
-          await hooks.afterAll({ app: undefined, platform, summary: { results } } as any);
-        } catch (hookError) {
-          console.warn(
-            `afterAll hook failed: ${hookError instanceof Error ? hookError.message : hookError}`,
-          );
-        }
+      results.push(result);
+      if (result.status === "failed") {
+        noteFailure();
       }
+    }
 
-      return results;
-    }),
-  );
+    if (hooks?.afterAll) {
+      try {
+        await hooks.afterAll({ app: undefined, platform, summary: { results } } as any);
+      } catch (hookError) {
+        console.warn(
+          `afterAll hook failed: ${hookError instanceof Error ? hookError.message : hookError}`,
+        );
+      }
+    }
+
+    platformResults.push(results);
+  }
 
   const allResults = platformResults.flat();
 

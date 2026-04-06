@@ -9,7 +9,12 @@ function homePath(_platform: Platform): string {
 
 function homeHref(platform: Platform): string {
   const path = homePath(platform);
-  return platform === "web" ? `${WEB_BASE_URL}${path}` : `spana://${path}`;
+  if (platform === "web") {
+    return `${WEB_BASE_URL}${path}`;
+  }
+
+  const normalizedPath = path === "/" ? "" : path.replace(/^\/+/, "");
+  return `spana://${normalizedPath}`;
 }
 
 export default flow(

@@ -187,6 +187,7 @@ export async function buildLocalIOSRuntime(
   const physicalDevice = firstIOSPhysicalDevice();
   const signing = config.apps?.ios?.signing;
   if (physicalDevice) {
+    let conn: { host: string; port: number; cleanup?: () => void } | undefined;
     try {
       console.log(`Found physical iOS device: ${physicalDevice.name} (${physicalDevice.udid})`);
       if (iosAppPath && bundleId) {
@@ -198,7 +199,6 @@ export async function buildLocalIOSRuntime(
         });
       }
 
-      let conn: { host: string; port: number; cleanup?: () => void };
       if (signing?.teamId) {
         const { setupWDAForDevice } = await import("../drivers/wda/installer.js");
         const wdaPort = allocatePort(8100);
@@ -212,7 +212,10 @@ export async function buildLocalIOSRuntime(
         conn = connectPhysicalDevice(physicalDevice.udid);
       }
 
-      const driver = await Effect.runPromise(createWDADriver(conn.host, conn.port, bundleId));
+      const activeConn = conn;
+      const driver = await Effect.runPromise(
+        createWDADriver(activeConn.host, activeConn.port, bundleId),
+      );
 
       return {
         runtime: {
@@ -220,7 +223,7 @@ export async function buildLocalIOSRuntime(
           cleanup: () =>
             safeCleanup(
               () => Effect.runPromise(driver.killApp("")),
-              () => conn.cleanup?.() ?? Promise.resolve(),
+              () => activeConn.cleanup?.() ?? Promise.resolve(),
             ),
           metadata: {
             platform: "ios",
@@ -231,6 +234,15 @@ export async function buildLocalIOSRuntime(
         engineConfig: buildEngineConfig(bundleId, "ios", parseIOSHierarchy, config),
       };
     } catch (e) {
+      if (conn?.cleanup) {
+        try {
+          await conn.cleanup();
+        } catch (cleanupError) {
+          console.warn(
+            `Failed to clean up physical device tunnel: ${cleanupError instanceof Error ? cleanupError.message : cleanupError}`,
+          );
+        }
+      }
       console.log(
         `Physical device setup failed (${physicalDevice.name}): ${e instanceof Error ? e.message : e}. Falling back to simulator.`,
       );

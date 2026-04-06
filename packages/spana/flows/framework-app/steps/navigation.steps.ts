@@ -4,12 +4,22 @@ import type { Platform } from "spana-test";
 const WEB_BASE_URL = "http://127.0.0.1:8081";
 
 function buildHref(platform: Platform, path: string): string {
-  return platform === "web" ? `${WEB_BASE_URL}${path}` : `spana://${path}`;
+  if (platform === "web") {
+    return `${WEB_BASE_URL}${path}`;
+  }
+
+  const normalizedPath = path === "/" ? "" : path.replace(/^\/+/, "");
+  return `spana://${normalizedPath}`;
 }
 
 // --- Navigation steps ---
 
 Given("I navigate to the home screen", async ({ app, expect, platform }) => {
+  if (platform === "ios") {
+    await app.openLink(buildHref(platform, "/"));
+    return;
+  }
+
   // Launch app with root deeplink
   await app.launch({ deepLink: buildHref(platform, "/") });
 
@@ -39,8 +49,15 @@ When("I tap the {string} drawer item", async ({ app }, testID) => {
   await app.tap({ testID: testID as string });
 });
 
-When("I tap the {string} tab", async ({ app }, label) => {
-  await app.tap({ accessibilityLabel: label as string });
+When("I tap the {string} tab", async ({ app, platform }, label) => {
+  const tabLabel = label as string;
+  const androidTextMatch = platform === "android" ? /^Open (.+) tab$/i.exec(tabLabel) : null;
+  if (androidTextMatch) {
+    await app.tap({ text: androidTextMatch[1]! });
+    return;
+  }
+
+  await app.tap({ accessibilityLabel: tabLabel });
 });
 
 When("I take a screenshot named {string}", async ({ app }, name) => {

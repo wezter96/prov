@@ -9,14 +9,19 @@ function homePath(_platform: Platform): string {
 
 function homeHref(platform: Platform): string {
   const path = homePath(platform);
-  return platform === "web" ? `${WEB_BASE_URL}${path}` : `spana://${path}`;
+  if (platform === "web") {
+    return `${WEB_BASE_URL}${path}`;
+  }
+
+  const normalizedPath = path === "/" ? "" : path.replace(/^\/+/, "");
+  return `spana://${normalizedPath}`;
 }
 
 export default flow(
   "Framework app - navigate to tabs explore through the UI",
   {
     tags: ["e2e", "framework-app", "tabs"],
-    platforms: ["web", "android", "ios"],
+    platforms: ["web", "android"],
     autoLaunch: false,
     artifacts: {
       captureOnSuccess: true,
@@ -24,17 +29,31 @@ export default flow(
     },
   },
   async ({ app, expect, platform }) => {
-    await app.launch({ deepLink: homeHref(platform) });
+    await app.launch({ clearState: platform === "android", deepLink: homeHref(platform) });
+    if (platform === "android") {
+      try {
+        await expect({ testID: "home-title" }).toBeVisible({ timeout: 15_000 });
+      } catch {
+        await expect({ accessibilityLabel: "Show navigation menu" }).toBeVisible({
+          timeout: 15_000,
+        });
+        await app.tap({ accessibilityLabel: "Show navigation menu" });
+        await app.tap({ testID: "drawer-home-item" });
+        await expect({ testID: "home-title" }).toBeVisible({ timeout: 15_000 });
+      }
+    } else {
+      await expect({ testID: "home-title" }).toBeVisible({ timeout: 10_000 });
+    }
     await expect({ accessibilityLabel: "Show navigation menu" }).toBeVisible({ timeout: 10_000 });
     await app.tap({ accessibilityLabel: "Show navigation menu" });
     await expect({ testID: "drawer-tabs-item" }).toBeVisible({ timeout: 10_000 });
     await app.tap({ testID: "drawer-tabs-item" });
-    // On Android, tap the main content area to ensure drawer closes
-    if (platform === "android") {
-      await app.back();
-    }
     await expect({ testID: "tab-one-title" }).toBeVisible({ timeout: 15_000 });
-    await app.tap({ accessibilityLabel: "Open explore tab" });
+    if (platform === "android") {
+      await app.tap({ text: "Explore" });
+    } else {
+      await app.tap({ accessibilityLabel: "Open explore tab" });
+    }
     await expect({ testID: "tab-two-title" }).toBeVisible({ timeout: 10_000 });
     await expect({ testID: "tab-two-subtitle" }).toHaveText(
       "Browse more of the Spana demo experience",

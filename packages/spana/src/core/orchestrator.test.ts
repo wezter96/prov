@@ -281,6 +281,52 @@ describe("orchestrate", () => {
     expect(order).toEqual(["beforeAll", "flow", "afterAll"]);
   });
 
+  test("runs platforms serially", async () => {
+    const order: string[] = [];
+
+    const flow: FlowDefinition = {
+      name: "serial-platforms",
+      config: {},
+      fn: async ({ platform }) => {
+        order.push(`start:${platform}`);
+        await new Promise((resolve) => setTimeout(resolve, platform === "android" ? 20 : 0));
+        order.push(`end:${platform}`);
+      },
+    };
+
+    await orchestrate(
+      [flow],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example.android",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+        {
+          platform: "ios",
+          driver: createDriver("ios"),
+          engineConfig: {
+            appId: "com.example.ios",
+            platform: "ios",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+    );
+
+    expect(order).toEqual(["start:android", "end:android", "start:ios", "end:ios"]);
+  });
+
   test("beforeAll failure skips all flows on that platform", async () => {
     let flowCalled = false;
 

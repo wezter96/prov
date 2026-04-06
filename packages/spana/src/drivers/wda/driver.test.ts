@@ -9,6 +9,7 @@ const wdaState = {
   windowSize: { width: 390, height: 844 },
   createSessionError: undefined as Error | undefined,
   tapError: undefined as Error | undefined,
+  openUrlErrors: [] as Error[],
   launchWithUrlErrors: [] as Error[],
   installedSchemes: [] as string[],
 };
@@ -20,6 +21,7 @@ function resetWdaState() {
   wdaState.windowSize = { width: 390, height: 844 };
   wdaState.createSessionError = undefined;
   wdaState.tapError = undefined;
+  wdaState.openUrlErrors = [];
   wdaState.launchWithUrlErrors = [];
   wdaState.installedSchemes = [];
 }
@@ -89,6 +91,8 @@ mock.module("./client.js", () => ({
 
     async openUrl(url: string) {
       wdaState.events.push(["openUrl", url]);
+      const nextError = wdaState.openUrlErrors.shift();
+      if (nextError) throw nextError;
     }
 
     async launchApp(bundleId: string) {
@@ -188,7 +192,11 @@ describe("WDA driver adapter", () => {
 
   test("uses simulator deep-link helpers and recreates the WDA session after opening URLs", async () => {
     wdaState.installedSchemes = ["myapp"];
-    wdaState.launchWithUrlErrors = [new Error("first attempt failed")];
+    wdaState.openUrlErrors = [
+      new Error("wda openUrl failed"),
+      new Error("wda openUrl retry failed"),
+    ];
+    wdaState.launchWithUrlErrors = [new Error("first launch attempt failed")];
 
     const { createWDADriver } = await importFreshDriver();
     const driver = await Effect.runPromise(
@@ -199,6 +207,10 @@ describe("WDA driver adapter", () => {
       Effect.runPromise(driver.openLink("https://example.com/home")),
     );
 
+    expect(wdaState.events.filter(([type]) => type === "openUrl")).toEqual([
+      ["openUrl", "https://example.com/home"],
+      ["openUrl", "https://example.com/home"],
+    ]);
     expect(
       wdaState.events
         .filter(([type]) => type === "launchWithUrlOnSimulator")
@@ -209,10 +221,16 @@ describe("WDA driver adapter", () => {
       "SIM-1",
       "com.example.app",
     ]);
-    expect(wdaState.events.filter(([type]) => type === "deleteSession")).toHaveLength(1);
+    expect(wdaState.events.filter(([type]) => type === "deleteSession")).toHaveLength(2);
     expect(wdaState.events.filter(([type]) => type === "createSession")).toEqual([
       ["createSession", "com.example.app"],
       ["createSession", "com.example.app"],
+      ["createSession", "com.example.app"],
+    ]);
+    expect(wdaState.events.filter(([type]) => type === "activateApp")).toEqual([
+      ["activateApp", "com.example.app"],
+      ["activateApp", "com.example.app"],
+      ["activateApp", "com.example.app"],
     ]);
   });
 
