@@ -188,6 +188,32 @@ hooks?: {
 
 `HookContext` provides `app`, `expect`, `platform`, `result` (in `afterEach`), and `summary` (in `afterAll`).
 
+### Error handling
+
+| Hook         | On failure                                                  |
+| ------------ | ----------------------------------------------------------- |
+| `beforeAll`  | All flows on that platform are skipped and marked as failed |
+| `beforeEach` | That flow is skipped and marked as failed                   |
+| `afterEach`  | Warning logged, test result is not affected                 |
+| `afterAll`   | Warning logged, test results are not affected               |
+
+### Example
+
+```ts
+export default defineConfig({
+  hooks: {
+    beforeEach: async ({ app }) => {
+      await app.launch({ clearState: true });
+    },
+    afterEach: async ({ app, result }) => {
+      if (result?.status === "failed") {
+        console.log(`Flow failed: ${result.name}`);
+      }
+    },
+  },
+});
+```
+
 ## Per-flow configuration
 
 The `flow()` function accepts an optional config object as its second argument, letting you override global settings for a single flow.
