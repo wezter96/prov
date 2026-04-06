@@ -42,7 +42,7 @@ function createDriver(): RawDriverService {
     clearAppState: () => Effect.void,
     openLink: () => Effect.void,
     back: () => Effect.void,
-    evaluate: () => Effect.succeed(undefined as any),
+    evaluate: () => Effect.void as any,
   };
 }
 

@@ -98,7 +98,7 @@ function createDriver(hierarchy: Element) {
       events.push(["back"]);
       return Effect.void;
     },
-    evaluate: () => Effect.succeed(undefined as any),
+    evaluate: () => Effect.void as any,
   };
 
   return { driver, events };

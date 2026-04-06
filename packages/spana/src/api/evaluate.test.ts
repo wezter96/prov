@@ -32,7 +32,7 @@ function mockDriver(overrides: Partial<RawDriverService> = {}): RawDriverService
     clearAppState: noop,
     openLink: noop,
     back: noop,
-    evaluate: () => Effect.succeed(undefined as any),
+    evaluate: () => Effect.void as any,
     ...overrides,
   } as RawDriverService;
 }
