@@ -180,10 +180,11 @@ export function createAppiumAndroidDriver(
           }
 
           if (opts?.launchArguments && Object.keys(opts.launchArguments).length > 0) {
-            console.warn(
-              "launchArguments are not supported in Appium Android mode. " +
-                "Use adb-based local execution if launch arguments are required.",
-            );
+            throw new DriverError({
+              message:
+                "launchArguments are not supported in Appium Android mode. " +
+                "Remove launchArguments from your config or use local mode.",
+            });
           }
 
           if (opts?.deepLink) {

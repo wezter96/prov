@@ -319,6 +319,22 @@ describe("Appium Android driver", () => {
     }
   });
 
+  test("launchApp with launchArguments fails with DriverError", async () => {
+    const { client } = await makeClient();
+    queueFetch([{ body: { value: null } }]);
+
+    const driver = await Effect.runPromise(createAppiumAndroidDriver(client));
+    const result = await Effect.runPromise(
+      Effect.either(driver.launchApp("com.example.app", { launchArguments: { foo: "bar" } })),
+    );
+
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left") {
+      expect(result.left).toBeInstanceOf(DriverError);
+      expect(result.left.message).toContain("launchArguments are not supported");
+    }
+  });
+
   test("wraps client failures in DriverError", async () => {
     const { client } = await makeClient();
     queueFetch([
