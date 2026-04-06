@@ -217,11 +217,11 @@ export function createWDADriver(
               terminateOnSimulator(simulatorUdid, appBundleId);
               try {
                 const { execSync } = await import("node:child_process");
-                execSync(`xcrun simctl uninstall ${simulatorUdid} ${appBundleId}`, {
+                execSync(`xcrun simctl privacy ${simulatorUdid} reset all ${appBundleId}`, {
                   stdio: "ignore",
                 });
               } catch {
-                // App may not be installed
+                // Ignore — privacy reset may not be available on older Xcode
               }
             }
             if (opts?.clearKeychain && simulatorUdid) {

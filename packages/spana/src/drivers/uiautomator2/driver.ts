@@ -118,17 +118,35 @@ export function createUiAutomator2Driver(
             if (opts?.clearState) {
               adbClearApp(serial, bundleId);
             }
+            if (opts?.clearKeychain) {
+              console.warn("clearKeychain is not supported on Android, skipping.");
+            }
             if (opts?.deepLink) {
               adbOpenLink(serial, opts.deepLink, bundleId);
               await new Promise((resolve) => setTimeout(resolve, 500));
             } else {
               adbForceStop(serial, bundleId);
               if (opts?.launchArguments && Object.keys(opts.launchArguments).length > 0) {
-                const { adbShell } = await import("../../device/android.js");
-                const extras = Object.entries(opts.launchArguments)
-                  .map(([k, v]) => `--es ${k} ${String(v)}`)
-                  .join(" ");
-                adbShell(serial, `am start -n ${bundleId}/.MainActivity ${extras}`);
+                const { execFileSync } = await import("node:child_process");
+                const { findADB } = await import("../../device/android.js");
+                const adb = findADB();
+                if (!adb) throw new Error("adb not found");
+                const startArgs = [
+                  "-s",
+                  serial,
+                  "shell",
+                  "am",
+                  "start",
+                  "-a",
+                  "android.intent.action.MAIN",
+                  "-c",
+                  "android.intent.category.LAUNCHER",
+                  bundleId,
+                ];
+                for (const [k, v] of Object.entries(opts.launchArguments)) {
+                  startArgs.push("--es", k, String(v));
+                }
+                execFileSync(adb, startArgs, { stdio: "ignore" });
               } else {
                 adbLaunchApp(serial, bundleId);
               }
