@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { allocatePort, releasePort } from "../../core/port-allocator.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const require = createRequire(import.meta.url);
@@ -230,7 +231,14 @@ export async function setupWDAForDevice(
       const res = await fetch(`http://localhost:${tunnel.port}/status`);
       if (res.ok) {
         console.log(`WebDriverAgent ready on physical device (port ${tunnel.port})`);
-        return { host: tunnel.host, port: tunnel.port, cleanup: tunnel.cleanup };
+        return {
+          host: tunnel.host,
+          port: tunnel.port,
+          cleanup: () => {
+            tunnel.cleanup();
+            releasePort(port);
+          },
+        };
       }
     } catch {
       // Not ready yet
@@ -245,8 +253,9 @@ export async function setupWDAForDevice(
 /** Full setup: build if needed, start WDA, wait for it to be ready */
 export async function setupWDA(
   simulatorUDID: string,
-  port: number = 8100,
-): Promise<{ host: string; port: number }> {
+  port?: number,
+): Promise<{ host: string; port: number; cleanup: () => void }> {
+  const actualPort = port ?? allocatePort(8100);
   const wdaPath = findWDAProject();
   if (!wdaPath) {
     throw new Error("WebDriverAgent project not found");
@@ -261,16 +270,16 @@ export async function setupWDA(
   }
 
   // Start WDA
-  startWDA(simulatorUDID, port, derivedDataPath);
+  startWDA(simulatorUDID, actualPort, derivedDataPath);
 
   // Poll until WDA is ready — it can take up to ~30 s on cold start
   const maxRetries = 30;
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const res = await fetch(`http://localhost:${port}/status`);
+      const res = await fetch(`http://localhost:${actualPort}/status`);
       if (res.ok) {
-        console.log(`WebDriverAgent ready on port ${port}`);
-        return { host: "localhost", port };
+        console.log(`WebDriverAgent ready on port ${actualPort}`);
+        return { host: "localhost", port: actualPort, cleanup: () => releasePort(actualPort) };
       }
     } catch {
       // Not ready yet
@@ -278,5 +287,6 @@ export async function setupWDA(
     await new Promise((r) => setTimeout(r, 1000));
   }
 
+  releasePort(actualPort);
   throw new Error(`WebDriverAgent did not start within ${maxRetries} seconds`);
 }

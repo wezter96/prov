@@ -11,6 +11,7 @@ import { parseIOSHierarchy } from "../drivers/wda/pagesource.js";
 import { flattenElements, findElementExtended, centerOf } from "../smart/element-matcher.js";
 import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
 import { setupWDA } from "../drivers/wda/installer.js";
+import { allocatePort } from "../core/port-allocator.js";
 import { firstAndroidDevice } from "../device/android.js";
 import { firstIOSSimulatorWithApp, bootSimulator } from "../device/ios.js";
 import { findDeviceById } from "../device/discover.js";
@@ -250,7 +251,7 @@ export async function connect(opts: ConnectOptions): Promise<Session> {
         })()
       : firstAndroidDevice();
     if (!device) throw new Error("No Android device connected");
-    const hostPort = 8200 + Math.floor(Math.random() * 100);
+    const hostPort = allocatePort(8200);
     const conn = await setupUiAutomator2(device.serial, hostPort);
     const packageName = opts.packageName ?? "";
     const driver = await Effect.runPromise(
@@ -277,7 +278,7 @@ export async function connect(opts: ConnectOptions): Promise<Session> {
       : firstIOSSimulatorWithApp(bundleId);
     if (!sim) throw new Error("No iOS simulator available");
     if (sim.state !== "Booted") bootSimulator(sim.udid);
-    const wdaPort = 8100 + Math.floor(Math.random() * 100);
+    const wdaPort = allocatePort(8100);
     const conn = await setupWDA(sim.udid, wdaPort);
     const driver = await Effect.runPromise(
       createWDADriver(conn.host, conn.port, bundleId, sim.udid),

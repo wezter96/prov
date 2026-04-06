@@ -483,7 +483,7 @@ describe("wda installer", () => {
 
     const result = await installer.setupWDA("SIM-READY", 8115);
 
-    expect(result).toEqual({ host: "localhost", port: 8115 });
+    expect(result).toMatchObject({ host: "localhost", port: 8115 });
     expect(
       wdaInstallerState.execCalls.some((command) => command.includes("build-for-testing")),
     ).toBe(true);
@@ -502,7 +502,7 @@ describe("wda installer", () => {
 
     const result = await installer.setupWDA("SIM-CACHED", 8109);
 
-    expect(result).toEqual({ host: "localhost", port: 8109 });
+    expect(result).toMatchObject({ host: "localhost", port: 8109 });
     expect(
       wdaInstallerState.execCalls.some((command) => command.includes("build-for-testing")),
     ).toBe(false);
@@ -561,7 +561,7 @@ describe("uiautomator2 installer", () => {
 
     const result = await installer.setupUiAutomator2("SERIAL-2", 8214);
 
-    expect(result).toEqual({ host: "localhost", port: 8214 });
+    expect(result).toMatchObject({ host: "localhost", port: 8214 });
     expect(uiaInstallerState.execCalls.some((command) => command.includes("install -r"))).toBe(
       true,
     );

@@ -26,6 +26,7 @@ import {
 } from "../device/ios.js";
 import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
 import { setupWDA } from "../drivers/wda/installer.js";
+import { allocatePort } from "../core/port-allocator.js";
 
 export interface TestCommandOptions {
   platforms: Platform[];
@@ -196,7 +197,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
           adbInstall(device.serial, resolveFromConfig(androidAppPath));
         }
       }
-      const hostPort = 8200 + Math.floor(Math.random() * 100);
+      const hostPort = allocatePort(8200);
       try {
         // Auto-setup: start server, forward port
         const conn = await setupUiAutomator2(device.serial, hostPort);
@@ -242,7 +243,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
             isPhysicalDevice: false,
           });
         }
-        const wdaPort = 8100 + Math.floor(Math.random() * 100);
+        const wdaPort = allocatePort(8100);
         try {
           const conn = await setupWDA(targetDevice.id, wdaPort);
           const driver = await Effect.runPromise(
@@ -293,7 +294,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
           if (signing?.teamId) {
             // Full automated setup: build WDA with signing, start on device, tunnel
             const { setupWDAForDevice } = await import("../drivers/wda/installer.js");
-            const wdaPort = 8100 + Math.floor(Math.random() * 100);
+            const wdaPort = allocatePort(8100);
             conn = await setupWDAForDevice(
               physicalDevice.udid,
               wdaPort,
@@ -345,7 +346,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
           isPhysicalDevice: false,
         });
       }
-      const wdaPort = 8100 + Math.floor(Math.random() * 100);
+      const wdaPort = allocatePort(8100);
       try {
         const conn = await setupWDA(simulator.udid, wdaPort);
         const driver = await Effect.runPromise(
