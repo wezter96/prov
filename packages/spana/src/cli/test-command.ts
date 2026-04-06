@@ -37,6 +37,11 @@ export interface TestCommandOptions {
   flowPath?: string;
   retries?: number;
   device?: string;
+  driver?: "local" | "appium";
+  appiumUrl?: string;
+  capsPath?: string;
+  capsJson?: string;
+  noProviderReporting?: boolean;
 }
 
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
@@ -55,6 +60,37 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
   const resolveFromConfig = (p: string) => resolve(configDir, p);
   if (config.artifacts?.outputDir) {
     config.artifacts.outputDir = resolveFromConfig(config.artifacts.outputDir);
+  }
+
+  // Determine execution mode: CLI --driver flag overrides config
+  const executionMode = opts.driver ?? config.execution?.mode ?? "local";
+
+  // Validate --caps-json early
+  if (opts.capsJson) {
+    try {
+      JSON.parse(opts.capsJson);
+    } catch {
+      console.log("Invalid JSON in --caps-json flag.");
+      return false;
+    }
+  }
+
+  // Validate appium mode requirements
+  if (executionMode === "appium") {
+    const appiumUrl = opts.appiumUrl ?? config.execution?.appium?.serverUrl;
+    if (!appiumUrl) {
+      console.log(
+        "Appium mode requires a server URL. Set --appium-url or execution.appium.serverUrl in config.",
+      );
+      return false;
+    }
+    // Validate --device conflicts with appium mode
+    if (opts.device) {
+      console.log(
+        "Cannot use --device with appium mode. Use --caps or --caps-json to set device capabilities.",
+      );
+      return false;
+    }
   }
 
   const platforms: Platform[] =

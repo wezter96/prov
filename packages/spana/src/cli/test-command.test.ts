@@ -146,6 +146,16 @@ function registerCliMocks(): void {
       }
       return flow;
     },
+    loadTestSource: async (flowPath: string) => {
+      cliState.loadCalls.push(flowPath);
+      const flow = cliState.flowFiles.get(flowPath);
+      if (!flow) {
+        return [];
+      }
+      return [flow];
+    },
+    loadStepFiles: async () => {},
+    discoverStepFiles: async () => [],
     filterFlows: (
       flows: FlowDefinition[],
       opts: { tags?: string[]; grep?: string; platforms: string[] },
@@ -203,6 +213,129 @@ describe("runTestCommand", () => {
     expect(success).toBe(true);
     expect(cliState.discoverCalls).toEqual([join(tempDir, "flows")]);
     expect(cliState.logs).toContain("No flow files found.");
+  });
+
+  test("accepts new appium-related CLI options in TestCommandOptions", async () => {
+    const tempDir = createTempDir();
+    const configPath = join(tempDir, "missing-config.ts");
+    const { runTestCommand } = await importFreshTestCommand();
+
+    // Verify the function accepts all new fields without type errors
+    const success = await runTestCommand({
+      platforms: [],
+      configPath,
+      driver: "local",
+      appiumUrl: "http://localhost:4723",
+      capsPath: "/tmp/caps.json",
+      capsJson: '{"platformName":"Android"}',
+      noProviderReporting: true,
+    });
+
+    // With no flows, returns true (early exit)
+    expect(success).toBe(true);
+  });
+
+  test("fails when appium mode is set but no server URL is provided", async () => {
+    const tempDir = createTempDir();
+    const configPath = writeConfigFile(tempDir, {});
+    const { runTestCommand } = await importFreshTestCommand();
+
+    const success = await runTestCommand({
+      platforms: ["web"],
+      configPath,
+      driver: "appium",
+    });
+
+    expect(success).toBe(false);
+    expect(cliState.logs).toContain(
+      "Appium mode requires a server URL. Set --appium-url or execution.appium.serverUrl in config.",
+    );
+  });
+
+  test("fails when --caps-json contains malformed JSON", async () => {
+    const tempDir = createTempDir();
+    const configPath = writeConfigFile(tempDir, {});
+    const { runTestCommand } = await importFreshTestCommand();
+
+    const success = await runTestCommand({
+      platforms: ["web"],
+      configPath,
+      capsJson: "{bad json",
+    });
+
+    expect(success).toBe(false);
+    expect(cliState.logs).toContain("Invalid JSON in --caps-json flag.");
+  });
+
+  test("fails when --device is used with appium mode", async () => {
+    const tempDir = createTempDir();
+    const configPath = writeConfigFile(tempDir, {});
+    const { runTestCommand } = await importFreshTestCommand();
+
+    const success = await runTestCommand({
+      platforms: ["web"],
+      configPath,
+      driver: "appium",
+      appiumUrl: "http://hub.browserstack.com/wd/hub",
+      device: "emulator-5554",
+    });
+
+    expect(success).toBe(false);
+    expect(cliState.logs).toContain(
+      "Cannot use --device with appium mode. Use --caps or --caps-json to set device capabilities.",
+    );
+  });
+
+  test("succeeds in appium mode when --appium-url is provided", async () => {
+    const tempDir = createTempDir();
+    const configPath = writeConfigFile(tempDir, {});
+    cliState.flowPaths = [];
+    const { runTestCommand } = await importFreshTestCommand();
+
+    const success = await runTestCommand({
+      platforms: ["web"],
+      configPath,
+      driver: "appium",
+      appiumUrl: "http://hub.browserstack.com/wd/hub",
+    });
+
+    // No flows found, so returns true (early exit after validation passes)
+    expect(success).toBe(true);
+  });
+
+  test("succeeds in appium mode when server URL is in config", async () => {
+    const tempDir = createTempDir();
+    const configPath = writeConfigFile(tempDir, {
+      execution: {
+        mode: "appium",
+        appium: { serverUrl: "http://hub.saucelabs.com/wd/hub" },
+      },
+    });
+    cliState.flowPaths = [];
+    const { runTestCommand } = await importFreshTestCommand();
+
+    const success = await runTestCommand({
+      platforms: ["web"],
+      configPath,
+    });
+
+    expect(success).toBe(true);
+  });
+
+  test("valid --caps-json passes validation", async () => {
+    const tempDir = createTempDir();
+    const configPath = writeConfigFile(tempDir, {});
+    cliState.flowPaths = [];
+    const { runTestCommand } = await importFreshTestCommand();
+
+    const success = await runTestCommand({
+      platforms: ["web"],
+      configPath,
+      capsJson: '{"platformName":"Android","deviceName":"Pixel 6"}',
+    });
+
+    // Passes validation, no flows found -> true
+    expect(success).toBe(true);
   });
 
   test("returns early when the filters remove every discovered flow", async () => {

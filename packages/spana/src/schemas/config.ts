@@ -20,6 +20,18 @@ export interface AppConfig {
   signing?: IOSSigningConfig;
 }
 
+export interface AppiumExecutionConfig {
+  serverUrl?: string;
+  capabilities?: Record<string, unknown>;
+  capabilitiesFile?: string;
+  reportToProvider?: boolean;
+}
+
+export interface ExecutionConfig {
+  mode?: "local" | "appium";
+  appium?: AppiumExecutionConfig;
+}
+
 export interface ArtifactConfig {
   outputDir?: string;
   captureOnFailure?: boolean;
@@ -60,6 +72,7 @@ export interface ProvConfig {
     afterAll?: (ctx: HookContext) => Promise<void>;
   };
   artifacts?: ArtifactConfig;
+  execution?: ExecutionConfig;
 }
 
 export function defineConfig(config: ProvConfig): ProvConfig {
