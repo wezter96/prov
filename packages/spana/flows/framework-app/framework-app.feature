@@ -1,5 +1,5 @@
 @e2e @framework-app
-Feature: Framework app screens
+Feature: Framework app (BDD)
 
   Background:
     Given I navigate to the home screen
