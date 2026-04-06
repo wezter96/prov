@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import type { RawDriverService } from "../drivers/raw-driver.js";
 import type { DeviceInfo } from "../schemas/device.js";
 import type { Element } from "../schemas/element.js";
-import { TextMismatchError } from "../errors.js";
+import { ElementNotFoundError, TextMismatchError } from "../errors.js";
 import { createCoordinator } from "./coordinator.js";
 
 const deviceInfo: DeviceInfo = {
@@ -103,6 +103,26 @@ describe("coordinator", () => {
     expect(longPresses).toEqual([{ x: 25, y: 40, duration: 1000 }]);
   });
 
+  test("prefers clickable container coordinates for nested label targets", async () => {
+    const label = createElement({
+      text: "Nested CTA",
+      clickable: false,
+      bounds: { x: 40, y: 50, width: 30, height: 10 },
+    });
+    const card = createElement({
+      id: "nested-card",
+      clickable: true,
+      bounds: { x: 20, y: 30, width: 120, height: 80 },
+      children: [label],
+    });
+    const { driver, taps } = createDriver([createElement({ children: [card] })]);
+    const coordinator = createCoordinator(driver, { parse });
+
+    await Effect.runPromise(coordinator.tap({ text: "Nested CTA" }));
+
+    expect(taps).toEqual([{ x: 80, y: 70 }]);
+  });
+
   test("calculates swipe and scroll coordinates from screen dimensions", async () => {
     const { driver, swipes } = createDriver([createElement()]);
     const coordinator = createCoordinator(driver, {
@@ -118,6 +138,51 @@ describe("coordinator", () => {
       { startX: 70, startY: 100, endX: 30, endY: 100, duration: 700 },
       { startX: 50, startY: 130, endX: 50, endY: 70, duration: 500 },
     ]);
+  });
+
+  test("scrollUntilVisible looks farther down the content by default", async () => {
+    const { driver, swipes } = createDriver([
+      createElement({ children: [createElement({ text: "Top" })] }),
+      createElement({ children: [createElement({ id: "target-card" })] }),
+    ]);
+    const coordinator = createCoordinator(driver, {
+      parse,
+      screenWidth: 100,
+      screenHeight: 200,
+    });
+
+    await Effect.runPromise(coordinator.scrollUntilVisible({ testID: "target-card" }));
+
+    expect(swipes).toEqual([{ startX: 50, startY: 130, endX: 50, endY: 70, duration: 500 }]);
+  });
+
+  test("scrollUntilVisible fails after maxScrolls when the target stays off-screen", async () => {
+    const { driver, swipes } = createDriver([createElement(), createElement(), createElement()]);
+    const coordinator = createCoordinator(driver, {
+      parse,
+      screenWidth: 100,
+      screenHeight: 200,
+    });
+
+    const result = await Effect.runPromise(
+      Effect.either(coordinator.scrollUntilVisible({ testID: "missing-card" }, { maxScrolls: 2 })),
+    );
+
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left") {
+      expect(result.left).toBeInstanceOf(ElementNotFoundError);
+      expect(result.left.message).toContain("after 2 scroll(s) toward down");
+    }
+    expect(swipes).toHaveLength(2);
+  });
+
+  test("getText returns element text content", async () => {
+    const { driver } = createDriver([
+      createElement({ children: [createElement({ text: "Hello" })] }),
+    ]);
+    const coordinator = createCoordinator(driver, { parse });
+    const text = await Effect.runPromise(coordinator.getText({ text: "Hello" }));
+    expect(text).toBe("Hello");
   });
 
   test("returns TextMismatchError when assertText sees a different value", async () => {

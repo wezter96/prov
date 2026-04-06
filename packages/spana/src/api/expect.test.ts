@@ -113,6 +113,27 @@ describe("promise expect", () => {
     ]);
   });
 
+  test("toBeEnabled passes for enabled element", async () => {
+    const el = createElement({ children: [createElement({ text: "Button", enabled: true })] });
+    const { driver } = createDriver([el]);
+    const expectFor = createPromiseExpect(driver, { parse });
+    await expectFor({ text: "Button" }).toBeEnabled();
+  });
+
+  test("toBeDisabled passes for disabled element", async () => {
+    const el = createElement({ children: [createElement({ text: "Button", enabled: false })] });
+    const { driver } = createDriver([el]);
+    const expectFor = createPromiseExpect(driver, { parse });
+    await expectFor({ text: "Button" }).toBeDisabled();
+  });
+
+  test("toContainText passes for partial match", async () => {
+    const el = createElement({ children: [createElement({ text: "Hello World" })] });
+    const { driver } = createDriver([el]);
+    const expectFor = createPromiseExpect(driver, { parse });
+    await expectFor({ text: "Hello World" }).toContainText("World");
+  });
+
   test("works without a recorder", async () => {
     const { driver, getDumpCount } = createDriver([
       createElement({ children: [createElement({ text: "Ready" })] }),

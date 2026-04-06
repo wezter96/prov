@@ -2,10 +2,16 @@ import { Duration, Effect } from "effect";
 import type { RawDriverService } from "../drivers/raw-driver.js";
 import type { Element } from "../schemas/element.js";
 import type { ExtendedSelector } from "../schemas/selector.js";
-import type { DriverError, ElementNotFoundError, WaitTimeoutError } from "../errors.js";
-import { TextMismatchError } from "../errors.js";
-import { centerOf } from "./element-matcher.js";
-import { waitForElement, waitForNotVisible, type WaitOptions } from "./auto-wait.js";
+import type { DriverError, WaitTimeoutError } from "../errors.js";
+import { ElementNotFoundError, TextMismatchError } from "../errors.js";
+import { splitGraphemes } from "../core/graphemes.js";
+import { centerOf, formatSelector } from "./element-matcher.js";
+import {
+  waitForActionElement,
+  waitForElement,
+  waitForNotVisible,
+  type WaitOptions,
+} from "./auto-wait.js";
 import {
   createHierarchyCache,
   type HierarchyCacheConfig,
@@ -15,6 +21,30 @@ import {
 export type Direction = "up" | "down" | "left" | "right";
 
 type HierarchyParser = (raw: string) => Element;
+
+export interface ScrollUntilVisibleOptions extends WaitOptions {
+  /** Where the target is relative to the current viewport. Default: "down". */
+  direction?: Direction;
+  /** Max number of scroll gestures to attempt before failing. Default: 5. */
+  maxScrolls?: number;
+}
+
+export type KeyboardDismissStrategy = "auto" | "driver" | "back";
+
+export interface DismissKeyboardOptions {
+  /** Default: "auto" (driver hideKeyboard, then Android back fallback). */
+  strategy?: KeyboardDismissStrategy;
+}
+
+export interface BackUntilVisibleOptions extends WaitOptions {
+  /** Max number of back actions to attempt before failing. Default: 3. */
+  maxBacks?: number;
+}
+
+const DEFAULT_SCROLL_SEARCH_DIRECTION: Direction = "down";
+const DEFAULT_MAX_SCROLLS = 5;
+const DEFAULT_DISMISS_KEYBOARD_STRATEGY: KeyboardDismissStrategy = "auto";
+const DEFAULT_MAX_BACKS = 3;
 
 export interface CoordinatorConfig {
   parse: HierarchyParser;
@@ -49,13 +79,99 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       yield* idleWait();
     });
 
+  const swipeEffect = (
+    direction: Direction,
+    opts?: { duration?: number },
+  ): Effect.Effect<void, DriverError> =>
+    Effect.gen(function* () {
+      const w = config.screenWidth ?? 1080;
+      const h = config.screenHeight ?? 1920;
+      const cx = w / 2;
+      const cy = h / 2;
+      const dur = opts?.duration ?? 300;
+      const dist = Math.min(w, h) * 0.4;
+
+      const coords = {
+        up: { startX: cx, startY: cy + dist / 2, endX: cx, endY: cy - dist / 2 },
+        down: { startX: cx, startY: cy - dist / 2, endX: cx, endY: cy + dist / 2 },
+        left: { startX: cx + dist / 2, startY: cy, endX: cx - dist / 2, endY: cy },
+        right: { startX: cx - dist / 2, startY: cy, endX: cx + dist / 2, endY: cy },
+      }[direction];
+
+      yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, dur);
+      yield* afterMutation();
+    });
+
+  const scrollEffect = (direction: Direction): Effect.Effect<void, DriverError> =>
+    Effect.gen(function* () {
+      const w = config.screenWidth ?? 1080;
+      const h = config.screenHeight ?? 1920;
+      const cx = w / 2;
+      const cy = h / 2;
+      const dist = Math.min(w, h) * 0.3;
+
+      const coords = {
+        up: { startX: cx, startY: cy + dist, endX: cx, endY: cy - dist },
+        down: { startX: cx, startY: cy - dist, endX: cx, endY: cy + dist },
+        left: { startX: cx + dist, startY: cy, endX: cx - dist, endY: cy },
+        right: { startX: cx - dist, startY: cy, endX: cx + dist, endY: cy },
+      }[direction];
+
+      yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, 500);
+      yield* afterMutation();
+    });
+
+  const probeVisible = (
+    selector: ExtendedSelector,
+    opts?: WaitOptions,
+  ): Effect.Effect<boolean, DriverError> =>
+    Effect.gen(function* () {
+      cache.invalidate();
+      const result = yield* Effect.either(
+        waitForElement(driver, selector, parse, { ...defaults, ...opts, timeout: 1 }, cache),
+      );
+
+      if (result._tag === "Right") {
+        return true;
+      }
+
+      if (result.left._tag === "ElementNotFoundError" || result.left._tag === "WaitTimeoutError") {
+        return false;
+      }
+
+      return yield* result.left;
+    });
+
+  const gestureDirectionForSearch = (direction: Direction): Direction => {
+    const directionMap: Record<Direction, Direction> = {
+      up: "down",
+      down: "up",
+      left: "right",
+      right: "left",
+    };
+
+    return directionMap[direction];
+  };
+
+  const dismissKeyboardWithDriver = (): Effect.Effect<void, DriverError> =>
+    Effect.gen(function* () {
+      yield* driver.hideKeyboard();
+      yield* afterMutation();
+    });
+
+  const dismissKeyboardWithBack = (): Effect.Effect<void, DriverError> =>
+    Effect.gen(function* () {
+      yield* driver.back();
+      yield* afterMutation();
+    });
+
   return {
     tap: (
       selector: ExtendedSelector,
       opts?: WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(
+        const element = yield* waitForActionElement(
           driver,
           selector,
           parse,
@@ -78,7 +194,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       opts?: WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(
+        const element = yield* waitForActionElement(
           driver,
           selector,
           parse,
@@ -96,7 +212,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       opts?: WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(
+        const element = yield* waitForActionElement(
           driver,
           selector,
           parse,
@@ -122,8 +238,8 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       Effect.gen(function* () {
         const delay = config.typingDelay;
         if (delay && delay > 0) {
-          for (const char of text) {
-            yield* driver.inputText(char);
+          for (const segment of splitGraphemes(text)) {
+            yield* driver.inputText(segment);
             yield* Effect.sleep(Duration.millis(delay));
           }
         } else {
@@ -144,43 +260,114 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         cache.invalidate();
       }),
 
-    swipe: (direction: Direction, opts?: { duration?: number }): Effect.Effect<void, DriverError> =>
+    dismissKeyboard: (opts?: DismissKeyboardOptions): Effect.Effect<void, DriverError> =>
       Effect.gen(function* () {
-        const w = config.screenWidth ?? 1080;
-        const h = config.screenHeight ?? 1920;
-        const cx = w / 2;
-        const cy = h / 2;
-        const dur = opts?.duration ?? 300;
-        const dist = Math.min(w, h) * 0.4;
+        const strategy = opts?.strategy ?? DEFAULT_DISMISS_KEYBOARD_STRATEGY;
+        if (strategy === "driver") {
+          return yield* dismissKeyboardWithDriver();
+        }
+        if (strategy === "back") {
+          return yield* dismissKeyboardWithBack();
+        }
 
-        const coords = {
-          up: { startX: cx, startY: cy + dist / 2, endX: cx, endY: cy - dist / 2 },
-          down: { startX: cx, startY: cy - dist / 2, endX: cx, endY: cy + dist / 2 },
-          left: { startX: cx + dist / 2, startY: cy, endX: cx - dist / 2, endY: cy },
-          right: { startX: cx - dist / 2, startY: cy, endX: cx + dist / 2, endY: cy },
-        }[direction];
+        const platform = (yield* driver.getDeviceInfo()).platform;
+        const hideKeyboardResult = yield* Effect.either(driver.hideKeyboard());
+        if (hideKeyboardResult._tag === "Right") {
+          yield* afterMutation();
+          return;
+        }
 
-        yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, dur);
-        yield* afterMutation();
+        if (platform === "android") {
+          const backResult = yield* Effect.either(driver.back());
+          if (backResult._tag === "Right") {
+            yield* afterMutation();
+            return;
+          }
+
+          return yield* new DriverError({
+            message: `dismissKeyboard() failed with strategy "auto" on android. hideKeyboard(): ${hideKeyboardResult.left.message}. back(): ${backResult.left.message}`,
+          });
+        }
+
+        return yield* new DriverError({
+          message: `dismissKeyboard() failed with strategy "auto" on ${platform}. hideKeyboard(): ${hideKeyboardResult.left.message}`,
+        });
       }),
 
-    scroll: (direction: Direction): Effect.Effect<void, DriverError> =>
+    swipe: (direction: Direction, opts?: { duration?: number }): Effect.Effect<void, DriverError> =>
+      swipeEffect(direction, opts),
+
+    scroll: (direction: Direction): Effect.Effect<void, DriverError> => scrollEffect(direction),
+
+    scrollUntilVisible: (
+      selector: ExtendedSelector,
+      opts?: ScrollUntilVisibleOptions,
+    ): Effect.Effect<void, ElementNotFoundError | DriverError> =>
       Effect.gen(function* () {
-        const w = config.screenWidth ?? 1080;
-        const h = config.screenHeight ?? 1920;
-        const cx = w / 2;
-        const cy = h / 2;
-        const dist = Math.min(w, h) * 0.3;
+        const searchDirection = opts?.direction ?? DEFAULT_SCROLL_SEARCH_DIRECTION;
+        const gestureDirection = gestureDirectionForSearch(searchDirection);
+        const maxScrolls = Math.max(0, opts?.maxScrolls ?? DEFAULT_MAX_SCROLLS);
+        const totalTimeout = opts?.timeout ?? defaults?.timeout ?? 5000;
+        const deadline = Date.now() + totalTimeout;
+        let scrollCount = 0;
 
-        const coords = {
-          up: { startX: cx, startY: cy + dist, endX: cx, endY: cy - dist },
-          down: { startX: cx, startY: cy - dist, endX: cx, endY: cy + dist },
-          left: { startX: cx + dist, startY: cy, endX: cx - dist, endY: cy },
-          right: { startX: cx - dist, startY: cy, endX: cx + dist, endY: cy },
-        }[direction];
+        while (scrollCount <= maxScrolls && Date.now() <= deadline) {
+          const found = yield* probeVisible(selector, opts);
+          if (found) {
+            return;
+          }
 
-        yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, 500);
-        yield* afterMutation();
+          if (scrollCount === maxScrolls) {
+            break;
+          }
+
+          yield* scrollEffect(gestureDirection);
+          scrollCount += 1;
+        }
+
+        return yield* new ElementNotFoundError({
+          message: `Element not found after ${scrollCount} scroll(s) toward ${searchDirection} — selector: ${formatSelector(selector)}`,
+          selector,
+          timeoutMs: totalTimeout,
+        });
+      }),
+
+    backUntilVisible: (
+      selector: ExtendedSelector,
+      opts?: BackUntilVisibleOptions,
+    ): Effect.Effect<void, ElementNotFoundError | DriverError> =>
+      Effect.gen(function* () {
+        const maxBacks = Math.max(0, opts?.maxBacks ?? DEFAULT_MAX_BACKS);
+        const totalTimeout = opts?.timeout ?? defaults?.timeout ?? 5000;
+        const deadline = Date.now() + totalTimeout;
+        let backCount = 0;
+
+        while (backCount <= maxBacks && Date.now() <= deadline) {
+          const found = yield* probeVisible(selector, opts);
+          if (found) {
+            return;
+          }
+
+          if (backCount === maxBacks) {
+            break;
+          }
+
+          const backResult = yield* Effect.either(driver.back());
+          if (backResult._tag === "Left") {
+            return yield* new DriverError({
+              message: `backUntilVisible() failed on back attempt ${backCount + 1}: ${backResult.left.message}`,
+            });
+          }
+
+          yield* afterMutation();
+          backCount += 1;
+        }
+
+        return yield* new ElementNotFoundError({
+          message: `Element not found after ${backCount} back action(s) — selector: ${formatSelector(selector)}. If this screen uses an in-app close or back control, tap that element instead of relying on system back.`,
+          selector,
+          timeoutMs: totalTimeout,
+        });
       }),
 
     assertVisible: (
@@ -219,6 +406,113 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
             selector,
           });
         }
+      }),
+
+    assertContainsText: (
+      selector: ExtendedSelector,
+      expected: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        const actual = element.text ?? "";
+        if (!actual.toLowerCase().includes(expected.toLowerCase())) {
+          return yield* new TextMismatchError({
+            message: `Expected text to contain "${expected}" but got "${actual}"`,
+            expected,
+            actual: element.text,
+            selector,
+          });
+        }
+      }),
+
+    assertEnabled: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        if (element.enabled === false) {
+          return yield* new TextMismatchError({
+            message: `Expected element to be enabled but it is disabled — selector: ${formatSelector(selector)}`,
+            expected: "enabled",
+            actual: "disabled",
+            selector,
+          });
+        }
+      }),
+
+    assertDisabled: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        if (element.enabled !== false) {
+          return yield* new TextMismatchError({
+            message: `Expected element to be disabled but it is enabled — selector: ${formatSelector(selector)}`,
+            expected: "disabled",
+            actual: "enabled",
+            selector,
+          });
+        }
+      }),
+
+    getText: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<string, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        return element.text ?? "";
+      }),
+
+    isElementEnabled: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<boolean, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        return element.enabled !== false;
       }),
   };
 }

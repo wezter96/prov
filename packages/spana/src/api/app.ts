@@ -8,9 +8,22 @@ import type {
   BrowserRouteMatcher,
 } from "../drivers/raw-driver.js";
 import type { ExtendedSelector } from "../schemas/selector.js";
-import { createCoordinator, type Direction, type CoordinatorConfig } from "../smart/coordinator.js";
-import type { WaitOptions } from "../smart/auto-wait.js";
+import {
+  createCoordinator,
+  type BackUntilVisibleOptions,
+  type DismissKeyboardOptions,
+  type Direction,
+  type CoordinatorConfig,
+  type ScrollUntilVisibleOptions,
+} from "../smart/coordinator.js";
+import { waitForElement, type WaitOptions } from "../smart/auto-wait.js";
 import type { StepRecorder } from "../core/step-recorder.js";
+
+export type {
+  BackUntilVisibleOptions,
+  DismissKeyboardOptions,
+  ScrollUntilVisibleOptions,
+} from "../smart/coordinator.js";
 
 export interface PromiseApp {
   tap(selector: ExtendedSelector, opts?: WaitOptions): Promise<void>;
@@ -21,8 +34,11 @@ export interface PromiseApp {
   inputText(text: string): Promise<void>;
   pressKey(key: string): Promise<void>;
   hideKeyboard(): Promise<void>;
+  dismissKeyboard(opts?: DismissKeyboardOptions): Promise<void>;
   swipe(direction: Direction, opts?: { duration?: number }): Promise<void>;
   scroll(direction: Direction): Promise<void>;
+  scrollUntilVisible(selector: ExtendedSelector, opts?: ScrollUntilVisibleOptions): Promise<void>;
+  backUntilVisible(selector: ExtendedSelector, opts?: BackUntilVisibleOptions): Promise<void>;
   launch(opts?: LaunchOptions): Promise<void>;
   stop(): Promise<void>;
   kill(): Promise<void>;
@@ -39,6 +55,10 @@ export interface PromiseApp {
   loadCookies(path: string): Promise<void>;
   saveAuthState(path: string): Promise<void>;
   loadAuthState(path: string): Promise<void>;
+
+  getText(selector: ExtendedSelector, opts?: WaitOptions): Promise<string>;
+  isVisible(selector: ExtendedSelector, opts?: { timeout?: number }): Promise<boolean>;
+  isEnabled(selector: ExtendedSelector, opts?: WaitOptions): Promise<boolean>;
 
   // WebView / hybrid context switching
   /** List available contexts (e.g. ["NATIVE_APP", "WEBVIEW_com.example.app"]). */
@@ -103,11 +123,20 @@ export function createPromiseApp(
         captureScreenshot: true,
       }),
     inputText: (text) =>
-      runStep("inputText", () => run(driver.inputText(text)), { captureScreenshot: true }),
+      runStep("inputText", () => run(coord.inputText(text)), { captureScreenshot: true }),
     pressKey: (key) =>
-      runStep(`pressKey(${key})`, () => run(driver.pressKey(key)), { captureScreenshot: true }),
+      runStep(`pressKey(${key})`, () => run(coord.pressKey(key)), { captureScreenshot: true }),
     hideKeyboard: () =>
-      runStep("hideKeyboard", () => run(driver.hideKeyboard()), { captureScreenshot: true }),
+      runStep("hideKeyboard", () => run(coord.hideKeyboard()), { captureScreenshot: true }),
+    dismissKeyboard: (opts) =>
+      runStep(
+        `dismissKeyboard(${opts?.strategy ?? "auto"})`,
+        () => run(coord.dismissKeyboard(opts)),
+        {
+          selector: { strategy: opts?.strategy ?? "auto" },
+          captureScreenshot: true,
+        },
+      ),
     swipe: (direction, opts) =>
       runStep(`swipe(${direction})`, () => run(coord.swipe(direction, opts)), {
         captureScreenshot: true,
@@ -116,6 +145,33 @@ export function createPromiseApp(
       runStep(`scroll(${direction})`, () => run(coord.scroll(direction)), {
         captureScreenshot: true,
       }),
+    scrollUntilVisible: (selector, opts) =>
+      runStep(
+        `scrollUntilVisible(${opts?.direction ?? "down"})`,
+        () => run(coord.scrollUntilVisible(selector, opts)),
+        {
+          selector: {
+            target: selector,
+            ...opts,
+            direction: opts?.direction ?? "down",
+            maxScrolls: opts?.maxScrolls ?? 5,
+          },
+          captureScreenshot: true,
+        },
+      ),
+    backUntilVisible: (selector, opts) =>
+      runStep(
+        `backUntilVisible(${opts?.maxBacks ?? 3})`,
+        () => run(coord.backUntilVisible(selector, opts)),
+        {
+          selector: {
+            target: selector,
+            ...opts,
+            maxBacks: opts?.maxBacks ?? 3,
+          },
+          captureScreenshot: true,
+        },
+      ),
     launch: (opts) =>
       runStep("launch", () => run(driver.launchApp(appId, opts)), {
         selector: opts,
@@ -206,6 +262,28 @@ export function createPromiseApp(
           run((driver.loadAuthState ?? ((_path) => unsupportedWebFeature("loadAuthState")))(path)),
         { selector: { path } },
       ),
+
+    getText: (selector, opts) =>
+      runStep("getText", () => run(coord.getText(selector, opts)), { selector }),
+    isVisible: (selector, opts) => {
+      const timeout = opts?.timeout ?? 1000;
+      return run(
+        Effect.gen(function* () {
+          const result = yield* Effect.either(
+            waitForElement(
+              driver,
+              selector,
+              config.parse,
+              { timeout, pollInterval: 100 },
+              undefined,
+            ),
+          );
+          return result._tag === "Right";
+        }),
+      );
+    },
+    isEnabled: (selector, opts) =>
+      runStep("isEnabled", () => run(coord.isElementEnabled(selector, opts)), { selector }),
 
     // WebView / hybrid context switching
     getContexts: () =>
