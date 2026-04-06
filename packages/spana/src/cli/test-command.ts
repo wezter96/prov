@@ -21,6 +21,7 @@ import {
 } from "../runtime/local.js";
 import { buildAppiumAndroidRuntime, buildAppiumIOSRuntime } from "../runtime/appium.js";
 import { createCloudProviderHelper } from "../cloud/provider.js";
+import type { DeviceWorkerConfig } from "../core/parallel.js";
 
 export interface TestCommandOptions {
   platforms: Platform[];
@@ -41,6 +42,7 @@ export interface TestCommandOptions {
   bail?: number;
   debugOnFailure?: boolean;
   quiet?: boolean;
+  parallel?: boolean;
 }
 
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
@@ -65,6 +67,13 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
 
   if (opts.bail !== undefined && (!Number.isInteger(opts.bail) || opts.bail < 1)) {
     console.log("Invalid bail config. Use a positive integer.");
+    return false;
+  }
+
+  if (opts.parallel && opts.device) {
+    console.log(
+      "Cannot use --parallel with --device. Remove --device to auto-discover all devices.",
+    );
     return false;
   }
 
@@ -279,48 +288,111 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       runCleanups.push(() => cloudHelper.cleanup());
     }
 
-    for (const platform of platforms) {
-      if (executionMode === "appium" && (platform === "android" || platform === "ios")) {
-        // Appium cloud mode
-        const builder = platform === "android" ? buildAppiumAndroidRuntime : buildAppiumIOSRuntime;
-        const preparedCaps = await cloudHelper!.prepareCapabilities(
-          platform,
-          { ...baseAppiumCaps },
-          platform === "android" ? config.apps?.android : config.apps?.ios,
-        );
-        const result = await builder(config, appiumUrl!, preparedCaps);
-        runtimes.push(result.runtime);
-        platformConfigs.push({
-          platform,
-          driver: result.runtime.driver,
-          engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
-        });
-      } else if (platform === "web") {
-        const result = await buildWebRuntime(config);
-        runtimes.push(result.runtime);
-        platformConfigs.push({
-          platform,
-          driver: result.runtime.driver,
-          engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
-        });
-      } else if (platform === "android") {
-        const result = await buildLocalAndroidRuntime(config, targetDevice, resolveFromConfig);
-        if (!result) continue;
-        runtimes.push(result.runtime);
-        platformConfigs.push({
-          platform,
-          driver: result.runtime.driver,
-          engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
-        });
-      } else if (platform === "ios") {
-        const result = await buildLocalIOSRuntime(config, targetDevice, resolveFromConfig);
-        if (!result) continue;
-        runtimes.push(result.runtime);
-        platformConfigs.push({
-          platform,
-          driver: result.runtime.driver,
-          engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
-        });
+    if (opts.parallel) {
+      const { discoverDevices } = await import("../device/discover.js");
+      const allDevices = discoverDevices(platforms);
+
+      for (const platform of platforms) {
+        const platformDevices = allDevices.filter((d) => d.platform === platform);
+
+        if (platform === "web") {
+          // Web always gets exactly 1 runtime
+          const result = await buildWebRuntime(config);
+          runtimes.push(result.runtime);
+          platformConfigs.push({
+            platform,
+            driver: result.runtime.driver,
+            engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+          });
+        } else if (platformDevices.length === 0) {
+          console.log(`No ${platform} devices found. Skipping ${platform} platform.`);
+        } else {
+          if (platformDevices.length === 1) {
+            console.log(
+              `ℹ Only 1 ${platform} device found — connect more devices for parallel execution.`,
+            );
+          }
+
+          // Build runtime for first device (primary worker)
+          const builder = platform === "android" ? buildLocalAndroidRuntime : buildLocalIOSRuntime;
+          const primaryResult = await builder(config, platformDevices[0]!, resolveFromConfig);
+          if (!primaryResult) continue;
+          runtimes.push(primaryResult.runtime);
+
+          // Build runtimes for additional devices (additional workers)
+          const additionalWorkers: DeviceWorkerConfig[] = [];
+          for (const device of platformDevices.slice(1)) {
+            try {
+              const result = await builder(config, device, resolveFromConfig);
+              if (result) {
+                runtimes.push(result.runtime);
+                additionalWorkers.push({
+                  id: device.id,
+                  name: device.name,
+                  driver: result.runtime.driver,
+                  engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+                });
+              }
+            } catch (err) {
+              console.log(
+                `Warning: Failed to set up ${platform} device ${device.name}: ${err instanceof Error ? err.message : err}`,
+              );
+            }
+          }
+
+          platformConfigs.push({
+            platform,
+            driver: primaryResult.runtime.driver,
+            engineConfig: { ...primaryResult.engineConfig, debugOnFailure: opts.debugOnFailure },
+            additionalWorkers: additionalWorkers.length > 0 ? additionalWorkers : undefined,
+          });
+        }
+      }
+    } else {
+      for (const platform of platforms) {
+        if (executionMode === "appium" && (platform === "android" || platform === "ios")) {
+          // Appium cloud mode
+          const builder =
+            platform === "android" ? buildAppiumAndroidRuntime : buildAppiumIOSRuntime;
+          const preparedCaps = await cloudHelper!.prepareCapabilities(
+            platform,
+            { ...baseAppiumCaps },
+            platform === "android" ? config.apps?.android : config.apps?.ios,
+          );
+          const result = await builder(config, appiumUrl!, preparedCaps);
+          runtimes.push(result.runtime);
+          platformConfigs.push({
+            platform,
+            driver: result.runtime.driver,
+            engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+          });
+        } else if (platform === "web") {
+          const result = await buildWebRuntime(config);
+          runtimes.push(result.runtime);
+          platformConfigs.push({
+            platform,
+            driver: result.runtime.driver,
+            engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+          });
+        } else if (platform === "android") {
+          const result = await buildLocalAndroidRuntime(config, targetDevice, resolveFromConfig);
+          if (!result) continue;
+          runtimes.push(result.runtime);
+          platformConfigs.push({
+            platform,
+            driver: result.runtime.driver,
+            engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+          });
+        } else if (platform === "ios") {
+          const result = await buildLocalIOSRuntime(config, targetDevice, resolveFromConfig);
+          if (!result) continue;
+          runtimes.push(result.runtime);
+          platformConfigs.push({
+            platform,
+            driver: result.runtime.driver,
+            engineConfig: { ...result.engineConfig, debugOnFailure: opts.debugOnFailure },
+          });
+        }
       }
     }
 
@@ -378,12 +450,15 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
 
     // 6. Run with real-time reporter callbacks
     const retries = opts.retries ?? config.defaults?.retries ?? 0;
+    const retryDelay = config.defaults?.retryDelay ?? 0;
     const result = await orchestrate(selectedFlows, platformConfigs, {
       retries,
+      retryDelay,
       bail: opts.bail,
-      onFlowStart(name, platform) {
+      parallelPlatforms: opts.parallel,
+      onFlowStart(name, platform, workerName) {
         for (const reporter of reporters) {
-          reporter.onFlowStart?.(name, platform);
+          reporter.onFlowStart?.(name, platform, workerName);
         }
       },
       onResult(r) {
@@ -412,6 +487,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         platforms,
         bailedOut: result.bailedOut,
         bailLimit: result.bailLimit,
+        workerStats: result.workerStats,
       });
     }
 

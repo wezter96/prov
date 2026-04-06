@@ -22,6 +22,7 @@ if (command === "test") {
   let bail: number | undefined;
   let debugOnFailure = false;
   let quiet = false;
+  let parallel = false;
 
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!;
@@ -78,6 +79,8 @@ if (command === "test") {
       debugOnFailure = true;
     } else if (arg === "--quiet" || arg === "-q") {
       quiet = true;
+    } else if (arg === "--parallel") {
+      parallel = true;
     } else if (!arg.startsWith("--")) {
       flowPath = arg;
     }
@@ -103,6 +106,7 @@ if (command === "test") {
     bail,
     debugOnFailure,
     quiet,
+    parallel,
   });
   process.exit(success ? 0 : 1);
 } else if (command === "hierarchy" || command === "selectors") {
@@ -233,6 +237,7 @@ if (command === "test") {
   console.log("  --debug-on-failure         Open an interactive REPL on the first failed flow");
   console.log("  --quiet, -q                Only show failures and final summary");
   console.log("  --device <id>              Target a specific device by ID");
+  console.log("  --parallel                 Auto-discover devices and run in parallel");
   console.log("  --validate-config          Validate config and exit");
   console.log("  --config path              Config file path");
   console.log("  --pretty                   Pretty-print JSON output (hierarchy command)");
