@@ -49,6 +49,23 @@ export async function executeFlow(
   // Mutable context so compiled Gherkin flows can attach scenarioSteps via __scenarioSteps
   const flowCtx: any = { app, expect, platform };
 
+  // beforeEach hook — if it throws, abort without running the flow
+  if (config.hooks?.beforeEach) {
+    try {
+      await config.hooks.beforeEach({ app, platform } as any);
+    } catch (error) {
+      return {
+        name: flow.name,
+        platform,
+        status: "failed",
+        durationMs: Date.now() - start,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  let result: TestResult;
+
   try {
     if (autoLaunch) {
       await app.launch(config.launchOptions);
@@ -72,7 +89,7 @@ export async function executeFlow(
       "passed",
     );
 
-    return {
+    result = {
       name: flow.name,
       platform,
       status: "passed",
@@ -90,7 +107,7 @@ export async function executeFlow(
       "failed",
     );
 
-    return {
+    result = {
       name: flow.name,
       platform,
       status: "failed",
@@ -101,4 +118,17 @@ export async function executeFlow(
       scenarioSteps: flowCtx.__scenarioSteps,
     };
   }
+
+  // afterEach hook — always runs, errors are warnings only
+  if (config.hooks?.afterEach) {
+    try {
+      await config.hooks.afterEach({ app, platform, result } as any);
+    } catch (hookError) {
+      console.warn(
+        `afterEach hook failed: ${hookError instanceof Error ? hookError.message : hookError}`,
+      );
+    }
+  }
+
+  return result;
 }

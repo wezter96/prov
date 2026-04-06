@@ -196,4 +196,94 @@ describe("engine", () => {
     expect(result.status).toBe("failed");
     expect(result.error?.message).toBe("boom");
   });
+
+  test("calls beforeEach and afterEach hooks", async () => {
+    const { driver } = createDriver(createElement());
+    const calls: string[] = [];
+
+    const flow: FlowDefinition = {
+      name: "Hooks order",
+      config: { autoLaunch: false },
+      fn: async () => {
+        calls.push("flow");
+      },
+    };
+
+    const config: EngineConfig = {
+      ...createConfig(join(tempDir, "hooks-order")),
+      hooks: {
+        beforeEach: async () => {
+          calls.push("beforeEach");
+        },
+        afterEach: async () => {
+          calls.push("afterEach");
+        },
+      },
+    };
+
+    const result = await executeFlow(flow, driver, config);
+
+    expect(result.status).toBe("passed");
+    expect(calls).toEqual(["beforeEach", "flow", "afterEach"]);
+  });
+
+  test("afterEach runs even when flow fails", async () => {
+    const { driver } = createDriver(createElement());
+    const calls: string[] = [];
+
+    const flow: FlowDefinition = {
+      name: "Failing flow",
+      config: { autoLaunch: false },
+      fn: async () => {
+        calls.push("flow");
+        throw new Error("flow error");
+      },
+    };
+
+    const config: EngineConfig = {
+      ...createConfig(join(tempDir, "hooks-after-fail")),
+      hooks: {
+        afterEach: async () => {
+          calls.push("afterEach");
+        },
+      },
+    };
+
+    const result = await executeFlow(flow, driver, config);
+
+    expect(result.status).toBe("failed");
+    expect(calls).toEqual(["flow", "afterEach"]);
+  });
+
+  test("beforeEach failure skips flow and marks as failed", async () => {
+    const { driver } = createDriver(createElement());
+    const calls: string[] = [];
+
+    const flow: FlowDefinition = {
+      name: "Skipped flow",
+      config: { autoLaunch: false },
+      fn: async () => {
+        calls.push("flow");
+      },
+    };
+
+    const config: EngineConfig = {
+      ...createConfig(join(tempDir, "hooks-before-fail")),
+      hooks: {
+        beforeEach: async () => {
+          calls.push("beforeEach");
+          throw new Error("setup failed");
+        },
+        afterEach: async () => {
+          calls.push("afterEach");
+        },
+      },
+    };
+
+    const result = await executeFlow(flow, driver, config);
+
+    expect(result.status).toBe("failed");
+    expect(result.error?.message).toBe("setup failed");
+    expect(calls).toEqual(["beforeEach"]);
+  });
 });
