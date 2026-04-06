@@ -429,4 +429,181 @@ describe("orchestrate", () => {
 
     expect(callCount).toBe(1);
   });
+
+  test("parallelPlatforms runs platforms concurrently", async () => {
+    const order: string[] = [];
+
+    const flow: FlowDefinition = {
+      name: "parallel-test",
+      config: {},
+      fn: async ({ platform }) => {
+        order.push(`start:${platform}`);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        order.push(`end:${platform}`);
+      },
+    };
+
+    const result = await orchestrate(
+      [flow],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example.android",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+        {
+          platform: "ios",
+          driver: createDriver("ios"),
+          engineConfig: {
+            appId: "com.example.ios",
+            platform: "ios",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+      { parallelPlatforms: true },
+    );
+
+    // Both should have started before either finished
+    expect(order[0]).toBe("start:android");
+    expect(order[1]).toBe("start:ios");
+    expect(result.passed).toBe(2);
+    expect(result.results).toHaveLength(2);
+  });
+
+  test("parallelPlatforms=false preserves serial behavior", async () => {
+    const order: string[] = [];
+
+    const flow: FlowDefinition = {
+      name: "serial-check",
+      config: {},
+      fn: async ({ platform }) => {
+        order.push(`start:${platform}`);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        order.push(`end:${platform}`);
+      },
+    };
+
+    await orchestrate(
+      [flow],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example.android",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+        {
+          platform: "ios",
+          driver: createDriver("ios"),
+          engineConfig: {
+            appId: "com.example.ios",
+            platform: "ios",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+      { parallelPlatforms: false },
+    );
+
+    expect(order).toEqual(["start:android", "end:android", "start:ios", "end:ios"]);
+  });
+
+  test("retryDelay adds delay between retry attempts", async () => {
+    let callCount = 0;
+    const timestamps: number[] = [];
+
+    const flakyFlow: FlowDefinition = {
+      name: "delayed-retry",
+      config: {},
+      fn: async () => {
+        timestamps.push(Date.now());
+        callCount++;
+        if (callCount <= 1) throw new Error("first attempt fails");
+      },
+    };
+
+    const result = await orchestrate(
+      [flakyFlow],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+      { retries: 1, retryDelay: 50 },
+    );
+
+    expect(result.results[0]!.status).toBe("passed");
+    expect(result.results[0]!.flaky).toBe(true);
+    // Verify the delay was applied between attempts
+    expect(timestamps).toHaveLength(2);
+    const gap = timestamps[1]! - timestamps[0]!;
+    expect(gap).toBeGreaterThanOrEqual(40); // Allow some timer imprecision
+  });
+
+  test("retryDelay=0 (default) retries immediately", async () => {
+    let callCount = 0;
+    const timestamps: number[] = [];
+
+    const flakyFlow: FlowDefinition = {
+      name: "immediate-retry",
+      config: {},
+      fn: async () => {
+        timestamps.push(Date.now());
+        callCount++;
+        if (callCount <= 1) throw new Error("first attempt fails");
+      },
+    };
+
+    await orchestrate(
+      [flakyFlow],
+      [
+        {
+          platform: "android",
+          driver: createDriver("android"),
+          engineConfig: {
+            appId: "com.example",
+            platform: "android",
+            autoLaunch: false,
+            coordinatorConfig: {
+              parse: () => ({ bounds: { x: 0, y: 0, width: 1, height: 1 }, children: [] }),
+            },
+          },
+        },
+      ],
+      { retries: 1 },
+    );
+
+    // Without retryDelay, gap should be minimal
+    const gap = timestamps[1]! - timestamps[0]!;
+    expect(gap).toBeLessThan(30);
+  });
 });

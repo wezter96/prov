@@ -16,6 +16,10 @@ export interface FlowDefaults {
   settleTimeout?: number;
   waitForIdleTimeout?: number;
   typingDelay?: number;
+  /** Starting poll interval for adaptive backoff. Default: 50ms. */
+  initialPollInterval?: number;
+  /** Hierarchy cache TTL in ms. Default: 100. Set to 0 to disable. */
+  hierarchyCacheTtl?: number;
 }
 
 export interface FlowConfig {

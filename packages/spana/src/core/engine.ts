@@ -58,9 +58,12 @@ export async function executeFlow(
           timeout: flowDefaults.waitTimeout ?? coordinatorConfig.defaults?.timeout,
           pollInterval: flowDefaults.pollInterval ?? coordinatorConfig.defaults?.pollInterval,
           settleTimeout: flowDefaults.settleTimeout ?? coordinatorConfig.defaults?.settleTimeout,
+          initialPollInterval:
+            flowDefaults.initialPollInterval ?? coordinatorConfig.defaults?.initialPollInterval,
         },
         waitForIdleTimeout: flowDefaults.waitForIdleTimeout ?? coordinatorConfig.waitForIdleTimeout,
         typingDelay: flowDefaults.typingDelay ?? coordinatorConfig.typingDelay,
+        hierarchyCacheTtl: flowDefaults.hierarchyCacheTtl ?? coordinatorConfig.hierarchyCacheTtl,
       }
     : coordinatorConfig;
 

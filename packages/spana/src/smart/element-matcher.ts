@@ -2,12 +2,18 @@ import type { Element } from "../schemas/element.js";
 import type { Selector, ExtendedSelector, RelativeSelector } from "../schemas/selector.js";
 import { isRelativeSelector } from "../schemas/selector.js";
 
-/** Flatten an element tree into a list */
+/** Flatten an element tree into a list (iterative DFS — avoids recursive spread allocation) */
 export function flattenElements(root: Element): Element[] {
-  const result: Element[] = [root];
-  if (root.children) {
-    for (const child of root.children) {
-      result.push(...flattenElements(child));
+  const result: Element[] = [];
+  const stack: Element[] = [root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    result.push(node);
+    if (node.children) {
+      // Push in reverse so left-most children are visited first (preserves DFS order)
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        stack.push(node.children[i]!);
+      }
     }
   }
   return result;

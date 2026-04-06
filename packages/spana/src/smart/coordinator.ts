@@ -6,6 +6,11 @@ import type { DriverError, ElementNotFoundError, WaitTimeoutError } from "../err
 import { TextMismatchError } from "../errors.js";
 import { centerOf } from "./element-matcher.js";
 import { waitForElement, waitForNotVisible, type WaitOptions } from "./auto-wait.js";
+import {
+  createHierarchyCache,
+  type HierarchyCacheConfig,
+  type HierarchyCache,
+} from "./hierarchy-cache.js";
 
 export type Direction = "up" | "down" | "left" | "right";
 
@@ -20,15 +25,29 @@ export interface CoordinatorConfig {
   waitForIdleTimeout?: number;
   /** Delay between each character when typing. */
   typingDelay?: number;
+  /** Hierarchy cache TTL in ms. Default: 100. Set to 0 to disable caching. */
+  hierarchyCacheTtl?: number;
 }
 
 export function createCoordinator(driver: RawDriverService, config: CoordinatorConfig) {
   const { parse, defaults } = config;
 
+  const cacheConfig: HierarchyCacheConfig = {
+    hierarchyCacheTtl: config.hierarchyCacheTtl,
+  };
+  const cache: HierarchyCache = createHierarchyCache(cacheConfig);
+
   const idleWait = (): Effect.Effect<void> => {
     const ms = config.waitForIdleTimeout;
     return ms && ms > 0 ? Effect.sleep(Duration.millis(ms)) : Effect.void;
   };
+
+  /** Invalidate cache after any mutation action */
+  const afterMutation = (): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      cache.invalidate();
+      yield* idleWait();
+    });
 
   return {
     tap: (
@@ -36,16 +55,22 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       opts?: WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
         const { x, y } = centerOf(element);
         yield* driver.tapAtCoordinate(x, y);
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
     tapXY: (x: number, y: number): Effect.Effect<void, DriverError> =>
       Effect.gen(function* () {
         yield* driver.tapAtCoordinate(x, y);
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
     doubleTap: (
@@ -53,10 +78,16 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       opts?: WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
         const { x, y } = centerOf(element);
         yield* driver.doubleTapAtCoordinate(x, y);
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
     longPress: (
@@ -65,10 +96,16 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       opts?: WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
         const { x, y } = centerOf(element);
         yield* driver.longPressAtCoordinate(x, y, duration);
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
     longPressXY: (
@@ -78,7 +115,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
     ): Effect.Effect<void, DriverError> =>
       Effect.gen(function* () {
         yield* driver.longPressAtCoordinate(x, y, duration);
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
     inputText: (text: string): Effect.Effect<void, DriverError> =>
@@ -92,12 +129,20 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         } else {
           yield* driver.inputText(text);
         }
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
-    pressKey: (key: string): Effect.Effect<void, DriverError> => driver.pressKey(key),
+    pressKey: (key: string): Effect.Effect<void, DriverError> =>
+      Effect.gen(function* () {
+        yield* driver.pressKey(key);
+        cache.invalidate();
+      }),
 
-    hideKeyboard: (): Effect.Effect<void, DriverError> => driver.hideKeyboard(),
+    hideKeyboard: (): Effect.Effect<void, DriverError> =>
+      Effect.gen(function* () {
+        yield* driver.hideKeyboard();
+        cache.invalidate();
+      }),
 
     swipe: (direction: Direction, opts?: { duration?: number }): Effect.Effect<void, DriverError> =>
       Effect.gen(function* () {
@@ -116,7 +161,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         }[direction];
 
         yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, dur);
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
     scroll: (direction: Direction): Effect.Effect<void, DriverError> =>
@@ -135,20 +180,20 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         }[direction];
 
         yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, 500);
-        yield* idleWait();
+        yield* afterMutation();
       }),
 
     assertVisible: (
       selector: ExtendedSelector,
       opts?: WaitOptions,
     ): Effect.Effect<Element, ElementNotFoundError | WaitTimeoutError | DriverError> =>
-      waitForElement(driver, selector, parse, { ...defaults, ...opts }),
+      waitForElement(driver, selector, parse, { ...defaults, ...opts }, cache),
 
     assertHidden: (
       selector: ExtendedSelector,
       opts?: WaitOptions,
     ): Effect.Effect<void, WaitTimeoutError | DriverError> =>
-      waitForNotVisible(driver, selector, parse, { ...defaults, ...opts }),
+      waitForNotVisible(driver, selector, parse, { ...defaults, ...opts }, cache),
 
     assertText: (
       selector: ExtendedSelector,
@@ -159,7 +204,13 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
     > =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
         if (element.text !== expected) {
           return yield* new TextMismatchError({
             message: `Expected text "${expected}" but got "${element.text ?? "(no text)"}"`,

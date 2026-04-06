@@ -5,6 +5,7 @@ import type { DeviceInfo } from "../schemas/device.js";
 import type { Element } from "../schemas/element.js";
 import { ElementNotFoundError, WaitTimeoutError } from "../errors.js";
 import { waitForElement, waitForNotVisible } from "./auto-wait.js";
+import { createHierarchyCache } from "./hierarchy-cache.js";
 
 const deviceInfo: DeviceInfo = {
   platform: "web",
@@ -224,5 +225,163 @@ describe("error messages", () => {
       expect(result.left.message).toContain("text");
       expect(result.left.message).toContain("Loading");
     }
+  });
+});
+
+describe("settle timeout", () => {
+  test("settleTimeout re-checks element stability before returning", async () => {
+    const target = createElement({ text: "Ready" });
+    const rootWithTarget = createElement({ children: [target] });
+    // Element present on first check, also present after settle re-check
+    const { driver, getDumpCount } = createDriver([rootWithTarget, rootWithTarget]);
+
+    const element = await Effect.runPromise(
+      waitForElement(driver, { text: "Ready" }, parse, {
+        timeout: 500,
+        pollInterval: 0,
+        settleTimeout: 1,
+      }),
+    );
+
+    expect(element.text).toBe("Ready");
+    // Should have dumped at least twice: first find + settle re-check
+    expect(getDumpCount()).toBeGreaterThanOrEqual(2);
+  });
+
+  test("settleTimeout retries when element disappears during settle", async () => {
+    const target = createElement({ text: "Ready" });
+    const rootWithTarget = createElement({ children: [target] });
+    const rootEmpty = createElement();
+    // 1st: found, 2nd (settle): gone, 3rd: found again, 4th (settle): still there
+    const { driver } = createDriver([rootWithTarget, rootEmpty, rootWithTarget, rootWithTarget]);
+
+    const element = await Effect.runPromise(
+      waitForElement(driver, { text: "Ready" }, parse, {
+        timeout: 500,
+        pollInterval: 0,
+        settleTimeout: 1,
+      }),
+    );
+
+    expect(element.text).toBe("Ready");
+  });
+
+  test("settleTimeout=0 (default) returns immediately on first match", async () => {
+    const target = createElement({ text: "Ready" });
+    const { driver, getDumpCount } = createDriver([createElement({ children: [target] })]);
+
+    await Effect.runPromise(
+      waitForElement(driver, { text: "Ready" }, parse, {
+        timeout: 50,
+        pollInterval: 0,
+        settleTimeout: 0,
+      }),
+    );
+
+    expect(getDumpCount()).toBe(1);
+  });
+});
+
+describe("adaptive polling", () => {
+  test("uses initialPollInterval for first polls", async () => {
+    const rootEmpty = createElement();
+    const target = createElement({ text: "Found" });
+    const rootWithTarget = createElement({ children: [target] });
+    // First few polls return empty, then target appears
+    const { driver } = createDriver([rootEmpty, rootEmpty, rootWithTarget]);
+
+    const startTime = Date.now();
+    const element = await Effect.runPromise(
+      waitForElement(driver, { text: "Found" }, parse, {
+        timeout: 2000,
+        pollInterval: 500,
+        initialPollInterval: 10,
+      }),
+    );
+    const elapsed = Date.now() - startTime;
+
+    expect(element.text).toBe("Found");
+    // With initialPollInterval=10, the first two misses should take ~20ms total,
+    // not 1000ms (2 * 500ms) as with fixed polling
+    expect(elapsed).toBeLessThan(200);
+  });
+
+  test("falls back to pollInterval when initialPollInterval equals pollInterval", async () => {
+    const rootEmpty = createElement();
+    const target = createElement({ text: "Found" });
+    const rootWithTarget = createElement({ children: [target] });
+    const { driver, getDumpCount } = createDriver([rootEmpty, rootWithTarget]);
+
+    const element = await Effect.runPromise(
+      waitForElement(driver, { text: "Found" }, parse, {
+        timeout: 2000,
+        pollInterval: 5,
+        initialPollInterval: 5,
+      }),
+    );
+
+    expect(element.text).toBe("Found");
+    expect(getDumpCount()).toBe(2);
+  });
+});
+
+describe("hierarchy cache integration", () => {
+  test("waitForElement uses cache to reduce hierarchy dumps", async () => {
+    const target = createElement({ text: "Ready" });
+    const root = createElement({ children: [target] });
+    const { driver, getDumpCount } = createDriver([root]);
+    const cache = createHierarchyCache({ hierarchyCacheTtl: 10_000 });
+
+    // First call populates cache
+    await Effect.runPromise(
+      waitForElement(driver, { text: "Ready" }, parse, { timeout: 50, pollInterval: 0 }, cache),
+    );
+    expect(getDumpCount()).toBe(1);
+
+    // Second call with same cache should not dump again
+    await Effect.runPromise(
+      waitForElement(driver, { text: "Ready" }, parse, { timeout: 50, pollInterval: 0 }, cache),
+    );
+    expect(getDumpCount()).toBe(1);
+  });
+
+  test("waitForElement fetches fresh hierarchy after cache invalidation", async () => {
+    const root = createElement({ children: [createElement({ text: "Ready" })] });
+    const { driver, getDumpCount } = createDriver([root]);
+    const cache = createHierarchyCache({ hierarchyCacheTtl: 10_000 });
+
+    await Effect.runPromise(
+      waitForElement(driver, { text: "Ready" }, parse, { timeout: 50, pollInterval: 0 }, cache),
+    );
+    expect(getDumpCount()).toBe(1);
+
+    cache.invalidate();
+
+    await Effect.runPromise(
+      waitForElement(driver, { text: "Ready" }, parse, { timeout: 50, pollInterval: 0 }, cache),
+    );
+    expect(getDumpCount()).toBe(2);
+  });
+
+  test("waitForNotVisible uses cache", async () => {
+    const rootEmpty = createElement();
+    const { driver, getDumpCount } = createDriver([rootEmpty]);
+    const cache = createHierarchyCache({ hierarchyCacheTtl: 10_000 });
+
+    // Pre-populate cache with empty root
+    await Effect.runPromise(cache.get(driver, parse));
+    expect(getDumpCount()).toBe(1);
+
+    await Effect.runPromise(
+      waitForNotVisible(
+        driver,
+        { text: "Missing" },
+        parse,
+        { timeout: 50, pollInterval: 0 },
+        cache,
+      ),
+    );
+    // Should use cached result, no additional dump
+    expect(getDumpCount()).toBe(1);
   });
 });

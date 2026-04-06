@@ -117,8 +117,16 @@ export interface ProvConfig {
     waitForIdleTimeout?: number;
     /** Delay between each character when typing. Default: 0 (instant). */
     typingDelay?: number;
+    /** Starting poll interval for adaptive backoff. Default: 50ms. Set equal to pollInterval to disable adaptive backoff. */
+    initialPollInterval?: number;
+    /** Max age in ms before cached hierarchy is stale. Default: 100. Set to 0 to disable. */
+    hierarchyCacheTtl?: number;
+    /** Delay in ms between retry attempts of a failed flow. Default: 0 (immediate). */
+    retryDelay?: number;
   };
   platforms?: Platform[];
+  /** Run platforms concurrently when they use independent resources. Default: false (serial). */
+  parallelPlatforms?: boolean;
   flowDir?: string;
   launchOptions?: LaunchOptions;
   reporters?: string[];
@@ -269,10 +277,14 @@ export const provConfigSchema = z
         retries: z.number().int().nonnegative().optional(),
         waitForIdleTimeout: z.number().nonnegative().optional(),
         typingDelay: z.number().nonnegative().optional(),
+        initialPollInterval: z.number().positive().optional(),
+        hierarchyCacheTtl: z.number().nonnegative().optional(),
+        retryDelay: z.number().nonnegative().optional(),
       })
       .strict()
       .optional(),
     platforms: z.array(platformSchema).optional(),
+    parallelPlatforms: z.boolean().optional(),
     flowDir: z.string().min(1).optional(),
     launchOptions: launchOptionsSchema.optional(),
     reporters: z.array(reporterSchema).optional(),
