@@ -35,21 +35,17 @@ Inspired by maestro-runner (`/Users/anton/.superset/projects/maestro-runner`). F
 - Runtime ownership + cleanup — drivers return `{ driver, cleanup }`, CLI/Studio/agent dispose on exit and signals
   - Reference: `maestro-runner/pkg/cli/test.go`, `pkg/cli/web.go`, `pkg/cli/android.go`, `pkg/cli/ios.go`
   - Spana gap: `src/drivers/raw-driver.ts` has no cleanup contract, `src/cli/test-command.ts` has inline setup
-- Port/resource isolation — deterministic port allocation, per-session cleanup (no `forward --remove-all`)
-  - Reference: `maestro-runner/pkg/driver/wda/runner.go`, `pkg/device/android.go`
-  - Spana gap: `src/cli/test-command.ts` picks random ports, `src/drivers/uiautomator2/installer.ts` clears all forwards
+- ✅ Port/resource isolation — deterministic port allocation, per-session cleanup
 - ✅ Unified device discovery + `--device <id>` targeting — consistent across CLI, Studio, and agent
 - ✅ Wire LaunchOptions end-to-end — `clearState`, `launchArguments`, `clearKeychain` implemented in all drivers
-- Invoke config hooks — `beforeAll`/`beforeEach`/`afterEach`/`afterAll` (in schema, not called)
-  - Reference: `maestro-runner/pkg/flow/flow.go`, `pkg/executor/flow_runner.go`
-  - Spana gap: `src/schemas/config.ts` defines hooks, `src/cli/test-command.ts` never invokes them
+- ✅ Invoke config hooks — `beforeAll`/`beforeEach`/`afterEach`/`afterAll` now invoked in orchestrator and engine
 
 ### Features
 
 - iOS physical device support (WDA re-signing + iproxy)
 - `./agent` subpath export for programmatic API
 - ✅ Relative selectors (`below`, `above`, `leftOf`, `rightOf`, `childOf`)
-- Auto-start emulator flag for CI
+- ✅ Auto-start emulator/simulator for CI (handled by `ensureAndroidDevice`/`ensureIOSSimulator`)
 - JavaScript scripting in flows (`evalScript`, `runScript` for custom logic)
 
 ---
