@@ -47,8 +47,25 @@ export async function executeFlow(
   const timeout = flow.config.timeout ?? config.flowTimeout ?? 60_000;
   const artifactConfig = resolveArtifactConfig(config.artifactConfig, flow.config.artifacts);
   const stepRecorder = createStepRecorder(driver, artifactConfig, flow.name, platform);
-  const app = createPromiseApp(driver, appId, coordinatorConfig, stepRecorder);
-  const expect = createPromiseExpect(driver, coordinatorConfig, stepRecorder);
+
+  // Merge per-flow defaults into coordinator config
+  const flowDefaults = flow.config.defaults;
+  const mergedCoordinatorConfig = flowDefaults
+    ? {
+        ...coordinatorConfig,
+        defaults: {
+          ...coordinatorConfig.defaults,
+          timeout: flowDefaults.waitTimeout ?? coordinatorConfig.defaults?.timeout,
+          pollInterval: flowDefaults.pollInterval ?? coordinatorConfig.defaults?.pollInterval,
+          settleTimeout: flowDefaults.settleTimeout ?? coordinatorConfig.defaults?.settleTimeout,
+        },
+        waitForIdleTimeout: flowDefaults.waitForIdleTimeout ?? coordinatorConfig.waitForIdleTimeout,
+        typingDelay: flowDefaults.typingDelay ?? coordinatorConfig.typingDelay,
+      }
+    : coordinatorConfig;
+
+  const app = createPromiseApp(driver, appId, mergedCoordinatorConfig, stepRecorder);
+  const expect = createPromiseExpect(driver, mergedCoordinatorConfig, stepRecorder);
   // Mutable context so compiled Gherkin flows can attach scenarioSteps via __scenarioSteps
   const flowCtx: any = { app, expect, platform };
 

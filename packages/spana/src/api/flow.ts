@@ -10,6 +10,14 @@ export interface WhenCondition {
   env?: string;
 }
 
+export interface FlowDefaults {
+  waitTimeout?: number;
+  pollInterval?: number;
+  settleTimeout?: number;
+  waitForIdleTimeout?: number;
+  typingDelay?: number;
+}
+
 export interface FlowConfig {
   tags?: string[];
   platforms?: Platform[];
@@ -17,6 +25,8 @@ export interface FlowConfig {
   autoLaunch?: boolean; // default true
   artifacts?: ArtifactConfig;
   when?: WhenCondition;
+  /** Per-flow overrides for timing defaults. Merged with global defaults. */
+  defaults?: FlowDefaults;
 }
 
 export interface FlowContext {

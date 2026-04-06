@@ -46,6 +46,8 @@ function buildEngineConfig(
         timeout: config.defaults?.waitTimeout,
         pollInterval: config.defaults?.pollInterval,
       },
+      waitForIdleTimeout: config.defaults?.waitForIdleTimeout,
+      typingDelay: config.defaults?.typingDelay,
     },
     autoLaunch: true,
     flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,

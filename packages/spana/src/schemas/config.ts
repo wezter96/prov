@@ -21,11 +21,53 @@ export interface AppConfig {
   signing?: IOSSigningConfig;
 }
 
+export interface CloudAppReferenceConfig {
+  /** Existing remote app reference, e.g. bs://... or storage:... */
+  id?: string;
+  /** Local file path to upload when the provider supports managed upload */
+  path?: string;
+  /** Override the uploaded file name when the provider supports it */
+  name?: string;
+}
+
+export interface BrowserStackAppConfig extends CloudAppReferenceConfig {
+  /** Stable BrowserStack app alias */
+  customId?: string;
+}
+
+export interface BrowserStackLocalConfig {
+  enabled?: boolean;
+  binary?: string;
+  identifier?: string;
+  args?: string[];
+}
+
+export interface BrowserStackHelperConfig {
+  app?: BrowserStackAppConfig;
+  local?: BrowserStackLocalConfig;
+  options?: Record<string, unknown>;
+}
+
+export interface SauceConnectConfig {
+  enabled?: boolean;
+  binary?: string;
+  tunnelName?: string;
+  args?: string[];
+}
+
+export interface SauceLabsHelperConfig {
+  app?: CloudAppReferenceConfig;
+  connect?: SauceConnectConfig;
+  options?: Record<string, unknown>;
+}
+
 export interface AppiumExecutionConfig {
   serverUrl?: string;
   capabilities?: Record<string, unknown>;
   capabilitiesFile?: string;
   reportToProvider?: boolean;
+  browserstack?: BrowserStackHelperConfig;
+  saucelabs?: SauceLabsHelperConfig;
 }
 
 export interface ExecutionConfig {
@@ -61,6 +103,10 @@ export interface ProvConfig {
     pollInterval?: number;
     settleTimeout?: number;
     retries?: number;
+    /** Pause after each action (tap, scroll) to let the UI settle. Default: 0 (disabled). */
+    waitForIdleTimeout?: number;
+    /** Delay between each character when typing. Default: 0 (instant). */
+    typingDelay?: number;
   };
   platforms?: Platform[];
   flowDir?: string;
@@ -100,12 +146,62 @@ const appConfigSchema = z
   })
   .strict();
 
+const cloudAppReferenceSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    path: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+  })
+  .strict();
+
+const browserStackAppSchema = cloudAppReferenceSchema
+  .extend({
+    customId: z.string().min(1).optional(),
+  })
+  .strict();
+
+const browserStackLocalSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    binary: z.string().min(1).optional(),
+    identifier: z.string().min(1).optional(),
+    args: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+
+const browserStackHelperSchema = z
+  .object({
+    app: browserStackAppSchema.optional(),
+    local: browserStackLocalSchema.optional(),
+    options: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
+const sauceConnectSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    binary: z.string().min(1).optional(),
+    tunnelName: z.string().min(1).optional(),
+    args: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+
+const sauceLabsHelperSchema = z
+  .object({
+    app: cloudAppReferenceSchema.optional(),
+    connect: sauceConnectSchema.optional(),
+    options: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
 const appiumExecutionConfigSchema = z
   .object({
     serverUrl: z.string().url().optional(),
     capabilities: z.record(z.string(), z.unknown()).optional(),
     capabilitiesFile: z.string().min(1).optional(),
     reportToProvider: z.boolean().optional(),
+    browserstack: browserStackHelperSchema.optional(),
+    saucelabs: sauceLabsHelperSchema.optional(),
   })
   .strict();
 
@@ -152,6 +248,8 @@ export const provConfigSchema = z
         pollInterval: z.number().positive().optional(),
         settleTimeout: z.number().nonnegative().optional(),
         retries: z.number().int().nonnegative().optional(),
+        waitForIdleTimeout: z.number().nonnegative().optional(),
+        typingDelay: z.number().nonnegative().optional(),
       })
       .strict()
       .optional(),

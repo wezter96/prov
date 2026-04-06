@@ -1,22 +1,19 @@
 import { Effect } from "effect";
 import type { ProvConfig } from "../schemas/config.js";
 import type { RuntimeResult } from "./types.js";
-import type { AppiumExecutionConfig } from "../schemas/config.js";
 import { AppiumClient } from "../drivers/appium/client.js";
 import { createAppiumAndroidDriver } from "../drivers/appium/android.js";
 import { createAppiumIOSDriver } from "../drivers/appium/ios.js";
-import { resolveCapabilities } from "./capabilities.js";
 import { parseAndroidHierarchy } from "../drivers/uiautomator2/pagesource.js";
 import { parseIOSHierarchy } from "../drivers/wda/pagesource.js";
 import { detectProvider } from "../cloud/provider.js";
 
 export async function buildAppiumAndroidRuntime(
   config: ProvConfig,
-  appiumConfig: AppiumExecutionConfig,
-  opts: { capsPath?: string; capsJson?: string },
+  appiumUrl: string,
+  caps: Record<string, unknown>,
 ): Promise<RuntimeResult> {
-  const caps = await resolveCapabilities(appiumConfig, opts);
-  const client = new AppiumClient(appiumConfig.serverUrl!);
+  const client = new AppiumClient(appiumUrl);
   await client.createSession({
     platformName: "Android",
     ...caps,
@@ -26,10 +23,9 @@ export async function buildAppiumAndroidRuntime(
 
   const sessionId = client.getSessionId() ?? undefined;
   const sessionCaps = client.getSessionCaps();
-  const serverUrl = appiumConfig.serverUrl!;
 
   // Detect cloud provider
-  const detectedProvider = detectProvider(serverUrl);
+  const detectedProvider = detectProvider(appiumUrl);
   const providerName = detectedProvider?.name();
 
   return {
@@ -59,6 +55,8 @@ export async function buildAppiumAndroidRuntime(
           timeout: config.defaults?.waitTimeout,
           pollInterval: config.defaults?.pollInterval,
         },
+        waitForIdleTimeout: config.defaults?.waitForIdleTimeout,
+        typingDelay: config.defaults?.typingDelay,
       },
       autoLaunch: false, // Appium manages app lifecycle
       flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
@@ -71,11 +69,10 @@ export async function buildAppiumAndroidRuntime(
 
 export async function buildAppiumIOSRuntime(
   config: ProvConfig,
-  appiumConfig: AppiumExecutionConfig,
-  opts: { capsPath?: string; capsJson?: string },
+  appiumUrl: string,
+  caps: Record<string, unknown>,
 ): Promise<RuntimeResult> {
-  const caps = await resolveCapabilities(appiumConfig, opts);
-  const client = new AppiumClient(appiumConfig.serverUrl!);
+  const client = new AppiumClient(appiumUrl);
   await client.createSession({
     platformName: "iOS",
     "appium:automationName": "XCUITest",
@@ -86,10 +83,9 @@ export async function buildAppiumIOSRuntime(
 
   const sessionId = client.getSessionId() ?? undefined;
   const sessionCaps = client.getSessionCaps();
-  const serverUrl = appiumConfig.serverUrl!;
 
   // Detect cloud provider
-  const detectedProvider = detectProvider(serverUrl);
+  const detectedProvider = detectProvider(appiumUrl);
   const providerName = detectedProvider?.name();
 
   return {
@@ -119,6 +115,8 @@ export async function buildAppiumIOSRuntime(
           timeout: config.defaults?.waitTimeout,
           pollInterval: config.defaults?.pollInterval,
         },
+        waitForIdleTimeout: config.defaults?.waitForIdleTimeout,
+        typingDelay: config.defaults?.typingDelay,
       },
       autoLaunch: false, // Appium manages app lifecycle
       flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,

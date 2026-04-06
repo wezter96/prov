@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Duration, Effect } from "effect";
 import type { RawDriverService } from "../drivers/raw-driver.js";
 import type { Element } from "../schemas/element.js";
 import type { ExtendedSelector } from "../schemas/selector.js";
@@ -16,10 +16,19 @@ export interface CoordinatorConfig {
   defaults?: WaitOptions;
   screenWidth?: number;
   screenHeight?: number;
+  /** Pause after each action (tap, scroll) to let the UI settle. */
+  waitForIdleTimeout?: number;
+  /** Delay between each character when typing. */
+  typingDelay?: number;
 }
 
 export function createCoordinator(driver: RawDriverService, config: CoordinatorConfig) {
   const { parse, defaults } = config;
+
+  const idleWait = (): Effect.Effect<void> => {
+    const ms = config.waitForIdleTimeout;
+    return ms && ms > 0 ? Effect.sleep(Duration.millis(ms)) : Effect.void;
+  };
 
   return {
     tap: (
@@ -30,9 +39,14 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
         const { x, y } = centerOf(element);
         yield* driver.tapAtCoordinate(x, y);
+        yield* idleWait();
       }),
 
-    tapXY: (x: number, y: number): Effect.Effect<void, DriverError> => driver.tapAtCoordinate(x, y),
+    tapXY: (x: number, y: number): Effect.Effect<void, DriverError> =>
+      Effect.gen(function* () {
+        yield* driver.tapAtCoordinate(x, y);
+        yield* idleWait();
+      }),
 
     doubleTap: (
       selector: ExtendedSelector,
@@ -42,6 +56,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
         const { x, y } = centerOf(element);
         yield* driver.doubleTapAtCoordinate(x, y);
+        yield* idleWait();
       }),
 
     longPress: (
@@ -53,15 +68,32 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         const element = yield* waitForElement(driver, selector, parse, { ...defaults, ...opts });
         const { x, y } = centerOf(element);
         yield* driver.longPressAtCoordinate(x, y, duration);
+        yield* idleWait();
       }),
 
     longPressXY: (
       x: number,
       y: number,
       duration: number = 1000,
-    ): Effect.Effect<void, DriverError> => driver.longPressAtCoordinate(x, y, duration),
+    ): Effect.Effect<void, DriverError> =>
+      Effect.gen(function* () {
+        yield* driver.longPressAtCoordinate(x, y, duration);
+        yield* idleWait();
+      }),
 
-    inputText: (text: string): Effect.Effect<void, DriverError> => driver.inputText(text),
+    inputText: (text: string): Effect.Effect<void, DriverError> =>
+      Effect.gen(function* () {
+        const delay = config.typingDelay;
+        if (delay && delay > 0) {
+          for (const char of text) {
+            yield* driver.inputText(char);
+            yield* Effect.sleep(Duration.millis(delay));
+          }
+        } else {
+          yield* driver.inputText(text);
+        }
+        yield* idleWait();
+      }),
 
     pressKey: (key: string): Effect.Effect<void, DriverError> => driver.pressKey(key),
 
@@ -84,6 +116,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         }[direction];
 
         yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, dur);
+        yield* idleWait();
       }),
 
     scroll: (direction: Direction): Effect.Effect<void, DriverError> =>
@@ -102,6 +135,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         }[direction];
 
         yield* driver.swipe(coords.startX, coords.startY, coords.endX, coords.endY, 500);
+        yield* idleWait();
       }),
 
     assertVisible: (
