@@ -112,7 +112,7 @@ describe("android device helpers", () => {
           "-s",
           "emulator-5554",
           "shell",
-          "am start -W -a android.intent.action.VIEW -d 'spana://checkout?id=1' 'com.example.shop'",
+          "am start -W -a android.intent.action.VIEW -f 335544320 -d 'spana://checkout?id=1' 'com.example.shop'",
         ],
       },
     ]);

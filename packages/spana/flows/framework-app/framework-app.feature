@@ -10,7 +10,7 @@ Feature: Framework app (BDD)
     And I should see the element "home-content"
     And I should see the element "home-title"
     And I should see the element "home-card"
-    And I should see the text "BETTER T STACK"
+    And I should see the text "Spana Demo"
 
   @web @android @ios
   Scenario: Navigate to tabs explore through the UI
@@ -21,7 +21,7 @@ Feature: Framework app (BDD)
     Then I should see the element "tab-one-title"
     When I tap the "Open explore tab" tab
     Then I should see the element "tab-two-title"
-    And the element "tab-two-subtitle" should have text "Discover more features and content"
+    And the element "tab-two-subtitle" should have text "Browse more of the Spana demo experience"
 
   @web @android @ios
   Scenario Outline: Direct route navigation to <screen>

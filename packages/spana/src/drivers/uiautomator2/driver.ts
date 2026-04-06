@@ -115,11 +115,13 @@ export function createUiAutomator2Driver(
       launchApp: (bundleId, _opts?: LaunchOptions) =>
         Effect.tryPromise({
           try: async () => {
-            adbForceStop(serial, bundleId);
-
             if (_opts?.deepLink) {
+              // Send deeplink via am start — this will launch the app if not running
+              // Don't force-stop: it kills the UiAutomator2 session
               adbOpenLink(serial, _opts.deepLink, bundleId);
+              await new Promise((resolve) => setTimeout(resolve, 500));
             } else {
+              adbForceStop(serial, bundleId);
               adbLaunchApp(serial, bundleId);
             }
             await new Promise((resolve) => setTimeout(resolve, 1000));

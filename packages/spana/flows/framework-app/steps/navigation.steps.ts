@@ -9,19 +9,26 @@ function buildHref(platform: Platform, path: string): string {
 
 // --- Navigation steps ---
 
-Given("I navigate to the home screen", async ({ app, platform }) => {
-  // Stop and relaunch via deeplink to reset navigation state.
-  // On physical devices, openLink alone doesn't reset the navigation stack.
-  try {
-    await app.stop();
-  } catch {
-    /* may not be running */
-  }
+Given("I navigate to the home screen", async ({ app, expect, platform }) => {
+  // Launch app with root deeplink
   await app.launch({ deepLink: buildHref(platform, "/") });
+
+  // On Android, "/" may resolve to (tabs) instead of home.
+  // If home-title isn't visible, navigate via drawer.
+  if (platform === "android") {
+    try {
+      await expect({ testID: "home-title" }).toBeVisible({ timeout: 3000 });
+    } catch {
+      // Landed on tabs — navigate to home via drawer
+      await app.tap({ accessibilityLabel: "Show navigation menu" });
+      await app.tap({ testID: "drawer-home-item" });
+    }
+  }
 });
 
 Given("I navigate to {string}", async ({ app, platform }, path) => {
-  await app.openLink(buildHref(platform, path as string));
+  // Use launch with deepLink to ensure clean navigation state on native
+  await app.launch({ deepLink: buildHref(platform, path as string) });
 });
 
 When("I open the navigation menu", async ({ app }) => {

@@ -24,11 +24,6 @@ export default flow(
     },
   },
   async ({ app, expect, platform }) => {
-    try {
-      await app.stop();
-    } catch {
-      /* may not be running */
-    }
     await app.launch({ deepLink: homeHref(platform) });
     await expect({ accessibilityLabel: "Show navigation menu" }).toBeVisible({ timeout: 10_000 });
     await app.tap({ accessibilityLabel: "Show navigation menu" });
@@ -37,6 +32,8 @@ export default flow(
     await expect({ testID: "tab-one-title" }).toBeVisible();
     await app.tap({ accessibilityLabel: "Open explore tab" });
     await expect({ testID: "tab-two-title" }).toBeVisible();
-    await expect({ testID: "tab-two-subtitle" }).toHaveText("Discover more features and content");
+    await expect({ testID: "tab-two-subtitle" }).toHaveText(
+      "Browse more of the Spana demo experience",
+    );
   },
 );

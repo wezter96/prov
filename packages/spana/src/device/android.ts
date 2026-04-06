@@ -219,7 +219,20 @@ export function adbOpenLink(serial: string, url: string, packageName?: string): 
   const adb = findADB();
   if (!adb) throw new Error("adb not found");
 
-  const command = ["am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", shellQuote(url)];
+  // FLAG_ACTIVITY_CLEAR_TOP (0x04000000) + FLAG_ACTIVITY_NEW_TASK (0x10000000)
+  // ensures the deeplink resets the navigation stack
+  const flags = 0x04000000 | 0x10000000;
+  const command = [
+    "am",
+    "start",
+    "-W",
+    "-a",
+    "android.intent.action.VIEW",
+    "-f",
+    String(flags),
+    "-d",
+    shellQuote(url),
+  ];
 
   if (packageName) {
     command.push(shellQuote(packageName));

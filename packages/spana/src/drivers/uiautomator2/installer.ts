@@ -40,9 +40,7 @@ function findUiAutomator2APK(): { serverApk: string; testApk: string } | null {
         !f.includes("androidTest") &&
         f.endsWith(".apk"),
     );
-    const testApk = files.find(
-      (f) => f.includes("androidTest") && f.endsWith(".apk"),
-    );
+    const testApk = files.find((f) => f.includes("androidTest") && f.endsWith(".apk"));
     if (serverApk && testApk) {
       return { serverApk: join(dir, serverApk), testApk: join(dir, testApk) };
     }
@@ -68,10 +66,7 @@ export function installUiAutomator2(serial: string): void {
 /** Check if UiAutomator2 server is installed on device */
 export function isUiAutomator2Installed(serial: string): boolean {
   try {
-    const output = adbShell(
-      serial,
-      "pm list packages io.appium.uiautomator2.server",
-    );
+    const output = adbShell(serial, "pm list packages io.appium.uiautomator2.server");
     return output.includes("io.appium.uiautomator2.server");
   } catch {
     return false;
@@ -106,6 +101,16 @@ export async function setupUiAutomator2(
     installUiAutomator2(serial);
   }
 
+  // Clean up stale port forwards from previous runs
+  const adb = findADB();
+  if (adb) {
+    try {
+      execSync(`${adb} -s ${serial} forward --remove-all`, { stdio: "ignore" });
+    } catch {
+      /* ignore */
+    }
+  }
+
   startUiAutomator2Server(serial);
 
   // Give the server a moment to start before forwarding
@@ -130,7 +135,5 @@ export async function setupUiAutomator2(
     await new Promise((r) => setTimeout(r, 1000));
   }
 
-  throw new Error(
-    `UiAutomator2 server did not start within ${maxRetries} seconds`,
-  );
+  throw new Error(`UiAutomator2 server did not start within ${maxRetries} seconds`);
 }

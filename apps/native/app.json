@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.mybettertapp"
+      "bundleIdentifier": "com.wezter96.spana.testapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mybettertapp"
+      "package": "com.wezter96.spana.testapp"
     },
     "web": {
       "output": "static",
