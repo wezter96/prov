@@ -33,7 +33,32 @@ export async function startStudio(options: StudioOptions) {
     ],
   });
 
-  app.use("/*", cors({ origin: `http://localhost:${port}` }));
+  app.use("/*", cors({ origin: `http://localhost:${port}`, credentials: true }));
+
+  // RPC handler must come BEFORE static files to handle /rpc/* paths
+  app.all("/rpc", async (c) => {
+    const context: StudioContext = { runtime, config };
+    const result = await rpcHandler.handle(c.req.raw, {
+      prefix: "/rpc",
+      context,
+    });
+    if (result.matched) {
+      return c.newResponse(result.response.body, result.response);
+    }
+    return c.notFound();
+  });
+
+  app.all("/rpc/*", async (c) => {
+    const context: StudioContext = { runtime, config };
+    const result = await rpcHandler.handle(c.req.raw, {
+      prefix: "/rpc",
+      context,
+    });
+    if (result.matched) {
+      return c.newResponse(result.response.body, result.response);
+    }
+    return c.notFound();
+  });
 
   // Serve artifact files (screenshots, hierarchies) from spana-output
   app.get("/artifacts/*", async (c) => {
@@ -59,18 +84,6 @@ export async function startStudio(options: StudioOptions) {
             ? "application/json"
             : "application/octet-stream";
       return c.body(content, 200, { "Content-Type": mime });
-    }
-    return c.notFound();
-  });
-
-  app.use("/rpc/*", async (c) => {
-    const context: StudioContext = { runtime, config };
-    const result = await rpcHandler.handle(c.req.raw, {
-      prefix: "/rpc",
-      context,
-    });
-    if (result.matched) {
-      return c.newResponse(result.response.body, result.response);
     }
     return c.notFound();
   });

@@ -1,4 +1,15 @@
-import { CheckCircle, XCircle, Loader2, Circle, X, Trash2 } from "lucide-react";
+import { useState } from "react";
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Circle,
+  X,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Image as ImageIcon,
+} from "lucide-react";
 
 export interface Attachment {
   name: string;
@@ -49,6 +60,117 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function ScreenshotList({ attachments }: { attachments: Attachment[] }) {
+  const images = attachments.filter((a) => a.contentType === "image/png");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  if (images.length === 0) return null;
+
+  return (
+    <div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {images.map((img, i) => (
+          <button
+            key={i}
+            onClick={() => setExpanded(expanded === img.url ? null : img.url)}
+            className="shrink-0 rounded border border-zinc-700 hover:border-zinc-500 transition-colors overflow-hidden"
+          >
+            <img
+              src={img.url}
+              alt={img.name}
+              loading="lazy"
+              className="h-20 w-auto object-contain bg-zinc-900"
+            />
+            <div className="text-[10px] text-zinc-500 px-1 py-0.5 truncate max-w-[100px]">
+              {img.name}
+            </div>
+          </button>
+        ))}
+      </div>
+      {expanded && (
+        <div
+          className="mt-2 rounded border border-zinc-700 overflow-hidden cursor-pointer"
+          onClick={() => setExpanded(null)}
+        >
+          <img src={expanded} alt="Expanded screenshot" className="w-full h-auto bg-zinc-900" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultDetails({ result }: { result: FlowResult }) {
+  const statusColor =
+    result.status === "passed"
+      ? "text-emerald-400"
+      : result.status === "failed"
+        ? "text-red-400"
+        : "text-zinc-500";
+
+  return (
+    <div className="p-3 space-y-3 border-t border-zinc-800 bg-zinc-800/20">
+      <div>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-zinc-400">{result.platform}</span>
+          <span className={statusColor}>{result.status}</span>
+          <span className="text-zinc-500">{formatDuration(result.durationMs)}</span>
+        </div>
+      </div>
+
+      {result.error && (
+        <div className="rounded border border-red-900/50 bg-red-950/30 p-2">
+          <p className="text-xs font-medium text-red-400 mb-1">Error</p>
+          <pre className="text-xs text-red-300 whitespace-pre-wrap break-words font-mono">
+            {result.error.message}
+          </pre>
+        </div>
+      )}
+
+      {result.attachments && result.attachments.length > 0 && (
+        <ScreenshotList attachments={result.attachments} />
+      )}
+
+      {result.steps && result.steps.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-zinc-400 mb-2">Steps</p>
+          <div className="space-y-1">
+            {result.steps.map((step, i) => (
+              <div key={i}>
+                <div className="flex items-start gap-2 px-2 py-1.5 rounded bg-zinc-800/40">
+                  {step.status === "passed" ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-300 truncate">{step.command}</span>
+                      {step.attachments && step.attachments.length > 0 && (
+                        <ImageIcon className="w-3 h-3 text-zinc-500 shrink-0" />
+                      )}
+                      <span className="text-[10px] text-zinc-500 tabular-nums shrink-0">
+                        {formatDuration(step.durationMs)}
+                      </span>
+                    </div>
+                    {step.error && (
+                      <p className="text-[11px] text-red-400 mt-0.5 break-words">{step.error}</p>
+                    )}
+                  </div>
+                </div>
+                {step.attachments && step.attachments.length > 0 && (
+                  <div className="ml-6 mt-1 mb-2">
+                    <ScreenshotList attachments={step.attachments} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RunProgress({
   results,
   isRunning,
@@ -57,13 +179,27 @@ export function RunProgress({
   onClearResults,
   selectedResult,
 }: RunProgressProps) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (key: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   const passed = results.filter((r) => r.status === "passed").length;
   const failed = results.filter((r) => r.status === "failed").length;
   const skipped = results.filter((r) => r.status === "skipped").length;
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 shrink-0">
         <h2 className="text-sm font-semibold text-zinc-300">Results</h2>
         {(results.length > 0 || isRunning) && (
           <div className="flex items-center gap-3 text-xs">
@@ -84,7 +220,7 @@ export function RunProgress({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto">
         {results.length === 0 && !isRunning && (
           <p className="text-sm text-zinc-500 px-2 py-4 text-center">No results yet</p>
         )}
@@ -94,42 +230,62 @@ export function RunProgress({
             Running tests...
           </p>
         )}
-        {results.map((result, i) => {
-          const isSelected =
-            selectedResult?.name === result.name && selectedResult?.platform === result.platform;
-          return (
-            <div
-              key={`${result.name}-${result.platform}-${i}`}
-              className={`group flex items-center gap-0.5 rounded transition-colors ${
-                isSelected ? "bg-zinc-800 ring-1 ring-zinc-700" : "hover:bg-zinc-800/50"
-              }`}
-            >
-              <button
-                onClick={() => onSelectResult?.(result)}
-                className="flex-1 flex items-center gap-2.5 px-2 py-1.5 text-left min-w-0"
-              >
-                <StatusIcon status={result.status} />
-                <span className="text-sm text-zinc-200 truncate flex-1">{result.name}</span>
-                <span className="text-xs text-zinc-500">{result.platform}</span>
-                <span className="text-xs text-zinc-500 tabular-nums">
-                  {formatDuration(result.durationMs)}
-                </span>
-              </button>
-              {onRemoveResult && !isRunning && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveResult(i);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-zinc-600 hover:text-zinc-300 transition-all shrink-0"
-                  title="Remove result"
+        <div className="divide-y divide-zinc-800/50">
+          {results.map((result, i) => {
+            const key = `${result.name}-${result.platform}-${i}`;
+            const isExpanded = expanded.has(key);
+            const isSelected =
+              selectedResult?.name === result.name && selectedResult?.platform === result.platform;
+            return (
+              <div key={key}>
+                <div
+                  className={`group flex items-center gap-0.5 transition-colors ${
+                    isSelected ? "bg-zinc-800" : "hover:bg-zinc-800/50"
+                  }`}
                 >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          );
-        })}
+                  <button
+                    onClick={() => {
+                      onSelectResult?.(result);
+                      toggleExpand(key);
+                    }}
+                    className="flex-1 flex items-center gap-2.5 px-2 py-2 text-left min-w-0"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
+                    )}
+                    <StatusIcon status={result.status} />
+                    <span className="text-sm text-zinc-200 truncate flex-1">{result.name}</span>
+                    <span className="text-xs text-zinc-500">{result.platform}</span>
+                    <span className="text-xs text-zinc-500 tabular-nums">
+                      {formatDuration(result.durationMs)}
+                    </span>
+                  </button>
+                  {onRemoveResult && !isRunning && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveResult(i);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-zinc-600 hover:text-zinc-300 transition-all shrink-0"
+                      title="Remove result"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <ResultDetails result={result} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

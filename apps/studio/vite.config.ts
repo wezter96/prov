@@ -13,8 +13,17 @@ export default defineConfig({
   },
   server: {
     port: 4401,
+    strictPort: true,
     proxy: {
-      "/rpc": "http://localhost:4400",
+      "/rpc": {
+        target: "http://127.0.0.1:4400",
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq) => {
+            proxyReq.setHeader("Origin", "http://localhost:4401");
+          });
+        },
+      },
     },
   },
   build: {

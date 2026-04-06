@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { orpc, client } from "@/lib/client";
 import { FlowList } from "@/components/flow-list";
 import { RunProgress, type FlowResult } from "@/components/run-progress";
-import { FailureDetails } from "@/components/failure-details";
 import { DeviceSelector } from "../components/device-selector.js";
 import { Play, RotateCcw } from "lucide-react";
 
@@ -51,11 +50,17 @@ export function RunnerPage() {
   });
 
   // Discover flows
-  const { data: flowsData } = useQuery(
+  const { data: flowsData, error: flowsError } = useQuery(
     orpc.tests.listFlows.queryOptions({
       input: {},
+      onError: (err: unknown) => {
+        console.error("[runner] Failed to fetch flows:", err);
+      },
     }),
   );
+  if (flowsError) {
+    console.error("[runner] Flow error:", flowsError);
+  }
 
   const flows = flowsData?.flows ?? [];
 
@@ -260,10 +265,10 @@ export function RunnerPage() {
         </div>
       </div>
 
-      {/* 3-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+      {/* 2-column grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0">
         {/* Left: Flow list */}
-        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden">
+        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden lg:col-span-1">
           <FlowList
             flows={flows}
             selectedFlows={selectedFlows}
@@ -273,8 +278,8 @@ export function RunnerPage() {
           />
         </div>
 
-        {/* Center: Results */}
-        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden">
+        {/* Right: Results with expandable details */}
+        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden lg:col-span-3">
           <RunProgress
             results={results}
             isRunning={isRunning || isStarting}
@@ -283,11 +288,6 @@ export function RunnerPage() {
             onClearResults={handleClearResults}
             selectedResult={selectedResult}
           />
-        </div>
-
-        {/* Right: Details */}
-        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden">
-          <FailureDetails result={selectedResult} />
         </div>
       </div>
     </div>
