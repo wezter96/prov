@@ -8,6 +8,7 @@ import { createAppiumIOSDriver } from "../drivers/appium/ios.js";
 import { resolveCapabilities } from "./capabilities.js";
 import { parseAndroidHierarchy } from "../drivers/uiautomator2/pagesource.js";
 import { parseIOSHierarchy } from "../drivers/wda/pagesource.js";
+import { detectProvider } from "../cloud/provider.js";
 
 export async function buildAppiumAndroidRuntime(
   config: ProvConfig,
@@ -23,6 +24,18 @@ export async function buildAppiumAndroidRuntime(
 
   const driver = await Effect.runPromise(createAppiumAndroidDriver(client));
 
+  const sessionId = client.getSessionId() ?? undefined;
+  const sessionCaps = client.getSessionCaps();
+  const serverUrl = appiumConfig.serverUrl!;
+
+  // Detect cloud provider and extract metadata
+  const detectedProvider = detectProvider(serverUrl);
+  let providerName: string | undefined;
+  if (detectedProvider && sessionId) {
+    detectedProvider.extractMeta(sessionId, sessionCaps ?? {}, {} as Record<string, string>);
+    providerName = detectedProvider.name();
+  }
+
   return {
     runtime: {
       driver,
@@ -36,8 +49,9 @@ export async function buildAppiumAndroidRuntime(
       metadata: {
         platform: "android",
         mode: "appium",
-        sessionId: client.getSessionId() ?? undefined,
-        sessionCaps: client.getSessionCaps(),
+        sessionId,
+        sessionCaps,
+        provider: providerName,
       },
     },
     engineConfig: {
@@ -74,6 +88,18 @@ export async function buildAppiumIOSRuntime(
 
   const driver = await Effect.runPromise(createAppiumIOSDriver(client));
 
+  const sessionId = client.getSessionId() ?? undefined;
+  const sessionCaps = client.getSessionCaps();
+  const serverUrl = appiumConfig.serverUrl!;
+
+  // Detect cloud provider and extract metadata
+  const detectedProvider = detectProvider(serverUrl);
+  let providerName: string | undefined;
+  if (detectedProvider && sessionId) {
+    detectedProvider.extractMeta(sessionId, sessionCaps ?? {}, {} as Record<string, string>);
+    providerName = detectedProvider.name();
+  }
+
   return {
     runtime: {
       driver,
@@ -87,8 +113,9 @@ export async function buildAppiumIOSRuntime(
       metadata: {
         platform: "ios",
         mode: "appium",
-        sessionId: client.getSessionId() ?? undefined,
-        sessionCaps: client.getSessionCaps(),
+        sessionId,
+        sessionCaps,
+        provider: providerName,
       },
     },
     engineConfig: {

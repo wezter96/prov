@@ -263,6 +263,33 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       });
     }
 
+    // Report to cloud provider if applicable
+    if (!opts.noProviderReporting) {
+      const appiumUrl = opts.appiumUrl ?? config.execution?.appium?.serverUrl;
+      if (appiumUrl) {
+        const { detectProvider } = await import("../cloud/provider.js");
+        for (const rt of runtimes) {
+          if (rt.metadata.mode === "appium" && rt.metadata.provider) {
+            const provider = detectProvider(appiumUrl);
+            if (provider) {
+              try {
+                const meta: Record<string, string> = {};
+                provider.extractMeta(rt.metadata.sessionId!, rt.metadata.sessionCaps ?? {}, meta);
+                await provider.reportResult(appiumUrl, meta, {
+                  passed: result.failed === 0,
+                  name: `spana ${platforms.join(",")}`,
+                });
+              } catch (e) {
+                console.log(
+                  `Warning: Failed to report to ${rt.metadata.provider}: ${e instanceof Error ? e.message : e}`,
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     return result.failed === 0;
   } finally {
     // 7. Cleanup — always runs even if orchestration/reporting fails
