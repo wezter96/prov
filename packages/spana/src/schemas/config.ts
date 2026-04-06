@@ -11,6 +11,8 @@ export interface AppConfig {
   url?: string;
   packageName?: string;
   bundleId?: string;
+  /** Path to .app or .ipa for auto-install on device/simulator */
+  appPath?: string;
 }
 
 export interface ArtifactConfig {

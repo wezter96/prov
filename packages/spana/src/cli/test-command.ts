@@ -22,6 +22,7 @@ import {
   ensureIOSSimulator,
   firstIOSPhysicalDevice,
   connectPhysicalDevice,
+  ensureAppInstalled,
 } from "../device/ios.js";
 import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
 import { setupWDA } from "../drivers/wda/installer.js";
@@ -135,9 +136,25 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         continue;
       }
       const packageName = config.apps?.android?.packageName ?? "";
+      const androidAppPath = config.apps?.android?.appPath;
+      if (androidAppPath && packageName) {
+        // Check if app is installed, install if not
+        try {
+          const { adbShell, adbInstall } = await import("../device/android.js");
+          const output = adbShell(device.serial, `pm list packages ${packageName}`);
+          if (!output.includes(packageName)) {
+            console.log(`Installing ${packageName} on Android device...`);
+            adbInstall(device.serial, resolveFromConfig(androidAppPath));
+          }
+        } catch {
+          console.log(`Installing ${packageName} on Android device...`);
+          const { adbInstall } = await import("../device/android.js");
+          adbInstall(device.serial, resolveFromConfig(androidAppPath));
+        }
+      }
       const hostPort = 8200 + Math.floor(Math.random() * 100);
       try {
-        // Auto-setup: install APK if needed, start server, forward port
+        // Auto-setup: start server, forward port
         const conn = await setupUiAutomator2(device.serial, hostPort);
         const driver = await Effect.runPromise(
           createUiAutomator2Driver(conn.host, conn.port, device.serial, packageName),
@@ -167,11 +184,21 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     if (platform === "ios") {
       const bundleId = config.apps?.ios?.bundleId ?? "";
 
+      const iosAppPath = config.apps?.ios?.appPath;
+
       // Try physical device first, fall back to simulator
       const physicalDevice = firstIOSPhysicalDevice();
       if (physicalDevice) {
         try {
           console.log(`Found physical iOS device: ${physicalDevice.name} (${physicalDevice.udid})`);
+          if (iosAppPath && bundleId) {
+            ensureAppInstalled({
+              udid: physicalDevice.udid,
+              bundleId,
+              appPath: resolveFromConfig(iosAppPath),
+              isPhysicalDevice: true,
+            });
+          }
           const tunnel = connectPhysicalDevice(physicalDevice.udid);
           const driver = await Effect.runPromise(
             createWDADriver(tunnel.host, tunnel.port, bundleId),
@@ -204,6 +231,14 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       if (!simulator) {
         console.log("No iOS simulator or physical device available. Skipping ios platform.");
         continue;
+      }
+      if (iosAppPath && bundleId) {
+        ensureAppInstalled({
+          udid: simulator.udid,
+          bundleId,
+          appPath: resolveFromConfig(iosAppPath),
+          isPhysicalDevice: false,
+        });
       }
       const wdaPort = 8100 + Math.floor(Math.random() * 100);
       try {

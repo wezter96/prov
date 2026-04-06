@@ -186,26 +186,37 @@ export interface IOSPhysicalDevice {
 export function listIOSPhysicalDevices(): IOSPhysicalDevice[] {
   // Try xcrun devicectl first (Xcode 15+)
   try {
-    const output = execSync("xcrun devicectl list devices --json-output /dev/stdout 2>/dev/null", {
-      encoding: "utf-8",
+    const tmpFile = `/tmp/spana-devicectl-${Date.now()}.json`;
+    execSync(`xcrun devicectl list devices --json-output ${tmpFile} 2>/dev/null`, {
       timeout: 10_000,
     });
+    const { readFileSync, unlinkSync } = require("node:fs") as typeof import("node:fs");
+    const output = readFileSync(tmpFile, "utf-8");
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      /* cleanup */
+    }
+
     const data = JSON.parse(output);
     const devices: IOSPhysicalDevice[] = [];
 
     for (const device of data?.result?.devices ?? []) {
-      // Filter to connected physical devices (not simulators)
+      const deviceType = device.hardwareProperties?.deviceType ?? "";
+      const transport = device.connectionProperties?.transportType;
+      const state = device.connectionProperties?.tunnelState;
+
+      // Include iPhones and iPads that have a transport (physically connected)
+      // tunnelState can be "connected", "disconnected", or "unavailable"
       if (
-        device.hardwareProperties?.deviceType === "device" ||
-        device.connectionProperties?.transportType
+        (deviceType === "iPhone" || deviceType === "iPad") &&
+        transport &&
+        state !== "unavailable"
       ) {
         devices.push({
           udid: device.hardwareProperties?.udid ?? device.identifier,
           name: device.deviceProperties?.name ?? "Unknown",
-          connectionType:
-            device.connectionProperties?.transportType === "wired"
-              ? "USB"
-              : (device.connectionProperties?.transportType ?? "unknown"),
+          connectionType: transport === "wired" ? "USB" : (transport ?? "unknown"),
         });
       }
     }
@@ -269,7 +280,7 @@ export function startIproxy(
   }
 
   const { spawn } = require("node:child_process") as typeof import("node:child_process");
-  const proc = spawn("iproxy", [String(localPort), String(devicePort), "--udid", udid], {
+  const proc = spawn("iproxy", [`${localPort}:${devicePort}`, "-u", udid], {
     stdio: "ignore",
     detached: true,
   });
@@ -305,4 +316,70 @@ export function connectPhysicalDevice(
 ): { host: string; port: number; cleanup: () => void } {
   const localPort = 8100 + Math.floor(Math.random() * 100);
   return startIproxy(udid, localPort, wdaPort);
+}
+
+/**
+ * Install an app on a physical iOS device using xcrun devicectl (Xcode 15+).
+ * Accepts .app bundles or .ipa files.
+ */
+export function installOnPhysicalDevice(udid: string, appPath: string): void {
+  try {
+    execSync(`xcrun devicectl device install app --device ${udid} ${appPath}`, {
+      stdio: "inherit",
+      timeout: 120_000,
+    });
+  } catch {
+    throw new Error(
+      `Failed to install app on device ${udid}. Ensure the app is signed for this device.`,
+    );
+  }
+}
+
+/**
+ * Check if an app is installed on a physical device.
+ */
+export function hasAppOnPhysicalDevice(udid: string, bundleId: string): boolean {
+  if (!bundleId) return false;
+  try {
+    const tmpFile = `/tmp/spana-applist-${Date.now()}.json`;
+    execSync(
+      `xcrun devicectl device info apps --device ${udid} --json-output ${tmpFile} 2>/dev/null`,
+      { timeout: 15_000 },
+    );
+    const { readFileSync, unlinkSync } = require("node:fs") as typeof import("node:fs");
+    const output = readFileSync(tmpFile, "utf-8");
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      /* cleanup */
+    }
+    return output.includes(bundleId);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensure an app is installed on the target device (simulator or physical).
+ * Installs from appPath if not already present.
+ */
+export function ensureAppInstalled(opts: {
+  udid: string;
+  bundleId: string;
+  appPath: string;
+  isPhysicalDevice: boolean;
+}): void {
+  const { udid, bundleId, appPath, isPhysicalDevice } = opts;
+
+  if (isPhysicalDevice) {
+    if (!hasAppOnPhysicalDevice(udid, bundleId)) {
+      console.log(`Installing ${bundleId} on physical device...`);
+      installOnPhysicalDevice(udid, appPath);
+    }
+  } else {
+    if (!hasAppInstalledOnSimulator(udid, bundleId)) {
+      console.log(`Installing ${bundleId} on simulator...`);
+      installOnSimulator(udid, appPath);
+    }
+  }
 }
