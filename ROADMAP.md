@@ -32,9 +32,7 @@
 
 Inspired by maestro-runner (`/Users/anton/.superset/projects/maestro-runner`). Full comparison: `docs/superpowers/plans/2026-04-06-maestro-runner-comparison.md`.
 
-- Runtime ownership + cleanup — drivers return `{ driver, cleanup }`, CLI/Studio/agent dispose on exit and signals
-  - Reference: `maestro-runner/pkg/cli/test.go`, `pkg/cli/web.go`, `pkg/cli/android.go`, `pkg/cli/ios.go`
-  - Spana gap: `src/drivers/raw-driver.ts` has no cleanup contract, `src/cli/test-command.ts` has inline setup
+- ✅ Runtime ownership + cleanup — setup returns `{ driver, cleanup }`, CLI/Studio/agent dispose on exit and signals
 - ✅ Port/resource isolation — deterministic port allocation, per-session cleanup
 - ✅ Unified device discovery + `--device <id>` targeting — consistent across CLI, Studio, and agent
 - ✅ Wire LaunchOptions end-to-end — `clearState`, `launchArguments`, `clearKeychain` implemented in all drivers
