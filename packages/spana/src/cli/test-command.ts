@@ -79,7 +79,12 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
   // Load step definition files before compiling .feature files
   const hasFeatureFiles = flowPaths.some((p) => p.endsWith(".feature"));
   if (hasFeatureFiles) {
-    const stepPaths = await discoverStepFiles(flowDir);
+    // When flowDir is a file, search for steps in its parent directory
+    const { stat: statPath } = await import("node:fs/promises");
+    const { dirname } = await import("node:path");
+    const flowDirStats = await statPath(flowDir).catch(() => null);
+    const stepSearchDir = flowDirStats?.isDirectory() ? flowDir : dirname(flowDir);
+    const stepPaths = await discoverStepFiles(stepSearchDir);
     if (stepPaths.length > 0) {
       await loadStepFiles(stepPaths);
     }
