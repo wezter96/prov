@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - run: npm ci
       - run: npm run dev &
       - run: npx wait-on http://localhost:3000
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - run: npm ci
 
       - name: Set up Android emulator
@@ -88,7 +88,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - run: npm ci
 
       - name: Boot iOS Simulator
@@ -133,7 +133,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
@@ -184,7 +184,7 @@ e2e-android:
 
     - uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 24
 
     - name: Install spana
       run: npm install -g spana-test
@@ -217,7 +217,7 @@ e2e-ios:
 
     - uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 24
 
     - name: Install spana
       run: npm install -g spana-test
