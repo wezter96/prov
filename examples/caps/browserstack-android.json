@@ -1,0 +1,10 @@
+{
+  "platformName": "Android",
+  "appium:app": "bs://YOUR_APP_ID",
+  "appium:deviceName": "Google Pixel 7",
+  "appium:platformVersion": "13.0",
+  "bstack:options": {
+    "projectName": "My App",
+    "buildName": "spana-run-1"
+  }
+}

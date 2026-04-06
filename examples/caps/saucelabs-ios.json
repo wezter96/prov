@@ -1,0 +1,10 @@
+{
+  "platformName": "iOS",
+  "appium:app": "storage:YOUR_APP_ID",
+  "appium:deviceName": "iPhone 15",
+  "appium:platformVersion": "17",
+  "sauce:options": {
+    "name": "spana-run-1",
+    "build": "my-app-build-1"
+  }
+}
