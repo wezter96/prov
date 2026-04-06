@@ -50,9 +50,9 @@ Inspired by maestro-runner (`/Users/anton/.superset/projects/maestro-runner`). F
 
 Additional inspiration from WebdriverIO (`/Users/anton/.superset/projects/webdriverio`).
 
-- Config ergonomics — `defineConfig()`, schema validation, documented precedence, and `--validate-config`
-- Interactive debugging — pause into a live session / REPL with bound `app` and driver context
-- CI sharding & fail-fast — `--shard <current>/<total>` and `--bail <N>`
+- ✅ Config ergonomics — `defineConfig()`, schema validation, relative-path resolution, capability precedence handling, and `--validate-config`
+- ✅ Interactive debugging — pause into a live session / REPL with bound `app` and driver context
+- ✅ CI sharding & fail-fast — `--shard <current>/<total>` and `--bail <N>`
 
 ---
 
@@ -62,8 +62,8 @@ Additional inspiration from WebdriverIO (`/Users/anton/.superset/projects/webdri
 
 - ✅ GitHub Action integration (reusable composite action)
 - ✅ CI examples (GitHub Actions, GitLab CI)
-- Cloud provider support — Appium integration (BrowserStack, Sauce Labs, etc.). Plan: `docs/superpowers/plans/2026-04-06-phase4-appium-cloud-mode.md`
-- Provider helper services for cloud mode — app upload references, tunnel/local relay lifecycle, and provider-specific capability augmentation
+- ✅ Cloud provider support — Appium integration for BrowserStack, Sauce Labs, and generic Appium hubs, with provider result reporting and cloud docs. Plan: `docs/superpowers/plans/2026-04-06-phase4-appium-cloud-mode.md`
+- ✅ Provider helper services for cloud mode — managed app upload references, BrowserStack Local / Sauce Connect lifecycle, and provider-specific capability augmentation
 
 ### Web testing
 
@@ -75,7 +75,7 @@ Additional inspiration from WebdriverIO (`/Users/anton/.superset/projects/webdri
 ### Reporting & diagnostics
 
 - ✅ Allure reporter support
-- Typed failure model — categorized errors with suggestions
-- Driver stability knobs (`waitForIdleTimeout`, `typingFrequency` per-flow)
-- Real-time console reporting — progress updates, failure-only mode, and grouped logs by flow/device
+- ✅ Typed failure model — categorized errors with suggestions
+- ✅ Driver stability knobs (`waitForIdleTimeout`, `typingDelay` per-flow)
+- ✅ Real-time console reporting — progress updates, `--quiet` mode, and grouped output by platform
 - Log masking / redaction for secrets in console and artifact logs
