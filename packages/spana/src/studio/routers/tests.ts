@@ -219,13 +219,33 @@ export const testsRouter = {
               try {
                 const event = JSON.parse(line);
                 if (event.event === "flowPass" || event.event === "flowFail") {
+                  // Convert attachment paths to serve via /artifacts/ endpoint
+                  // Paths can be relative (spana-output/X/file.png) or absolute (/tmp/.../spana-output/X/file.png)
+                  const mapAttachments = (atts?: any[]) =>
+                    atts
+                      ?.filter((a: any) => a.contentType === "image/png")
+                      .map((a: any) => {
+                        // Extract the part after the output directory name
+                        const match = a.path.match(/spana-output\/(.+)$/);
+                        const relativePath = match ? match[1] : a.path;
+                        return {
+                          name: a.name,
+                          contentType: a.contentType,
+                          url: `/artifacts/${relativePath}`,
+                        };
+                      }) ?? [];
+
                   run.results.push({
                     name: event.name,
                     platform: event.platform,
                     status: event.status,
                     durationMs: event.durationMs,
                     error: event.error,
-                    steps: event.steps,
+                    steps: event.steps?.map((s: any) => ({
+                      ...s,
+                      attachments: mapAttachments(s.attachments),
+                    })),
+                    attachments: mapAttachments(event.attachments),
                   });
                 }
                 if (event.event === "runComplete") {

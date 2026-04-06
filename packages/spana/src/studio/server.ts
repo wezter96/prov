@@ -37,13 +37,15 @@ export async function startStudio(options: StudioOptions) {
 
   // Serve artifact files (screenshots, hierarchies) from spana-output
   app.get("/artifacts/*", async (c) => {
-    const artifactPath = c.req.path.replace("/artifacts/", "");
-    const outputDir = config.artifacts?.outputDir ?? "./spana-output";
-    const { resolve: resolvePath } = await import("node:path");
-    const filePath = resolvePath(outputDir, artifactPath);
+    const artifactPath = decodeURIComponent(c.req.path.replace("/artifacts/", ""));
+    const configOutputDir = config.artifacts?.outputDir ?? "spana-output";
+    const outputDir = configOutputDir.startsWith("/")
+      ? configOutputDir
+      : join(process.cwd(), configOutputDir);
+    const filePath = join(outputDir, artifactPath);
 
     // Security: ensure path stays within outputDir
-    if (!filePath.startsWith(resolvePath(outputDir))) {
+    if (!filePath.startsWith(outputDir)) {
       return c.text("Forbidden", 403);
     }
 

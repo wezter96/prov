@@ -85,9 +85,7 @@ export function startWDA(
     throw new Error("WebDriverAgent project not found");
   }
 
-  const ddPath =
-    derivedDataPath ??
-    resolve(wdaPath, "../../.wda-builds", simulatorUDID);
+  const ddPath = derivedDataPath ?? resolve(wdaPath, "../../.wda-builds", simulatorUDID);
 
   // USE_PORT is read by WDA from the environment / xctestrun plist.
   // For simulators we can pass it via the environment here.
@@ -125,6 +123,125 @@ export function stopWDA(): void {
   }
 }
 
+/** Build WDA for a physical device with code signing */
+export function buildWDAForDevice(
+  deviceUDID: string,
+  teamId: string,
+  signingIdentity = "Apple Development",
+): string {
+  const wdaPath = findWDAProject();
+  if (!wdaPath) {
+    throw new Error(
+      "WebDriverAgent project not found. Install appium-webdriveragent or place WDA in drivers/ios/WebDriverAgent/",
+    );
+  }
+
+  const derivedDataPath = resolve(wdaPath, "../../.wda-builds", deviceUDID);
+
+  console.log("Building WebDriverAgent for physical device...");
+
+  execSync(
+    [
+      "xcodebuild",
+      "build-for-testing",
+      `-project "${resolve(wdaPath, "WebDriverAgent.xcodeproj")}"`,
+      "-scheme WebDriverAgentRunner",
+      `-destination "platform=iOS,id=${deviceUDID}"`,
+      `-derivedDataPath "${derivedDataPath}"`,
+      `DEVELOPMENT_TEAM=${teamId}`,
+      `CODE_SIGN_IDENTITY="${signingIdentity}"`,
+      "CODE_SIGNING_REQUIRED=YES",
+      "CODE_SIGNING_ALLOWED=YES",
+      "GCC_TREAT_WARNINGS_AS_ERRORS=0",
+      "-allowProvisioningUpdates",
+      "-quiet",
+    ].join(" "),
+    { stdio: "inherit", timeout: 600_000 },
+  );
+
+  console.log("WebDriverAgent built for device successfully.");
+  return derivedDataPath;
+}
+
+/** Start WDA on a physical device */
+export function startWDAOnDevice(
+  deviceUDID: string,
+  port: number = 8100,
+  derivedDataPath?: string,
+): ChildProcess {
+  const wdaPath = findWDAProject();
+  if (!wdaPath) throw new Error("WebDriverAgent project not found");
+
+  const ddPath = derivedDataPath ?? resolve(wdaPath, "../../.wda-builds", deviceUDID);
+  const env = { ...process.env, USE_PORT: String(port) };
+
+  console.log(`Starting WebDriverAgent on physical device (port ${port})...`);
+
+  const child = spawn(
+    "xcodebuild",
+    [
+      "test-without-building",
+      "-project",
+      resolve(wdaPath, "WebDriverAgent.xcodeproj"),
+      "-scheme",
+      "WebDriverAgentRunner",
+      "-destination",
+      `platform=iOS,id=${deviceUDID}`,
+      "-derivedDataPath",
+      ddPath,
+    ],
+    { env, stdio: "ignore", detached: true },
+  );
+
+  child.unref();
+  wdaProcess = child;
+  return child;
+}
+
+/** Full setup for physical device: build with signing, start WDA, tunnel via iproxy, wait for ready */
+export async function setupWDAForDevice(
+  deviceUDID: string,
+  port: number = 8100,
+  teamId: string,
+  signingIdentity?: string,
+): Promise<{ host: string; port: number; cleanup: () => void }> {
+  const wdaPath = findWDAProject();
+  if (!wdaPath) throw new Error("WebDriverAgent project not found");
+
+  const derivedDataPath = resolve(wdaPath, "../../.wda-builds", deviceUDID);
+  const buildProductsDir = resolve(derivedDataPath, "Build", "Products");
+
+  // Build if no previous build exists
+  if (!existsSync(buildProductsDir)) {
+    buildWDAForDevice(deviceUDID, teamId, signingIdentity);
+  }
+
+  // Start WDA on device
+  startWDAOnDevice(deviceUDID, 8100, derivedDataPath);
+
+  // Set up iproxy tunnel
+  const { startIproxy } = await import("../../device/ios.js");
+  const tunnel = startIproxy(deviceUDID, port, 8100);
+
+  // Poll until WDA is ready
+  const maxRetries = 45; // physical devices can be slower
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(`http://localhost:${tunnel.port}/status`);
+      if (res.ok) {
+        console.log(`WebDriverAgent ready on physical device (port ${tunnel.port})`);
+        return { host: tunnel.host, port: tunnel.port, cleanup: tunnel.cleanup };
+      }
+    } catch {
+      // Not ready yet
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+
+  tunnel.cleanup();
+  throw new Error(`WebDriverAgent did not start on device within ${maxRetries} seconds`);
+}
+
 /** Full setup: build if needed, start WDA, wait for it to be ready */
 export async function setupWDA(
   simulatorUDID: string,
@@ -135,16 +252,8 @@ export async function setupWDA(
     throw new Error("WebDriverAgent project not found");
   }
 
-  const derivedDataPath = resolve(
-    wdaPath,
-    "../../.wda-builds",
-    simulatorUDID,
-  );
-  const buildProductsDir = resolve(
-    derivedDataPath,
-    "Build",
-    "Products",
-  );
+  const derivedDataPath = resolve(wdaPath, "../../.wda-builds", simulatorUDID);
+  const buildProductsDir = resolve(derivedDataPath, "Build", "Products");
 
   // Build if no previous build exists
   if (!existsSync(buildProductsDir)) {
@@ -169,7 +278,5 @@ export async function setupWDA(
     await new Promise((r) => setTimeout(r, 1000));
   }
 
-  throw new Error(
-    `WebDriverAgent did not start within ${maxRetries} seconds`,
-  );
+  throw new Error(`WebDriverAgent did not start within ${maxRetries} seconds`);
 }

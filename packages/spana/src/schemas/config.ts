@@ -7,12 +7,21 @@ export interface LaunchOptions {
   launchArguments?: Record<string, unknown>;
 }
 
+export interface IOSSigningConfig {
+  /** Apple Development Team ID (from developer.apple.com or Xcode) */
+  teamId: string;
+  /** Code signing identity (default: "Apple Development") */
+  signingIdentity?: string;
+}
+
 export interface AppConfig {
   url?: string;
   packageName?: string;
   bundleId?: string;
   /** Path to .app or .ipa for auto-install on device/simulator */
   appPath?: string;
+  /** iOS code signing config for physical devices */
+  signing?: IOSSigningConfig;
 }
 
 export interface ArtifactConfig {

@@ -188,6 +188,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
 
       // Try physical device first, fall back to simulator
       const physicalDevice = firstIOSPhysicalDevice();
+      const signing = config.apps?.ios?.signing;
       if (physicalDevice) {
         try {
           console.log(`Found physical iOS device: ${physicalDevice.name} (${physicalDevice.udid})`);
@@ -199,10 +200,24 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
               isPhysicalDevice: true,
             });
           }
-          const tunnel = connectPhysicalDevice(physicalDevice.udid);
-          const driver = await Effect.runPromise(
-            createWDADriver(tunnel.host, tunnel.port, bundleId),
-          );
+
+          let conn: { host: string; port: number; cleanup?: () => void };
+          if (signing?.teamId) {
+            // Full automated setup: build WDA with signing, start on device, tunnel
+            const { setupWDAForDevice } = await import("../drivers/wda/installer.js");
+            const wdaPort = 8100 + Math.floor(Math.random() * 100);
+            conn = await setupWDAForDevice(
+              physicalDevice.udid,
+              wdaPort,
+              signing.teamId,
+              signing.signingIdentity,
+            );
+          } else {
+            // WDA assumed to be running already (started manually via Xcode)
+            conn = connectPhysicalDevice(physicalDevice.udid);
+          }
+
+          const driver = await Effect.runPromise(createWDADriver(conn.host, conn.port, bundleId));
           const engineConfig: EngineConfig = {
             appId: bundleId,
             platform: "ios",

@@ -120,9 +120,13 @@ if (command === "test") {
           continue;
         }
       }
-      // Resolve flowDir relative to config file location
+      // Resolve relative paths in config relative to config file location
+      const configDir = dirname(candidate);
       if (config.flowDir && !config.flowDir.startsWith("/")) {
-        config.flowDir = resolve(dirname(candidate), config.flowDir);
+        config.flowDir = resolve(configDir, config.flowDir);
+      }
+      if (config.artifacts?.outputDir && !config.artifacts.outputDir.startsWith("/")) {
+        config.artifacts.outputDir = resolve(configDir, config.artifacts.outputDir);
       }
       break;
     }

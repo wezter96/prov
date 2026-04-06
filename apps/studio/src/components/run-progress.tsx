@@ -1,16 +1,24 @@
 import { CheckCircle, XCircle, Loader2, Circle } from "lucide-react";
 
+export interface Attachment {
+  name: string;
+  contentType: string;
+  url: string;
+}
+
 export interface FlowResult {
   name: string;
   platform: string;
   status: "passed" | "failed" | "skipped";
   durationMs: number;
   error?: { message: string };
+  attachments?: Attachment[];
   steps?: Array<{
     command: string;
     status: "passed" | "failed";
     durationMs: number;
     error?: string;
+    attachments?: Attachment[];
   }>;
 }
 
