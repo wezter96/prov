@@ -2,8 +2,8 @@ import { Duration, Effect } from "effect";
 import type { RawDriverService } from "../drivers/raw-driver.js";
 import type { Element } from "../schemas/element.js";
 import type { ExtendedSelector } from "../schemas/selector.js";
-import type { DriverError, WaitTimeoutError } from "../errors.js";
-import { ElementNotFoundError, TextMismatchError } from "../errors.js";
+import type { WaitTimeoutError } from "../errors.js";
+import { DriverError, ElementNotFoundError, TextMismatchError } from "../errors.js";
 import { splitGraphemes } from "../core/graphemes.js";
 import { centerOf, formatSelector } from "./element-matcher.js";
 import {
