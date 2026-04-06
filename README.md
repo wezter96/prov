@@ -223,6 +223,54 @@ spana test flows/login.ts --reporter json 2>&1 | jq '.results'
 
 ---
 
+## Cloud Testing
+
+Spana supports running tests on cloud device farms via Appium cloud mode. Instead of controlling local devices, Spana connects to a remote Appium hub (BrowserStack, Sauce Labs, or any W3C-compatible grid) and runs your TypeScript flows there.
+
+```bash
+# BrowserStack
+spana test --driver appium --appium-url $BROWSERSTACK_URL --caps ./caps/browserstack-android.json --platform android
+
+# Sauce Labs
+spana test --driver appium --appium-url $SAUCE_URL --caps ./caps/saucelabs-android.json --platform android
+```
+
+Or configure in `spana.config.ts`:
+
+```ts
+import { defineConfig } from "spana-test";
+
+export default defineConfig({
+  execution: {
+    mode: "appium",
+    appium: {
+      serverUrl: process.env.BROWSERSTACK_URL,
+      capabilitiesFile: "./caps/browserstack-android.json",
+      reportToProvider: true,
+    },
+  },
+  apps: {
+    android: { packageName: "com.example.myapp" },
+  },
+});
+```
+
+Guides:
+
+- [BrowserStack setup](./docs/cloud/browserstack.md)
+- [Sauce Labs setup](./docs/cloud/saucelabs.md)
+- [Example capabilities](./examples/caps/)
+
+### Smoke validation checklist
+
+Before relying on cloud mode in CI, verify these work end-to-end:
+
+1. Self-hosted Appium -- Android session against a local Appium server
+2. BrowserStack -- Android real-device session
+3. Sauce Labs -- iOS simulator or real-device session
+
+---
+
 ## Architecture
 
 spana uses a layered architecture: CLI -> TestRunner -> PlatformOrchestrator -> SmartLayer -> RawDriver.

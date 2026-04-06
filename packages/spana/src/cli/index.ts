@@ -12,6 +12,11 @@ if (command === "test") {
   let flowPath: string | undefined;
   let retries: number | undefined;
   let device: string | undefined;
+  let driver: "local" | "appium" | undefined;
+  let appiumUrl: string | undefined;
+  let capsPath: string | undefined;
+  let capsJson: string | undefined;
+  let noProviderReporting = false;
 
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!;
@@ -29,6 +34,16 @@ if (command === "test") {
       retries = parseInt(args[++i]!, 10);
     } else if (arg === "--device" && args[i + 1]) {
       device = args[++i];
+    } else if (arg === "--driver" && args[i + 1]) {
+      driver = args[++i] as "local" | "appium";
+    } else if (arg === "--appium-url" && args[i + 1]) {
+      appiumUrl = args[++i];
+    } else if (arg === "--caps" && args[i + 1]) {
+      capsPath = args[++i];
+    } else if (arg === "--caps-json" && args[i + 1]) {
+      capsJson = args[++i];
+    } else if (arg === "--no-provider-reporting") {
+      noProviderReporting = true;
     } else if (!arg.startsWith("--")) {
       flowPath = arg;
     }
@@ -44,6 +59,11 @@ if (command === "test") {
     flowPath,
     retries,
     device,
+    driver,
+    appiumUrl,
+    capsPath,
+    capsJson,
+    noProviderReporting,
   });
   process.exit(success ? 0 : 1);
 } else if (command === "hierarchy" || command === "selectors") {

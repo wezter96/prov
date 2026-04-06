@@ -1,0 +1,10 @@
+{
+  "platformName": "iOS",
+  "appium:app": "bs://YOUR_APP_ID",
+  "appium:deviceName": "iPhone 15",
+  "appium:platformVersion": "17",
+  "bstack:options": {
+    "projectName": "My App",
+    "buildName": "spana-run-1"
+  }
+}

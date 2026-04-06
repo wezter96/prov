@@ -1,0 +1,10 @@
+{
+  "platformName": "Android",
+  "appium:app": "storage:YOUR_APP_ID",
+  "appium:deviceName": "Google Pixel 7",
+  "appium:platformVersion": "13.0",
+  "sauce:options": {
+    "name": "spana-run-1",
+    "build": "my-app-build-1"
+  }
+}
