@@ -362,6 +362,11 @@ export function hasAppOnPhysicalDevice(udid: string, bundleId: string): boolean 
   }
 }
 
+/** Reset simulator keychain (removes all stored passwords and certificates) */
+export function resetSimulatorKeychain(udid: string): void {
+  execSync(`xcrun simctl keychain ${udid} reset`, { stdio: "ignore" });
+}
+
 /**
  * Ensure an app is installed on the target device (simulator or physical).
  * Installs from appPath if not already present.

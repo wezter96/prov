@@ -121,6 +121,9 @@ mock.module("../../device/ios.js", () => ({
   terminateOnSimulator(udid: string, bundleId: string) {
     wdaState.events.push(["terminateOnSimulator", udid, bundleId]);
   },
+  resetSimulatorKeychain(udid: string) {
+    wdaState.events.push(["resetSimulatorKeychain", udid]);
+  },
 }));
 
 let importCounter = 0;

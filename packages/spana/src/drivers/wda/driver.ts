@@ -7,6 +7,7 @@ import {
   launchOnSimulator,
   launchWithUrlOnSimulator,
   terminateOnSimulator,
+  resetSimulatorKeychain,
 } from "../../device/ios.js";
 
 /**
@@ -212,6 +213,23 @@ export function createWDADriver(
       launchApp: (appBundleId, opts?: LaunchOptions) =>
         Effect.tryPromise({
           try: async () => {
+            if (opts?.clearState && simulatorUdid) {
+              terminateOnSimulator(simulatorUdid, appBundleId);
+              try {
+                const { execSync } = await import("node:child_process");
+                execSync(`xcrun simctl uninstall ${simulatorUdid} ${appBundleId}`, {
+                  stdio: "ignore",
+                });
+              } catch {
+                // App may not be installed
+              }
+            }
+            if (opts?.clearKeychain && simulatorUdid) {
+              resetSimulatorKeychain(simulatorUdid);
+            } else if (opts?.clearKeychain) {
+              console.warn("clearKeychain is only supported on iOS simulators, skipping.");
+            }
+
             if (simulatorUdid) {
               if (opts?.deepLink) {
                 await openSimulatorUrl(opts.deepLink, appBundleId);
