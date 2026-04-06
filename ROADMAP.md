@@ -59,9 +59,9 @@ Inspired by maestro-runner (`/Users/anton/.superset/projects/maestro-runner`). F
 ### Platform & integration
 
 - GitHub Action integration
-- VS Code extension
 - CI examples (GitHub Actions, GitLab CI, CircleCI)
 - Cloud provider support — Appium integration (BrowserStack, Sauce Labs, etc.)
+- MCP server for AI agent integration
 
 ### Web testing
 
