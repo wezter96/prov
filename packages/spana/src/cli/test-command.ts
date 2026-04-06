@@ -1,5 +1,4 @@
 import { resolve, dirname } from "node:path";
-import { Effect } from "effect";
 import {
   discoverFlows,
   loadTestSource,
@@ -8,25 +7,14 @@ import {
   filterFlows,
 } from "../core/runner.js";
 import { orchestrate, type PlatformConfig } from "../core/orchestrator.js";
-import type { EngineConfig } from "../core/engine.js";
 import type { ProvConfig } from "../schemas/config.js";
 import type { Platform } from "../schemas/selector.js";
-import { parseWebHierarchy } from "../drivers/playwright-parser.js";
-import { makePlaywrightDriver } from "../drivers/playwright.js";
-import { parseAndroidHierarchy } from "../drivers/uiautomator2/pagesource.js";
-import { createUiAutomator2Driver } from "../drivers/uiautomator2/driver.js";
-import { parseIOSHierarchy } from "../drivers/wda/pagesource.js";
-import { createWDADriver } from "../drivers/wda/driver.js";
-import { ensureAndroidDevice } from "../device/android.js";
+import type { RuntimeHandle } from "../runtime/types.js";
 import {
-  ensureIOSSimulator,
-  firstIOSPhysicalDevice,
-  connectPhysicalDevice,
-  ensureAppInstalled,
-} from "../device/ios.js";
-import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
-import { setupWDA } from "../drivers/wda/installer.js";
-import { allocatePort } from "../core/port-allocator.js";
+  buildWebRuntime,
+  buildLocalAndroidRuntime,
+  buildLocalIOSRuntime,
+} from "../runtime/local.js";
 
 export interface TestCommandOptions {
   platforms: Platform[];
@@ -181,306 +169,109 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
 
   console.log(`Running ${filtered.length} flow(s) on ${platforms.join(", ")}...\n`);
 
-  // 4. Setup platform drivers
+  // 4. Setup platform drivers via runtime builders
+  const runtimes: RuntimeHandle[] = [];
   const platformConfigs: PlatformConfig[] = [];
 
-  for (const platform of platforms) {
-    if (platform === "web") {
-      const webUrl = config.apps?.web?.url ?? "http://localhost:3000";
-      const driver = await Effect.runPromise(
-        makePlaywrightDriver({ headless: true, baseUrl: webUrl }),
-      );
-      const engineConfig: EngineConfig = {
-        appId: webUrl,
-        platform: "web",
-        coordinatorConfig: {
-          parse: parseWebHierarchy,
-          defaults: {
-            timeout: config.defaults?.waitTimeout,
-            pollInterval: config.defaults?.pollInterval,
-          },
-        },
-        autoLaunch: true,
-        flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
-        artifactConfig: config.artifacts,
-        launchOptions: config.launchOptions,
-        hooks: config.hooks,
-      };
-      platformConfigs.push({ platform, driver, engineConfig });
-    }
-    if (platform === "android") {
-      const device =
-        targetDevice?.platform === "android"
-          ? {
-              serial: targetDevice.id,
-              state: "device" as const,
-              type: targetDevice.type as "emulator" | "device",
-            }
-          : ensureAndroidDevice();
-      if (!device) {
-        console.log("No Android device/emulator available. Skipping android platform.");
-        continue;
-      }
-      const packageName = config.apps?.android?.packageName ?? "";
-      const androidAppPath = config.apps?.android?.appPath;
-      if (androidAppPath && packageName) {
-        // Check if app is installed, install if not
-        try {
-          const { adbShell, adbInstall } = await import("../device/android.js");
-          const output = adbShell(device.serial, `pm list packages ${packageName}`);
-          if (!output.includes(packageName)) {
-            console.log(`Installing ${packageName} on Android device...`);
-            adbInstall(device.serial, resolveFromConfig(androidAppPath));
-          }
-        } catch {
-          console.log(`Installing ${packageName} on Android device...`);
-          const { adbInstall } = await import("../device/android.js");
-          adbInstall(device.serial, resolveFromConfig(androidAppPath));
-        }
-      }
-      const hostPort = allocatePort(8200);
-      try {
-        // Auto-setup: start server, forward port
-        const conn = await setupUiAutomator2(device.serial, hostPort);
-        const driver = await Effect.runPromise(
-          createUiAutomator2Driver(conn.host, conn.port, device.serial, packageName),
-        );
-        const engineConfig: EngineConfig = {
-          appId: packageName,
-          platform: "android",
-          coordinatorConfig: {
-            parse: parseAndroidHierarchy,
-            defaults: {
-              timeout: config.defaults?.waitTimeout,
-              pollInterval: config.defaults?.pollInterval,
-            },
-          },
-          autoLaunch: true,
-          flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
-          artifactConfig: config.artifacts,
-          launchOptions: config.launchOptions,
-          hooks: config.hooks,
-        };
-        platformConfigs.push({ platform, driver, engineConfig });
-      } catch (e) {
-        console.log(
-          `Android setup failed on ${device.serial}: ${e instanceof Error ? e.message : e}`,
-        );
-      }
-    }
-
-    if (platform === "ios") {
-      const bundleId = config.apps?.ios?.bundleId ?? "";
-
-      const iosAppPath = config.apps?.ios?.appPath;
-
-      // If a specific device was targeted, use it directly
-      if (targetDevice?.platform === "ios" && targetDevice.type === "simulator") {
-        if (iosAppPath && bundleId) {
-          ensureAppInstalled({
-            udid: targetDevice.id,
-            bundleId,
-            appPath: resolveFromConfig(iosAppPath),
-            isPhysicalDevice: false,
-          });
-        }
-        const wdaPort = allocatePort(8100);
-        try {
-          const conn = await setupWDA(targetDevice.id, wdaPort);
-          const driver = await Effect.runPromise(
-            createWDADriver(conn.host, conn.port, bundleId, targetDevice.id),
-          );
-          const engineConfig: EngineConfig = {
-            appId: bundleId,
-            platform: "ios",
-            coordinatorConfig: {
-              parse: parseIOSHierarchy,
-              defaults: {
-                timeout: config.defaults?.waitTimeout,
-                pollInterval: config.defaults?.pollInterval,
-              },
-            },
-            autoLaunch: true,
-            flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
-            artifactConfig: config.artifacts,
-            launchOptions: config.launchOptions,
-            hooks: config.hooks,
-          };
-          platformConfigs.push({ platform, driver, engineConfig });
-          continue;
-        } catch (e) {
-          console.log(
-            `iOS setup failed for device ${targetDevice.id}: ${e instanceof Error ? e.message : e}`,
-          );
-          continue;
-        }
-      }
-
-      // Try physical device first, fall back to simulator
-      const physicalDevice = firstIOSPhysicalDevice();
-      const signing = config.apps?.ios?.signing;
-      if (physicalDevice) {
-        try {
-          console.log(`Found physical iOS device: ${physicalDevice.name} (${physicalDevice.udid})`);
-          if (iosAppPath && bundleId) {
-            ensureAppInstalled({
-              udid: physicalDevice.udid,
-              bundleId,
-              appPath: resolveFromConfig(iosAppPath),
-              isPhysicalDevice: true,
-            });
-          }
-
-          let conn: { host: string; port: number; cleanup?: () => void };
-          if (signing?.teamId) {
-            // Full automated setup: build WDA with signing, start on device, tunnel
-            const { setupWDAForDevice } = await import("../drivers/wda/installer.js");
-            const wdaPort = allocatePort(8100);
-            conn = await setupWDAForDevice(
-              physicalDevice.udid,
-              wdaPort,
-              signing.teamId,
-              signing.signingIdentity,
-            );
-          } else {
-            // WDA assumed to be running already (started manually via Xcode)
-            conn = connectPhysicalDevice(physicalDevice.udid);
-          }
-
-          const driver = await Effect.runPromise(createWDADriver(conn.host, conn.port, bundleId));
-          const engineConfig: EngineConfig = {
-            appId: bundleId,
-            platform: "ios",
-            coordinatorConfig: {
-              parse: parseIOSHierarchy,
-              defaults: {
-                timeout: config.defaults?.waitTimeout,
-                pollInterval: config.defaults?.pollInterval,
-              },
-            },
-            autoLaunch: true,
-            flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
-            artifactConfig: config.artifacts,
-            launchOptions: config.launchOptions,
-            hooks: config.hooks,
-          };
-          platformConfigs.push({ platform, driver, engineConfig });
-          continue;
-        } catch (e) {
-          console.log(
-            `Physical device setup failed (${physicalDevice.name}): ${e instanceof Error ? e.message : e}. Falling back to simulator.`,
-          );
-        }
-      }
-
-      // Fall back to simulator
-      const simulator = ensureIOSSimulator(bundleId);
-      if (!simulator) {
-        console.log("No iOS simulator or physical device available. Skipping ios platform.");
-        continue;
-      }
-      if (iosAppPath && bundleId) {
-        ensureAppInstalled({
-          udid: simulator.udid,
-          bundleId,
-          appPath: resolveFromConfig(iosAppPath),
-          isPhysicalDevice: false,
+  try {
+    for (const platform of platforms) {
+      if (platform === "web") {
+        const result = await buildWebRuntime(config);
+        runtimes.push(result.runtime);
+        platformConfigs.push({
+          platform,
+          driver: result.runtime.driver,
+          engineConfig: result.engineConfig,
         });
       }
-      const wdaPort = allocatePort(8100);
-      try {
-        const conn = await setupWDA(simulator.udid, wdaPort);
-        const driver = await Effect.runPromise(
-          createWDADriver(conn.host, conn.port, bundleId, simulator.udid),
-        );
-        const engineConfig: EngineConfig = {
-          appId: bundleId,
-          platform: "ios",
-          coordinatorConfig: {
-            parse: parseIOSHierarchy,
-            defaults: {
-              timeout: config.defaults?.waitTimeout,
-              pollInterval: config.defaults?.pollInterval,
-            },
-          },
-          autoLaunch: true,
-          flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
-          artifactConfig: config.artifacts,
-          launchOptions: config.launchOptions,
-          hooks: config.hooks,
-        };
-        platformConfigs.push({ platform, driver, engineConfig });
-      } catch (e) {
-        console.log(`iOS setup failed on ${simulator.name}: ${e instanceof Error ? e.message : e}`);
+      if (platform === "android") {
+        const result = await buildLocalAndroidRuntime(config, targetDevice, resolveFromConfig);
+        if (!result) continue;
+        runtimes.push(result.runtime);
+        platformConfigs.push({
+          platform,
+          driver: result.runtime.driver,
+          engineConfig: result.engineConfig,
+        });
+      }
+      if (platform === "ios") {
+        const result = await buildLocalIOSRuntime(config, targetDevice, resolveFromConfig);
+        if (!result) continue;
+        runtimes.push(result.runtime);
+        platformConfigs.push({
+          platform,
+          driver: result.runtime.driver,
+          engineConfig: result.engineConfig,
+        });
       }
     }
-  }
 
-  // 5. Run
-  const retries = opts.retries ?? config.defaults?.retries ?? 0;
-  const result = await orchestrate(filtered, platformConfigs, { retries });
+    // 5. Run
+    const retries = opts.retries ?? config.defaults?.retries ?? 0;
+    const result = await orchestrate(filtered, platformConfigs, { retries });
 
-  // 6. Report
-  const { createConsoleReporter } = await import("../report/console.js");
-  const { createJsonReporter } = await import("../report/json.js");
-  const { createJUnitReporter } = await import("../report/junit.js");
-  const { createHtmlReporter } = await import("../report/html.js");
-  const { createAllureReporter } = await import("../report/allure.js");
+    // 6. Report
+    const { createConsoleReporter } = await import("../report/console.js");
+    const { createJsonReporter } = await import("../report/json.js");
+    const { createJUnitReporter } = await import("../report/junit.js");
+    const { createHtmlReporter } = await import("../report/html.js");
+    const { createAllureReporter } = await import("../report/allure.js");
 
-  const resolvedOutputDir = config.artifacts?.outputDir ?? resolveFromConfig("./spana-output");
-  const reporters = reporterNames.split(",").map((r) => {
-    switch (r.trim()) {
-      case "json":
-        return createJsonReporter();
-      case "junit":
-        return createJUnitReporter(resolvedOutputDir);
-      case "html":
-        return createHtmlReporter(resolvedOutputDir);
-      case "allure":
-        return createAllureReporter();
-      default:
-        return createConsoleReporter();
-    }
-  });
-
-  for (const r of result.results) {
-    const flowResult = {
-      ...r,
-      error: r.error ? { message: r.error.message, stack: r.error.stack } : undefined,
-    };
-    for (const reporter of reporters) {
-      if (r.status === "passed") {
-        reporter.onFlowPass?.(flowResult);
-      } else if (r.status === "failed") {
-        reporter.onFlowFail?.(flowResult);
+    const resolvedOutputDir = config.artifacts?.outputDir ?? resolveFromConfig("./spana-output");
+    const reporters = reporterNames.split(",").map((r) => {
+      switch (r.trim()) {
+        case "json":
+          return createJsonReporter();
+        case "junit":
+          return createJUnitReporter(resolvedOutputDir);
+        case "html":
+          return createHtmlReporter(resolvedOutputDir);
+        case "allure":
+          return createAllureReporter();
+        default:
+          return createConsoleReporter();
       }
-    }
-  }
+    });
 
-  for (const reporter of reporters) {
-    reporter.onRunComplete({
-      total: result.results.length,
-      passed: result.passed,
-      failed: result.failed,
-      skipped: result.skipped,
-      flaky: result.flaky,
-      durationMs: result.totalDurationMs,
-      results: result.results.map((r) => ({
+    for (const r of result.results) {
+      const flowResult = {
         ...r,
         error: r.error ? { message: r.error.message, stack: r.error.stack } : undefined,
-      })),
-      platforms,
-    });
-  }
+      };
+      for (const reporter of reporters) {
+        if (r.status === "passed") {
+          reporter.onFlowPass?.(flowResult);
+        } else if (r.status === "failed") {
+          reporter.onFlowFail?.(flowResult);
+        }
+      }
+    }
 
-  // 7. Cleanup
-  for (const pc of platformConfigs) {
-    try {
-      await Effect.runPromise(pc.driver.killApp(""));
-    } catch {
-      // ignore cleanup errors
+    for (const reporter of reporters) {
+      reporter.onRunComplete({
+        total: result.results.length,
+        passed: result.passed,
+        failed: result.failed,
+        skipped: result.skipped,
+        flaky: result.flaky,
+        durationMs: result.totalDurationMs,
+        results: result.results.map((r) => ({
+          ...r,
+          error: r.error ? { message: r.error.message, stack: r.error.stack } : undefined,
+        })),
+        platforms,
+      });
+    }
+
+    return result.failed === 0;
+  } finally {
+    // 7. Cleanup — always runs even if orchestration/reporting fails
+    for (const rt of runtimes) {
+      try {
+        await rt.cleanup();
+      } catch {
+        // ignore cleanup errors
+      }
     }
   }
-
-  return result.failed === 0;
 }
