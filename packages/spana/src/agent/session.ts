@@ -236,7 +236,9 @@ export async function connect(opts: ConnectOptions): Promise<Session> {
   }
 
   if (opts.platform === "android") {
-    const device = firstAndroidDevice();
+    const device = opts.device
+      ? { serial: opts.device, state: "device" as const, type: "device" as const }
+      : firstAndroidDevice();
     if (!device) throw new Error("No Android device connected");
     const hostPort = 8200 + Math.floor(Math.random() * 100);
     const conn = await setupUiAutomator2(device.serial, hostPort);
@@ -249,7 +251,15 @@ export async function connect(opts: ConnectOptions): Promise<Session> {
 
   if (opts.platform === "ios") {
     const bundleId = opts.bundleId ?? "";
-    const sim = firstIOSSimulatorWithApp(bundleId);
+    const sim = opts.device
+      ? {
+          udid: opts.device,
+          name: opts.device,
+          state: "Booted" as const,
+          runtime: "",
+          isAvailable: true,
+        }
+      : firstIOSSimulatorWithApp(bundleId);
     if (!sim) throw new Error("No iOS simulator available");
     if (sim.state !== "Booted") bootSimulator(sim.udid);
     const wdaPort = 8100 + Math.floor(Math.random() * 100);

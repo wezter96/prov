@@ -35,6 +35,7 @@ export interface TestCommandOptions {
   configPath?: string;
   flowPath?: string;
   retries?: number;
+  device?: string;
 }
 
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
@@ -61,6 +62,35 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       : config.platforms && config.platforms.length > 0
         ? config.platforms
         : ["web"];
+
+  // Resolve explicit device targeting
+  let targetDevice: import("../device/discover.js").DiscoveredDevice | null = null;
+  if (opts.device) {
+    const { findDeviceById } = await import("../device/discover.js");
+    targetDevice = findDeviceById(opts.device);
+    if (!targetDevice) {
+      const { discoverDevices } = await import("../device/discover.js");
+      const available = discoverDevices(["web", "android", "ios"]);
+      console.log(`Device "${opts.device}" not found. Available devices:`);
+      for (const d of available) {
+        console.log(`  ${d.id.padEnd(30)} ${d.platform.padEnd(8)} ${d.type}`);
+      }
+      return false;
+    }
+    // If --platform wasn't explicitly set, infer from device
+    if (opts.platforms.length === 0 && (!config.platforms || config.platforms.length === 0)) {
+      platforms.length = 0;
+      platforms.push(targetDevice.platform);
+    }
+    // Validate platform match
+    if (!platforms.includes(targetDevice.platform)) {
+      console.log(
+        `Device "${opts.device}" is ${targetDevice.platform}, but --platform ${platforms.join(",")} was specified.`,
+      );
+      return false;
+    }
+  }
+
   const reporterNames = opts.reporter?.trim()
     ? opts.reporter
     : config.reporters && config.reporters.length > 0
@@ -135,7 +165,14 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       platformConfigs.push({ platform, driver, engineConfig });
     }
     if (platform === "android") {
-      const device = ensureAndroidDevice();
+      const device =
+        targetDevice?.platform === "android"
+          ? {
+              serial: targetDevice.id,
+              state: "device" as const,
+              type: targetDevice.type as "emulator" | "device",
+            }
+          : ensureAndroidDevice();
       if (!device) {
         console.log("No Android device/emulator available. Skipping android platform.");
         continue;
@@ -190,6 +227,46 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       const bundleId = config.apps?.ios?.bundleId ?? "";
 
       const iosAppPath = config.apps?.ios?.appPath;
+
+      // If a specific device was targeted, use it directly
+      if (targetDevice?.platform === "ios" && targetDevice.type === "simulator") {
+        if (iosAppPath && bundleId) {
+          ensureAppInstalled({
+            udid: targetDevice.id,
+            bundleId,
+            appPath: resolveFromConfig(iosAppPath),
+            isPhysicalDevice: false,
+          });
+        }
+        const wdaPort = 8100 + Math.floor(Math.random() * 100);
+        try {
+          const conn = await setupWDA(targetDevice.id, wdaPort);
+          const driver = await Effect.runPromise(
+            createWDADriver(conn.host, conn.port, bundleId, targetDevice.id),
+          );
+          const engineConfig: EngineConfig = {
+            appId: bundleId,
+            platform: "ios",
+            coordinatorConfig: {
+              parse: parseIOSHierarchy,
+              defaults: {
+                timeout: config.defaults?.waitTimeout,
+                pollInterval: config.defaults?.pollInterval,
+              },
+            },
+            autoLaunch: true,
+            flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
+            artifactConfig: config.artifacts,
+          };
+          platformConfigs.push({ platform, driver, engineConfig });
+          continue;
+        } catch (e) {
+          console.log(
+            `iOS setup failed for device ${targetDevice.id}: ${e instanceof Error ? e.message : e}`,
+          );
+          continue;
+        }
+      }
 
       // Try physical device first, fall back to simulator
       const physicalDevice = firstIOSPhysicalDevice();
