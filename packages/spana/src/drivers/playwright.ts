@@ -182,8 +182,13 @@ export function makePlaywrightDriver(
 
       launchApp: (url, opts?: LaunchOptions) =>
         Effect.tryPromise({
-          try: () =>
-            page.goto(opts?.deepLink || url || config.baseUrl || "about:blank").then(() => {}),
+          try: async () => {
+            if (opts?.clearState) {
+              await page.context().clearCookies();
+              await page.evaluate(`localStorage.clear(); sessionStorage.clear();`);
+            }
+            await page.goto(opts?.deepLink || url || config.baseUrl || "about:blank");
+          },
           catch: (e) => new DriverError({ message: `Failed to navigate to ${url}: ${e}` }),
         }),
 
