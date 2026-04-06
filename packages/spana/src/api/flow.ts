@@ -3,12 +3,20 @@ import type { ArtifactConfig } from "../schemas/config.js";
 import type { PromiseApp } from "./app.js";
 import type { PromiseExpectation } from "./expect.js";
 
+export interface WhenCondition {
+  /** Only run on these platforms */
+  platform?: Platform | Platform[];
+  /** Only run when this environment variable is set */
+  env?: string;
+}
+
 export interface FlowConfig {
   tags?: string[];
   platforms?: Platform[];
   timeout?: number;
   autoLaunch?: boolean; // default true
   artifacts?: ArtifactConfig;
+  when?: WhenCondition;
 }
 
 export interface FlowContext {
@@ -28,7 +36,11 @@ export interface FlowDefinition {
 // Overloads: flow(name, fn) and flow(name, config, fn)
 export function flow(name: string, fn: FlowFn): FlowDefinition;
 export function flow(name: string, config: FlowConfig, fn: FlowFn): FlowDefinition;
-export function flow(name: string, configOrFn: FlowConfig | FlowFn, maybeFn?: FlowFn): FlowDefinition {
+export function flow(
+  name: string,
+  configOrFn: FlowConfig | FlowFn,
+  maybeFn?: FlowFn,
+): FlowDefinition {
   if (typeof configOrFn === "function") {
     return { name, fn: configOrFn, config: {} };
   }

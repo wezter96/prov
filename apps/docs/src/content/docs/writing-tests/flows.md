@@ -73,15 +73,65 @@ interface FlowConfig {
   platforms?: Platform[];
   timeout?: number;
   autoLaunch?: boolean;
+  when?: WhenCondition;
+}
+
+interface WhenCondition {
+  platform?: Platform | Platform[];
+  env?: string;
 }
 ```
 
-| Option       | Type         | Default        | Description                                         |
-| ------------ | ------------ | -------------- | --------------------------------------------------- |
-| `tags`       | `string[]`   | —              | Tag strings for `--tag` filtering at the CLI        |
-| `platforms`  | `Platform[]` | all configured | Restrict this flow to specific platforms only       |
-| `timeout`    | `number`     | config default | Flow-level timeout in milliseconds                  |
-| `autoLaunch` | `boolean`    | `true`         | Automatically launch the app before the flow starts |
+| Option       | Type            | Default        | Description                                           |
+| ------------ | --------------- | -------------- | ----------------------------------------------------- |
+| `tags`       | `string[]`      | —              | Tag strings for `--tag` filtering at the CLI          |
+| `platforms`  | `Platform[]`    | all configured | Restrict this flow to specific platforms only         |
+| `timeout`    | `number`        | config default | Flow-level timeout in milliseconds                    |
+| `autoLaunch` | `boolean`       | `true`         | Automatically launch the app before the flow starts   |
+| `when`       | `WhenCondition` | —              | Runtime conditions that control whether the flow runs |
+
+### Conditional execution with `when`
+
+The `when` field lets you skip flows based on runtime conditions.
+
+#### Platform condition
+
+`when.platform` works like `platforms` but within the `when` block, keeping conditional logic grouped:
+
+```ts
+export default flow("iOS-specific test", { when: { platform: "ios" } }, async ({ app, expect }) => {
+  // only runs on iOS
+});
+```
+
+You can also pass an array:
+
+```ts
+export default flow(
+  "mobile-only test",
+  { when: { platform: ["ios", "android"] } },
+  async ({ app, expect }) => {
+    // runs on iOS and Android, skipped on web
+  },
+);
+```
+
+#### Environment variable condition
+
+`when.env` skips the flow unless the specified environment variable is set:
+
+```ts
+export default flow(
+  "CI smoke test",
+  {
+    when: { env: "CI" },
+    tags: ["smoke"],
+  },
+  async ({ app, expect }) => {
+    // only runs when CI=1 (or any truthy value)
+  },
+);
+```
 
 ## The `app` API
 

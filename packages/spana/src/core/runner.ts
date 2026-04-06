@@ -144,6 +144,21 @@ export function filterFlows(flows: FlowDefinition[], opts: DiscoverOptions): Flo
       const flowPlatforms = flow.config.platforms;
       if (flowPlatforms && !opts.platforms.some((p) => flowPlatforms.includes(p))) return false;
     }
+    // Evaluate when conditions
+    if (flow.config.when) {
+      const when = flow.config.when;
+
+      if (when.platform) {
+        const allowedPlatforms = Array.isArray(when.platform) ? when.platform : [when.platform];
+        if (opts.platforms && opts.platforms.length > 0) {
+          if (!opts.platforms.some((p) => allowedPlatforms.includes(p))) return false;
+        }
+      }
+
+      if (when.env && !process.env[when.env]) {
+        return false;
+      }
+    }
     return true;
   });
 }

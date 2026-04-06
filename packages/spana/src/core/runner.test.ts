@@ -40,4 +40,49 @@ describe("filterFlows", () => {
       "shared happy path",
     ]);
   });
+
+  test("filters by when.platform condition", () => {
+    const whenFlows = [
+      makeFlow("ios only", { when: { platform: "ios" } }),
+      makeFlow("web only", { when: { platform: "web" } }),
+      makeFlow("no condition"),
+    ];
+    expect(filterFlows(whenFlows, { platforms: ["ios"] }).map((f) => f.name)).toEqual([
+      "ios only",
+      "no condition",
+    ]);
+    expect(filterFlows(whenFlows, { platforms: ["web"] }).map((f) => f.name)).toEqual([
+      "web only",
+      "no condition",
+    ]);
+  });
+
+  test("filters by when.platform array condition", () => {
+    const whenFlows = [
+      makeFlow("mobile", { when: { platform: ["ios", "android"] } }),
+      makeFlow("all platforms"),
+    ];
+    expect(filterFlows(whenFlows, { platforms: ["web"] }).map((f) => f.name)).toEqual([
+      "all platforms",
+    ]);
+    expect(filterFlows(whenFlows, { platforms: ["ios"] }).map((f) => f.name)).toEqual([
+      "mobile",
+      "all platforms",
+    ]);
+  });
+
+  test("filters by when.env condition", () => {
+    const envFlows = [
+      makeFlow("ci only", { when: { env: "SPANA_TEST_CI_FLAG" } }),
+      makeFlow("always"),
+    ];
+    // env var not set — ci only should be excluded
+    delete process.env.SPANA_TEST_CI_FLAG;
+    expect(filterFlows(envFlows, {}).map((f) => f.name)).toEqual(["always"]);
+
+    // env var set — both should be included
+    process.env.SPANA_TEST_CI_FLAG = "1";
+    expect(filterFlows(envFlows, {}).map((f) => f.name)).toEqual(["ci only", "always"]);
+    delete process.env.SPANA_TEST_CI_FLAG;
+  });
 });
