@@ -40,6 +40,7 @@ export interface TestCommandOptions {
   shard?: ShardOptions;
   bail?: number;
   debugOnFailure?: boolean;
+  quiet?: boolean;
 }
 
 export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
@@ -323,11 +324,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       }
     }
 
-    // 5. Run
-    const retries = opts.retries ?? config.defaults?.retries ?? 0;
-    const result = await orchestrate(selectedFlows, platformConfigs, { retries, bail: opts.bail });
-
-    // 6. Report
+    // 5. Set up reporters (before run for real-time streaming)
     const { createConsoleReporter } = await import("../report/console.js");
     const { createJsonReporter } = await import("../report/json.js");
     const { createJUnitReporter } = await import("../report/junit.js");
@@ -346,24 +343,40 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         case "allure":
           return createAllureReporter();
         default:
-          return createConsoleReporter();
+          return createConsoleReporter({ quiet: opts.quiet });
       }
     });
 
-    for (const r of result.results) {
-      const flowResult = {
-        ...r,
-        error: r.error,
-      };
-      for (const reporter of reporters) {
-        if (r.status === "passed") {
-          reporter.onFlowPass?.(flowResult);
-        } else if (r.status === "failed") {
-          reporter.onFlowFail?.(flowResult);
-        }
+    // Set flow count for progress display
+    const totalFlowCount = selectedFlows.length * platforms.length;
+    for (const reporter of reporters) {
+      if (reporter.flowCount !== undefined || "flowCount" in reporter) {
+        reporter.flowCount = totalFlowCount;
       }
     }
 
+    // 6. Run with real-time reporter callbacks
+    const retries = opts.retries ?? config.defaults?.retries ?? 0;
+    const result = await orchestrate(selectedFlows, platformConfigs, {
+      retries,
+      bail: opts.bail,
+      onFlowStart(name, platform) {
+        for (const reporter of reporters) {
+          reporter.onFlowStart?.(name, platform);
+        }
+      },
+      onResult(r) {
+        for (const reporter of reporters) {
+          if (r.status === "passed") {
+            reporter.onFlowPass?.(r);
+          } else if (r.status === "failed") {
+            reporter.onFlowFail?.(r);
+          }
+        }
+      },
+    });
+
+    // 7. Final summary
     for (const reporter of reporters) {
       reporter.onRunComplete({
         total: result.results.length,
@@ -372,10 +385,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         skipped: result.skipped,
         flaky: result.flaky,
         durationMs: result.totalDurationMs,
-        results: result.results.map((r) => ({
-          ...r,
-          error: r.error,
-        })),
+        results: result.results,
         platforms,
         bailedOut: result.bailedOut,
         bailLimit: result.bailLimit,

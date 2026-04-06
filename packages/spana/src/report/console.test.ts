@@ -47,11 +47,15 @@ describe("console reporter", () => {
       ],
     });
 
-    expect(logs).toEqual([
-      "  ✓ [web] Home flow (120ms)",
-      "    ↳ failed-screenshot: /tmp/screenshot.png",
-      "    ↳ step 1 tap: /tmp/step.png",
-    ]);
+    expect(
+      logs.some(
+        (line) => line.includes("✓") && line.includes("Home flow") && line.includes("(120ms)"),
+      ),
+    ).toBe(true);
+    expect(logs.some((line) => line.includes("↳ failed-screenshot: /tmp/screenshot.png"))).toBe(
+      true,
+    );
+    expect(logs.some((line) => line.includes("↳ step 1 tap: /tmp/step.png"))).toBe(true);
   });
 
   test("groups summaries by platform and prints failures", () => {
@@ -92,9 +96,33 @@ describe("console reporter", () => {
     expect(logs.some((line) => line.includes("android (UiAutomator2)"))).toBe(true);
     expect(logs.some((line) => line.includes("ios (WebDriverAgent)"))).toBe(true);
     expect(logs.some((line) => line.includes("--- Failures ---"))).toBe(true);
-    expect(logs.some((line) => line.includes("✗ [android] Android fail"))).toBe(true);
+    expect(logs.some((line) => line.includes("Android fail"))).toBe(true);
     expect(logs.some((line) => line.includes("android boom"))).toBe(true);
-    expect(logs.some((line) => line.includes("✗ [ios] iOS fail"))).toBe(true);
+    expect(logs.some((line) => line.includes("iOS fail"))).toBe(true);
     expect(logs.some((line) => line.includes("1/3 passed, 2 failed (3.5s)"))).toBe(true);
+  });
+
+  test("quiet mode suppresses pass output but shows failures", () => {
+    const reporter = createConsoleReporter({ quiet: true });
+
+    reporter.onFlowPass?.({
+      name: "Passing flow",
+      platform: "web",
+      status: "passed",
+      durationMs: 100,
+    });
+
+    reporter.onFlowFail?.({
+      name: "Failing flow",
+      platform: "android",
+      status: "failed",
+      durationMs: 200,
+      error: { message: "boom", category: "unknown" },
+    });
+
+    // Pass output suppressed
+    expect(logs.some((line) => line.includes("Passing flow"))).toBe(false);
+    // Fail output shown
+    expect(logs.some((line) => line.includes("Failing flow"))).toBe(true);
   });
 });

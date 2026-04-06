@@ -75,4 +75,6 @@ export interface Reporter {
   onFlowPass?(result: FlowResult): void;
   onFlowFail?(result: FlowResult): void;
   onRunComplete(summary: RunSummary): void;
+  /** Total number of flows to run (for progress display). */
+  flowCount?: number;
 }

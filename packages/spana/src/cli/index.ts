@@ -21,6 +21,7 @@ if (command === "test") {
   let shard: { current: number; total: number } | undefined;
   let bail: number | undefined;
   let debugOnFailure = false;
+  let quiet = false;
 
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!;
@@ -75,6 +76,8 @@ if (command === "test") {
       }
     } else if (arg === "--debug-on-failure") {
       debugOnFailure = true;
+    } else if (arg === "--quiet" || arg === "-q") {
+      quiet = true;
     } else if (!arg.startsWith("--")) {
       flowPath = arg;
     }
@@ -99,6 +102,7 @@ if (command === "test") {
     shard,
     bail,
     debugOnFailure,
+    quiet,
   });
   process.exit(success ? 0 : 1);
 } else if (command === "hierarchy" || command === "selectors") {
@@ -224,6 +228,7 @@ if (command === "test") {
   console.log("  --shard <current>/<total> Distribute flows across CI jobs");
   console.log("  --bail <n>                 Abort after N failures");
   console.log("  --debug-on-failure         Open an interactive REPL on the first failed flow");
+  console.log("  --quiet, -q                Only show failures and final summary");
   console.log("  --device <id>              Target a specific device by ID");
   console.log("  --validate-config          Validate config and exit");
   console.log("  --config path              Config file path");

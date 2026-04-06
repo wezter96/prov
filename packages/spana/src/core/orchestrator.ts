@@ -13,6 +13,10 @@ export interface PlatformConfig {
 export interface OrchestrateOptions {
   retries?: number;
   bail?: number;
+  /** Called before each flow starts executing. */
+  onFlowStart?: (name: string, platform: Platform) => void;
+  /** Called after each flow finishes (pass, fail, or skip). */
+  onResult?: (result: TestResult) => void;
 }
 
 export interface OrchestratorResult {
@@ -107,6 +111,7 @@ export async function orchestrate(
         break;
       }
 
+      options?.onFlowStart?.(flow.name, platform);
       let result = await executeFlow(flow, driver, engineConfig);
       let attempts = 1;
 
@@ -130,6 +135,7 @@ export async function orchestrate(
       }
 
       results.push(result);
+      options?.onResult?.(result);
       if (result.status === "failed") {
         noteFailure();
       }

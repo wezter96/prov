@@ -1,6 +1,11 @@
 import type { Platform } from "../schemas/selector.js";
 import type { FlowResult, Reporter, ScenarioStepResult } from "./types.js";
 
+export interface ConsoleReporterOptions {
+  /** Only show failures and the final summary. */
+  quiet?: boolean;
+}
+
 function printResultAttachments(result: FlowResult): void {
   for (const attachment of result.attachments ?? []) {
     console.log(`    ↳ ${attachment.name}: ${attachment.path}`);
@@ -24,25 +29,64 @@ function printScenarioSteps(steps: ScenarioStepResult[]): void {
   }
 }
 
-export function createConsoleReporter(): Reporter {
+const driverNames: Record<Platform, string> = {
+  web: "Playwright",
+  android: "UiAutomator2",
+  ios: "WebDriverAgent",
+};
+
+export function createConsoleReporter(options?: ConsoleReporterOptions): Reporter {
+  const quiet = options?.quiet ?? false;
+  let completed = 0;
+  let total = 0;
+  let currentPlatform: Platform | undefined;
+
+  function progressPrefix(): string {
+    return total > 0 ? `[${completed}/${total}]` : "";
+  }
+
   return {
-    onFlowStart(_name, _platform) {
-      // Minimal — just track that it started
+    onFlowStart(name, platform) {
+      if (quiet) return;
+
+      // Print platform header when switching to a new platform
+      if (platform !== currentPlatform) {
+        currentPlatform = platform;
+        console.log(`\n  ${platform} (${driverNames[platform]})`);
+      }
+
+      if (process.stderr.isTTY) {
+        process.stderr.write(`  ▸ ${progressPrefix()} ${name}...\r`);
+      }
     },
 
     onFlowPass(result) {
-      const platformTag = `[${result.platform}]`;
+      completed++;
+      if (quiet) return;
+
+      // Clear progress line
+      if (process.stderr.isTTY) {
+        process.stderr.write("\x1b[2K");
+      }
+
       const duration = `(${result.durationMs}ms)`;
       const flakyTag = result.flaky ? ` [flaky, passed on attempt ${result.attempts}]` : "";
-      console.log(`  ✓ ${platformTag} ${result.name} ${duration}${flakyTag}`);
+      console.log(`  ✓ ${progressPrefix()} ${result.name} ${duration}${flakyTag}`);
       if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
     },
 
     onFlowFail(result) {
-      const platformTag = `[${result.platform}]`;
+      completed++;
+
+      // Clear progress line
+      if (process.stderr.isTTY) {
+        process.stderr.write("\x1b[2K");
+      }
+
+      // Always show failures, even in quiet mode
       const duration = `(${result.durationMs}ms)`;
-      console.log(`  ✗ ${platformTag} ${result.name} ${duration}`);
+      console.log(`  ✗ ${progressPrefix()} [${result.platform}] ${result.name} ${duration}`);
       if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
     },
@@ -58,27 +102,20 @@ export function createConsoleReporter(): Reporter {
         byPlatform.set(r.platform, list);
       }
 
-      // Platform summary lines
-      const driverNames: Record<Platform, string> = {
-        web: "Playwright",
-        android: "UiAutomator2",
-        ios: "WebDriverAgent",
-      };
-
       for (const [platform, results] of byPlatform) {
         const passed = results.filter((r) => r.status === "passed").length;
-        const total = results.length;
+        const totalCount = results.length;
         const symbols = results
           .map((r) => (r.flaky ? "~" : r.status === "passed" ? "✓" : "✗"))
           .join("");
         const label = `${platform} (${driverNames[platform]})`;
         const duration = Math.max(...results.map((r) => r.durationMs));
         console.log(
-          `${label.padEnd(25)} ${symbols}  ${passed}/${total} passed (${(duration / 1000).toFixed(1)}s)`,
+          `${label.padEnd(25)} ${symbols}  ${passed}/${totalCount} passed (${(duration / 1000).toFixed(1)}s)`,
         );
       }
 
-      // Failures detail
+      // Failures detail with suggestions
       const failures = summary.results.filter((r) => r.status === "failed");
       if (failures.length > 0) {
         console.log("\n--- Failures ---");
@@ -117,6 +154,11 @@ export function createConsoleReporter(): Reporter {
       console.log(
         `\n${summary.passed}/${summary.total} passed, ${summary.failed} failed${flakyStr} (${(summary.durationMs / 1000).toFixed(1)}s)`,
       );
+    },
+
+    // Allow callers to set total for progress tracking
+    set flowCount(n: number) {
+      total = n;
     },
   };
 }
