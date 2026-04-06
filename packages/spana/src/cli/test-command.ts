@@ -161,6 +161,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         autoLaunch: true,
         flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
         artifactConfig: config.artifacts,
+        launchOptions: config.launchOptions,
       };
       platformConfigs.push({ platform, driver, engineConfig });
     }
@@ -214,6 +215,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
           autoLaunch: true,
           flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
           artifactConfig: config.artifacts,
+          launchOptions: config.launchOptions,
         };
         platformConfigs.push({ platform, driver, engineConfig });
       } catch (e) {
@@ -257,6 +259,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
             autoLaunch: true,
             flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
             artifactConfig: config.artifacts,
+            launchOptions: config.launchOptions,
           };
           platformConfigs.push({ platform, driver, engineConfig });
           continue;
@@ -313,6 +316,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
             autoLaunch: true,
             flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
             artifactConfig: config.artifacts,
+            launchOptions: config.launchOptions,
           };
           platformConfigs.push({ platform, driver, engineConfig });
           continue;
@@ -356,6 +360,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
           autoLaunch: true,
           flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
           artifactConfig: config.artifacts,
+          launchOptions: config.launchOptions,
         };
         platformConfigs.push({ platform, driver, engineConfig });
       } catch (e) {

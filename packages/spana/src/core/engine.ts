@@ -1,4 +1,4 @@
-import type { RawDriverService } from "../drivers/raw-driver.js";
+import type { RawDriverService, LaunchOptions } from "../drivers/raw-driver.js";
 import type { FlowDefinition } from "../api/flow.js";
 import type { Platform } from "../schemas/selector.js";
 import { createPromiseApp } from "../api/app.js";
@@ -29,6 +29,7 @@ export interface EngineConfig {
   autoLaunch?: boolean;
   flowTimeout?: number;
   artifactConfig?: ArtifactConfig;
+  launchOptions?: LaunchOptions;
 }
 
 export async function executeFlow(
@@ -49,7 +50,7 @@ export async function executeFlow(
 
   try {
     if (autoLaunch) {
-      await app.launch();
+      await app.launch(config.launchOptions);
     }
 
     await Promise.race([
