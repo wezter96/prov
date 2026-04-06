@@ -145,7 +145,9 @@ export const testsRouter = {
         grep: z.string().optional(),
         captureScreenshots: z.boolean().optional(),
         captureSteps: z.boolean().optional(),
-        device: z.string().optional(),
+        devices: z
+          .array(z.object({ platform: platformEnum, deviceId: z.string().optional() }))
+          .optional(),
       }),
     )
     .handler(async ({ input, context }) => {
@@ -176,8 +178,12 @@ export const testsRouter = {
           if (input.tags && input.tags.length > 0) {
             args.push("--tag", input.tags.join(","));
           }
-          if (input.device) {
-            args.push("--device", input.device);
+          if (input.devices && input.devices.length > 0) {
+            for (const d of input.devices) {
+              if (d.deviceId) {
+                args.push("--device", d.deviceId);
+              }
+            }
           }
 
           // Create temp config with capture overrides if requested

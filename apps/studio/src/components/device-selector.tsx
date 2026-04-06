@@ -19,15 +19,16 @@ const platformIcons: Record<Platform, React.ReactNode> = {
 export function DeviceSelector({ platform, deviceId, onSelect }: DeviceSelectorProps) {
   const { data: devices, isLoading } = useQuery(orpc.devices.list.queryOptions({ input: {} }));
 
+  const filteredDevices = (devices ?? []).filter((d) => d.platform === platform);
+
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    if (!value) return;
-    const [p, ...rest] = value.split(":");
-    const id = rest.join(":") || undefined;
-    onSelect(p as Platform, id);
+    if (value === "") {
+      onSelect(platform, undefined);
+      return;
+    }
+    onSelect(platform, value);
   };
-
-  const currentValue = deviceId ? `${platform}:${deviceId}` : platform;
 
   return (
     <div className="flex items-center gap-2">
@@ -36,20 +37,22 @@ export function DeviceSelector({ platform, deviceId, onSelect }: DeviceSelectorP
         Device:
       </span>
       <select
-        value={currentValue}
+        value={deviceId ?? ""}
         onChange={handleChange}
         disabled={isLoading}
         className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
         {isLoading && <option>Loading...</option>}
-        {!isLoading && (!devices || devices.length === 0) && (
-          <option value={platform}>{platform} (default)</option>
+        {!isLoading && (
+          <>
+            <option value="">default</option>
+            {filteredDevices.map((device) => (
+              <option key={device.id} value={device.id}>
+                {device.name}
+              </option>
+            ))}
+          </>
         )}
-        {devices?.map((device: { platform: string; id: string; name: string }) => (
-          <option key={`${device.platform}:${device.id}`} value={`${device.platform}:${device.id}`}>
-            {device.name} ({device.platform})
-          </option>
-        ))}
       </select>
     </div>
   );

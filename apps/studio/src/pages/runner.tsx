@@ -41,7 +41,14 @@ export function RunnerPage() {
   const [cachedResults, setCachedResults] = useState<FlowResult[]>(session.current.results);
   const [captureScreenshots, setCaptureScreenshots] = useState(false);
   const [captureSteps, setCaptureSteps] = useState(false);
-  const [deviceId, setDeviceId] = useState<string | undefined>();
+  const [deviceIds, setDeviceIds] = useState<Record<Platform, string | undefined>>(() => {
+    const initial: Record<Platform, string | undefined> = {
+      web: undefined,
+      android: undefined,
+      ios: undefined,
+    };
+    return initial;
+  });
 
   // Discover flows
   const { data: flowsData } = useQuery(
@@ -83,15 +90,9 @@ export function RunnerPage() {
     }
   }, [flows.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDeviceSelect = useCallback(
-    (platform: Platform, id: string | undefined) => {
-      platforms.clear();
-      platforms.add(platform);
-      setPlatforms(new Set(platforms));
-      setDeviceId(id);
-    },
-    [platforms],
-  );
+  const handleDeviceSelect = useCallback((platform: Platform, id: string | undefined) => {
+    setDeviceIds((prev) => ({ ...prev, [platform]: id }));
+  }, []);
 
   const togglePlatform = useCallback((p: Platform) => {
     setPlatforms((prev) => {
@@ -129,12 +130,15 @@ export function RunnerPage() {
     setCachedResults([]);
     try {
       const allSelected = selectedFlows.size === flows.length;
+      const devices = [...platforms]
+        .map((p) => ({ platform: p, deviceId: deviceIds[p] }))
+        .filter((d) => d.deviceId);
       const result = await client.tests.run({
         platforms: [...platforms],
         grep: allSelected ? undefined : [...selectedFlows][0],
         captureScreenshots: captureScreenshots || undefined,
         captureSteps: captureSteps || undefined,
-        device: deviceId,
+        devices: devices.length > 0 ? devices : undefined,
       });
       setRunId(result.runId);
       saveSession({ runId: result.runId, results: [], platforms: [...platforms] });
@@ -202,12 +206,15 @@ export function RunnerPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 border-l border-zinc-800 pl-4 ml-2">
-          <DeviceSelector
-            platform={[...platforms][0] ?? "web"}
-            deviceId={deviceId}
-            onSelect={handleDeviceSelect}
-          />
+        <div className="flex items-center gap-3 border-l border-zinc-800 pl-4 ml-2">
+          {[...platforms].map((p) => (
+            <DeviceSelector
+              key={p}
+              platform={p}
+              deviceId={deviceIds[p]}
+              onSelect={handleDeviceSelect}
+            />
+          ))}
         </div>
 
         <div className="flex items-center gap-3 border-l border-zinc-800 pl-4 ml-2">
