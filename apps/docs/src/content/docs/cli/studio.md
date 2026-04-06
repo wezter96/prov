@@ -15,7 +15,7 @@ spana studio [options]
 
 | Flag              | Description                                        |
 | ----------------- | -------------------------------------------------- |
-| `--port <number>` | Port to serve on (default: `3000`)                 |
+| `--port <number>` | Port to serve on (default: `4400`)                 |
 | `--no-open`       | Don't auto-open the browser                        |
 | `--config <path>` | Path to config file (default: `./spana.config.ts`) |
 
@@ -32,6 +32,8 @@ spana studio --config ./config/spana.staging.ts
 
 ## Element Inspector
 
+![Studio Inspector](../../../assets/studio-inspector.png)
+
 Connect to a running device or simulator, then interact with a live screenshot of the current screen.
 
 - **Tap to inspect** — click any element in the screenshot to see its properties (testID, text, accessibility label, bounds).
@@ -41,6 +43,8 @@ Connect to a running device or simulator, then interact with a live screenshot o
 This gives you the same information as `spana selectors` and `spana hierarchy`, but in a visual, point-and-click workflow.
 
 ## Test Runner Dashboard
+
+![Studio Test Runner](../../../assets/studio-runner.png)
 
 Discover and run flow files without leaving the browser.
 
@@ -75,4 +79,4 @@ cd apps/studio
 bun run dev
 ```
 
-The dev server proxies API requests to the CLI backend automatically.
+The dev frontend connects directly to the CLI backend at `http://localhost:4400`.

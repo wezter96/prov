@@ -109,6 +109,8 @@ Results are grouped by platform into `<testsuite>` elements. Scenario steps, dri
 
 ## HTML
 
+![HTML Report](../../../assets/html-report.png)
+
 Self-contained HTML report with a dark theme, responsive layout, and embedded screenshots (base64-inlined so no external files are needed).
 
 **Enable:** `--reporter html`
