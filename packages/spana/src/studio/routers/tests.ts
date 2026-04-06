@@ -179,6 +179,11 @@ export const testsRouter = {
             stdio: ["ignore", "pipe", "pipe"],
           });
 
+          child.stderr.on("data", (chunk: Buffer) => {
+            const msg = chunk.toString().trim();
+            if (msg) console.log("[studio:test]", msg);
+          });
+
           let stdout = "";
           child.stdout.on("data", (chunk: Buffer) => {
             stdout += chunk.toString();
@@ -217,7 +222,10 @@ export const testsRouter = {
             }
           });
 
-          child.on("close", () => {
+          child.on("close", (code) => {
+            if (code !== 0) {
+              console.error("[studio:test] Process exited with code", code);
+            }
             run.status = "completed";
             if (!run.summary) {
               run.summary = {
@@ -232,8 +240,8 @@ export const testsRouter = {
               };
             }
           });
-        } catch (err) {
-          console.error("[studio] Failed to start test run:", err);
+        } catch (err: any) {
+          console.error("[studio] Failed to start test run:", err?.message ?? err, err?.stack);
           run.status = "completed";
           run.summary = {
             total: 0,

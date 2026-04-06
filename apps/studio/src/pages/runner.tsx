@@ -82,17 +82,17 @@ export function RunnerPage() {
     setIsStarting(true);
     setSelectedResult(undefined);
     try {
-      // Build grep pattern from selected flow names
-      const grep = [...selectedFlows].join("|");
+      // Only send grep when a subset of flows is selected
+      const allSelected = selectedFlows.size === flows.length;
       const result = await client.tests.run({
         platforms: [...platforms],
-        grep,
+        grep: allSelected ? undefined : [...selectedFlows][0],
       });
       setRunId(result.runId);
     } finally {
       setIsStarting(false);
     }
-  }, [platforms, selectedFlows]);
+  }, [platforms, selectedFlows, flows.length]);
 
   const handleRerunFailed = useCallback(async () => {
     const failedNames = results.filter((r) => r.status === "failed").map((r) => r.name);
