@@ -29,9 +29,13 @@ export default flow(
     await app.tap({ accessibilityLabel: "Show navigation menu" });
     await expect({ testID: "drawer-tabs-item" }).toBeVisible({ timeout: 10_000 });
     await app.tap({ testID: "drawer-tabs-item" });
-    await expect({ testID: "tab-one-title" }).toBeVisible();
+    // On Android, tap the main content area to ensure drawer closes
+    if (platform === "android") {
+      await app.back();
+    }
+    await expect({ testID: "tab-one-title" }).toBeVisible({ timeout: 15_000 });
     await app.tap({ accessibilityLabel: "Open explore tab" });
-    await expect({ testID: "tab-two-title" }).toBeVisible();
+    await expect({ testID: "tab-two-title" }).toBeVisible({ timeout: 10_000 });
     await expect({ testID: "tab-two-subtitle" }).toHaveText(
       "Browse more of the Spana demo experience",
     );

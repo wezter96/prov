@@ -10,7 +10,11 @@ export function Container({ children }: { children: React.ReactNode }) {
   const backgroundColor =
     colorScheme === "dark" ? NAV_THEME.dark.background : NAV_THEME.light.background;
 
-  return <SafeAreaView style={[styles.container, { backgroundColor }]}>{children}</SafeAreaView>;
+  return (
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor }])}>
+      {children}
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
