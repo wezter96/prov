@@ -41,8 +41,12 @@ function App() {
           </nav>
         </header>
         <main className="flex-1 p-6">
-          {page === "inspector" && <InspectorPage />}
-          {page === "runner" && <RunnerPage />}
+          <div className={page === "inspector" ? "" : "hidden"}>
+            <InspectorPage />
+          </div>
+          <div className={page === "runner" ? "" : "hidden"}>
+            <RunnerPage />
+          </div>
         </main>
       </div>
       <Toaster theme="dark" />

@@ -143,6 +143,8 @@ export const testsRouter = {
         flowDir: z.string().optional(),
         tags: z.array(z.string()).optional(),
         grep: z.string().optional(),
+        captureScreenshots: z.boolean().optional(),
+        captureSteps: z.boolean().optional(),
       }),
     )
     .handler(async ({ input, context }) => {
@@ -172,6 +174,28 @@ export const testsRouter = {
           }
           if (input.tags && input.tags.length > 0) {
             args.push("--tag", input.tags.join(","));
+          }
+
+          // Create temp config with capture overrides if requested
+          let tmpConfig: string | undefined;
+          if (input.captureScreenshots || input.captureSteps) {
+            const { writeFileSync } = await import("node:fs");
+            const { tmpdir } = await import("node:os");
+            tmpConfig = resolve(tmpdir(), `spana-studio-${runId}.config.js`);
+            const originalConfig = context.config;
+            const configObj = {
+              ...originalConfig,
+              artifacts: {
+                ...originalConfig.artifacts,
+                captureOnSuccess: input.captureScreenshots ?? false,
+                captureOnFailure: true,
+                captureSteps: input.captureSteps ?? false,
+                screenshot: true,
+                uiHierarchy: true,
+              },
+            };
+            writeFileSync(tmpConfig, `export default ${JSON.stringify(configObj)};`);
+            args.push("--config", tmpConfig);
           }
 
           const child = spawn("bun", args, {
@@ -225,6 +249,13 @@ export const testsRouter = {
           child.on("close", (code) => {
             if (code !== 0) {
               console.error("[studio:test] Process exited with code", code);
+            }
+            // Clean up temp config
+            if (tmpConfig) {
+              try {
+                const { unlinkSync } = require("node:fs") as typeof import("node:fs");
+                unlinkSync(tmpConfig);
+              } catch {}
             }
             run.status = "completed";
             if (!run.summary) {

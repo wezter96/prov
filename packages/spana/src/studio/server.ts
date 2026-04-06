@@ -35,6 +35,32 @@ export async function startStudio(options: StudioOptions) {
 
   app.use("/*", cors({ origin: `http://localhost:${port}` }));
 
+  // Serve artifact files (screenshots, hierarchies) from spana-output
+  app.get("/artifacts/*", async (c) => {
+    const artifactPath = c.req.path.replace("/artifacts/", "");
+    const outputDir = config.artifacts?.outputDir ?? "./spana-output";
+    const { resolve: resolvePath } = await import("node:path");
+    const filePath = resolvePath(outputDir, artifactPath);
+
+    // Security: ensure path stays within outputDir
+    if (!filePath.startsWith(resolvePath(outputDir))) {
+      return c.text("Forbidden", 403);
+    }
+
+    if (existsSync(filePath)) {
+      const content = await readFile(filePath);
+      const ext = filePath.substring(filePath.lastIndexOf("."));
+      const mime =
+        ext === ".png"
+          ? "image/png"
+          : ext === ".json"
+            ? "application/json"
+            : "application/octet-stream";
+      return c.body(content, 200, { "Content-Type": mime });
+    }
+    return c.notFound();
+  });
+
   app.use("/rpc/*", async (c) => {
     const context: StudioContext = { runtime, config };
     const result = await rpcHandler.handle(c.req.raw, {

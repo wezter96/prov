@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { orpc, client } from "@/lib/client";
 import { FlowList } from "@/components/flow-list";
@@ -10,12 +10,36 @@ type Platform = "web" | "android" | "ios";
 
 const ALL_PLATFORMS: Platform[] = ["web", "android", "ios"];
 
+const SESSION_KEY = "spana-studio-runner";
+
+function loadSession(): { runId: string | null; results: FlowResult[]; platforms: Platform[] } {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return { runId: null, results: [], platforms: ["web"] };
+    return JSON.parse(raw);
+  } catch {
+    return { runId: null, results: [], platforms: ["web"] };
+  }
+}
+
+function saveSession(data: { runId: string | null; results: FlowResult[]; platforms: Platform[] }) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
 export function RunnerPage() {
-  const [platforms, setPlatforms] = useState<Set<Platform>>(new Set(["web"]));
+  const session = useRef(loadSession());
+  const [platforms, setPlatforms] = useState<Set<Platform>>(new Set(session.current.platforms));
   const [selectedFlows, setSelectedFlows] = useState<Set<string>>(new Set());
-  const [runId, setRunId] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(session.current.runId);
   const [isStarting, setIsStarting] = useState(false);
   const [selectedResult, setSelectedResult] = useState<FlowResult | undefined>(undefined);
+  const [cachedResults, setCachedResults] = useState<FlowResult[]>(session.current.results);
+  const [captureScreenshots, setCaptureScreenshots] = useState(false);
+  const [captureSteps, setCaptureSteps] = useState(false);
 
   // Discover flows
   const { data: flowsData } = useQuery(
@@ -36,10 +60,19 @@ export function RunnerPage() {
   );
 
   const isRunning = !!runId && statusData?.status === "running";
-  const results: FlowResult[] = (statusData?.results as FlowResult[]) ?? [];
-
-  // Stop polling once completed
+  const liveResults: FlowResult[] = (statusData?.results as FlowResult[]) ?? [];
   const runCompleted = statusData?.status === "completed";
+
+  // Use live results when available, fall back to cached
+  const results = liveResults.length > 0 ? liveResults : cachedResults;
+
+  // Persist results to sessionStorage when run completes
+  useEffect(() => {
+    if (runCompleted && liveResults.length > 0) {
+      setCachedResults(liveResults);
+      saveSession({ runId, results: liveResults, platforms: [...platforms] });
+    }
+  }, [runCompleted, liveResults.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-select all flows on first load
   useEffect(() => {
@@ -81,14 +114,17 @@ export function RunnerPage() {
     if (platforms.size === 0 || selectedFlows.size === 0) return;
     setIsStarting(true);
     setSelectedResult(undefined);
+    setCachedResults([]);
     try {
-      // Only send grep when a subset of flows is selected
       const allSelected = selectedFlows.size === flows.length;
       const result = await client.tests.run({
         platforms: [...platforms],
         grep: allSelected ? undefined : [...selectedFlows][0],
+        captureScreenshots: captureScreenshots || undefined,
+        captureSteps: captureSteps || undefined,
       });
       setRunId(result.runId);
+      saveSession({ runId: result.runId, results: [], platforms: [...platforms] });
     } finally {
       setIsStarting(false);
     }
@@ -132,6 +168,27 @@ export function RunnerPage() {
               {p}
             </button>
           ))}
+        </div>
+
+        <div className="flex items-center gap-3 border-l border-zinc-800 pl-4 ml-2">
+          <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={captureScreenshots}
+              onChange={(e) => setCaptureScreenshots(e.target.checked)}
+              className="rounded border-zinc-600"
+            />
+            Screenshots
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={captureSteps}
+              onChange={(e) => setCaptureSteps(e.target.checked)}
+              className="rounded border-zinc-600"
+            />
+            Step captures
+          </label>
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
