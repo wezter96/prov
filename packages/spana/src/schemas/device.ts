@@ -7,6 +7,6 @@ export const DeviceInfo = Schema.Struct({
   isEmulator: Schema.Boolean,
   screenWidth: Schema.Number,
   screenHeight: Schema.Number,
-  driverType: Schema.Literal("playwright", "uiautomator2", "wda"),
+  driverType: Schema.Literal("playwright", "uiautomator2", "wda", "appium"),
 });
 export type DeviceInfo = typeof DeviceInfo.Type;
