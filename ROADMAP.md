@@ -21,10 +21,23 @@
 
 ---
 
-## Phase 3 — Completeness (v0.5.0)
+## Phase 3 — Completeness & Reliability (v0.5.0)
+
+### Already done
 
 - ✅ Parallel device execution
 - ✅ Retry & flake detection (`--retries N`)
+
+### Structural reliability (from maestro-runner comparison)
+
+- Runtime ownership + cleanup — drivers return `{ driver, cleanup }`, CLI/Studio/agent dispose on exit and signals
+- Port/resource isolation — deterministic port allocation, per-session cleanup (no `forward --remove-all`)
+- Unified device discovery + `--device <id>` targeting — consistent across CLI, Studio, and agent
+- Wire LaunchOptions end-to-end — `clearState`, `launchArguments`, `clearKeychain` (documented but not implemented)
+- Invoke config hooks — `beforeAll`/`beforeEach`/`afterEach`/`afterAll` (in schema, not called)
+
+### Features
+
 - iOS physical device support (WDA re-signing + iproxy)
 - `./agent` subpath export for programmatic API
 - Relative selectors (`below`, `above`, `leftOf`, `rightOf`, `childOf`)
@@ -35,11 +48,22 @@
 
 ## Phase 4 — Ecosystem (v1.0.0)
 
+### Platform & integration
+
 - GitHub Action integration
 - VS Code extension
 - CI examples (GitHub Actions, GitLab CI, CircleCI)
-- Allure reporter support
 - Cloud provider support — Appium integration (BrowserStack, Sauce Labs, etc.)
+
+### Web testing
+
 - WebView CDP support (JS execution inside mobile WebViews)
+- Browser runtime config (headed mode, browser selection, proper disposal)
 - Network mocking/control (`mockNetwork`, `blockNetwork`, `setNetworkConditions`)
 - Cookie/auth state management (`saveCookies`, `loadAuthState`)
+
+### Reporting & diagnostics
+
+- Allure reporter support
+- Typed failure model — categorized errors with suggestions
+- Driver stability knobs (`waitForIdleTimeout`, `typingFrequency` per-flow)
