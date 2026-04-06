@@ -9,15 +9,15 @@
 
 ---
 
-## Phase 2 — Developer Experience (v0.2.0)
+## Phase 2 — Developer Experience (v0.2.0) ✅
 
 - ✅ Auto-generate HTML reports
 - ✅ Better config discovery
 - ✅ Spana Studio — Element Inspector
 - ✅ Spana Studio — Test Runner Dashboard
 - ✅ `spana init` scaffolding command
-- Pre-flight flow validation (circular dependency detection, missing file checks)
-- Conditional flow execution (`when: platform`, `when: visible`)
+- ✅ Pre-flight flow validation (duplicate names, platform checks, empty directory)
+- ✅ Conditional flow execution (`when: { platform, env }`)
 
 ---
 
