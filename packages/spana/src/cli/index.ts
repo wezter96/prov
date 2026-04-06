@@ -75,11 +75,11 @@ if (command === "test") {
   await session.disconnect();
 } else if (command === "validate") {
   const path = args[1] ?? "./flows";
-  const { discoverFlows } = await import("../core/runner.js");
-  const { validateFlows } = await import("../core/validator.js");
-  const paths = await discoverFlows(path);
-  const errors = await validateFlows(paths);
+  const { validateProject } = await import("../core/validator.js");
+  const errors = await validateProject(path);
   if (errors.length === 0) {
+    const { discoverFlows } = await import("../core/runner.js");
+    const paths = await discoverFlows(path);
     console.log(`✓ ${paths.length} flow(s) valid`);
   } else {
     for (const e of errors) console.log(`✗ ${e.file}: ${e.error}`);
