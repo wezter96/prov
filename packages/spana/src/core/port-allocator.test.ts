@@ -20,7 +20,7 @@ describe("port allocator", () => {
 
   test("released ports are reused", () => {
     const p1 = allocatePort(8200);
-    const _p2 = allocatePort(8200);
+    allocatePort(8200); // allocate second port
     releasePort(p1);
     expect(allocatePort(8200)).toBe(p1);
   });
