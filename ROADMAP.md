@@ -79,14 +79,63 @@ Follow-up to Phase 6. Adds explicit control knobs for users who need more than a
 
 ---
 
-## Phase 7 — Mobile Interaction Ergonomics (v1.3.0)
+## Phase 6.75 — Assertion & Element API Expansion (v1.2.5)
+
+Fill critical API gaps that affect both mobile and web workflows.
+
+### Assertions expansion
+
+- Add `toHaveValue(expected: string | number)` for input elements
+- Add `toBeEnabled()` and `toBeDisabled()` for interactive element state
+- Add `toHaveAttribute(name: string, value?: string)` for element properties
+- Add partial text matching via `contains: true` option on `toHaveText`
+- Add regex support for text assertions
+
+### Element introspection
+
+- Add `app.getText(selector)` — read element text content
+- Add `app.getAttribute(selector, name)` — read element attribute/value
+- Add `app.isEnabled(selector)` — check interactive state without assertion
+- Add `app.isVisible(selector)` — check visibility without assertion
+
+### Gesture APIs
+
+- Add `app.pinch(selector, scale: number)` — pinch zoom gesture
+- Add `app.zoom(selector)` — zoom out gesture
+- Add `app.multiTouch(actions: TouchAction[])` — multi-touch sequence
+
+### Success criteria
+
+- Users can express common assertions without workarounds
+- Element state inspection is available for conditional logic
+- Pinch/zoom gestures work on Android and iOS
+
+---
+
+## Phase 6.85 — Error Messages & Diagnostics (v1.2.6)
+
+Improve failure messages to be actionable and guide users toward solutions.
+
+- Include selector alternatives when element not found (e.g., "Did you mean testID 'xyz' instead of 'abc'?")
+- Add retry suggestions in failure messages ("Consider increasing waitTimeout from 5000 to 10000")
+- Show element hierarchy snapshot on failure for debugging
+- Distinguish between "element not found" vs "element not visible" vs "element not interactive"
+- Add `--verbose` flag to dump full driver logs on failure
+
+### Success criteria
+
+- 80%+ of failures include actionable guidance without docs lookup
+- Users can diagnose issues from failure message alone in most cases
+
+---
+
+## Phase 7 — Mobile Interaction Ergonomics (v1.3.0) [complete]
 
 The next quality frontier is making common mobile flows easier and more reliable to express.
 
-- Add a first-class `scrollUntilVisible()`-style helper for off-screen element discovery
 - Improve text input reliability, especially for Unicode and special characters on Android
 - Improve smart target resolution for nested/clickable container patterns
-- Add clearer gesture ergonomics around long press, double tap, keyboard dismissal, and back navigation
+- Add clearer gesture ergonomics around keyboard dismissal and back navigation
 - Expand failure suggestions and diagnostics for scroll/input/gesture failures
 - Add showcase/demo coverage for these interactions so they stay visible and protected
 
@@ -102,10 +151,30 @@ The next quality frontier is making common mobile flows easier and more reliable
 
 WebdriverIO and maestro-runner both present a broader web workflow story than Spana currently markets or supports.
 
-- Add browser workflow APIs for uploads/downloads, tabs/windows, console log capture, and JS error assertions
-- Expand diagnostics and artifacts for web runs
-- Make existing network/auth/cookie helpers more visible through docs and example flows
-- Add at least one example suite that demonstrates web-only power features without weakening the cross-platform story
+### Expand existing web APIs (already shipped but not visible)
+
+- Add `app.downloadFile(path)` — download file to local path
+- Add `app.uploadFile(selector, path)` — upload file via input element
+- Add `app.getConsoleLogs()` — capture browser console logs
+- Add `app.getJSErrors()` — capture JavaScript errors
+
+### Tab/window management
+
+- Add `app.newTab(url?)` — open new browser tab
+- Add `app.switchToTab(index)` — switch by index
+- Add `app.closeTab()` — close current tab
+- Add `app.getTabIds()` — list open tab IDs
+
+### Diagnostics and artifacts
+
+- Add per-flow HAR export for network recording
+- Add console log capture to HTML reporter
+- Add verbose driver logging toggle for debugging
+
+### Documentation and examples
+
+- Make existing network/auth/cookie helpers more visible through docs
+- Add at least one example suite that demonstrates web-only power features
 - Clarify which web features are local-Playwright-only vs available through broader execution modes
 
 ### Success criteria

@@ -134,20 +134,22 @@ describe("Appium Android driver", () => {
     ]);
   });
 
-  test("inputText sends W3C key actions", async () => {
+  test("inputText sends W3C key actions and preserves grapheme clusters", async () => {
     const { client } = await makeClient();
     const calls = queueFetch([{ body: { value: null } }]);
 
     const driver = await Effect.runPromise(createAppiumAndroidDriver(client));
-    await Effect.runPromise(driver.inputText("Hi"));
+    await Effect.runPromise(driver.inputText("H👨‍👩‍👧‍👦e\u0301"));
 
     const body = JSON.parse(String(calls[0]?.init?.body));
     expect(body.actions[0].type).toBe("key");
     expect(body.actions[0].actions).toEqual([
       { type: "keyDown", value: "H" },
       { type: "keyUp", value: "H" },
-      { type: "keyDown", value: "i" },
-      { type: "keyUp", value: "i" },
+      { type: "keyDown", value: "👨‍👩‍👧‍👦" },
+      { type: "keyUp", value: "👨‍👩‍👧‍👦" },
+      { type: "keyDown", value: "e\u0301" },
+      { type: "keyUp", value: "e\u0301" },
     ]);
   });
 

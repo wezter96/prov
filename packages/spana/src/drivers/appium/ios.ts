@@ -13,6 +13,7 @@
 
 import { Effect } from "effect";
 import { DriverError } from "../../errors.js";
+import { splitGraphemes } from "../../core/graphemes.js";
 import type { RawDriverService, LaunchOptions } from "../raw-driver.js";
 import type { AppiumClient } from "./client.js";
 
@@ -124,9 +125,9 @@ export function createAppiumIOSDriver(
       Effect.tryPromise({
         try: () => {
           const keyActions: Array<{ type: string; value?: string }> = [];
-          for (const ch of text) {
-            keyActions.push({ type: "keyDown", value: ch });
-            keyActions.push({ type: "keyUp", value: ch });
+          for (const segment of splitGraphemes(text)) {
+            keyActions.push({ type: "keyDown", value: segment });
+            keyActions.push({ type: "keyUp", value: segment });
           }
           return client.request("POST", client.sessionPath("/actions"), {
             actions: [

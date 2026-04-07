@@ -73,18 +73,21 @@ interface ConnectOptions {
 
 ### Text input
 
-| Method         | Signature                         | Description      |
-| -------------- | --------------------------------- | ---------------- |
-| `inputText`    | `(text: string) => Promise<void>` | Type text        |
-| `pressKey`     | `(key: string) => Promise<void>`  | Press a key      |
-| `hideKeyboard` | `() => Promise<void>`             | Dismiss keyboard |
+| Method            | Signature                         | Description                                      |
+| ----------------- | --------------------------------- | ------------------------------------------------ |
+| `inputText`       | `(text: string) => Promise<void>` | Type text                                        |
+| `pressKey`        | `(key: string) => Promise<void>`  | Press a key                                      |
+| `hideKeyboard`    | `() => Promise<void>`             | Dismiss keyboard                                 |
+| `dismissKeyboard` | `(opts?) => Promise<void>`        | Use a platform-aware keyboard dismissal strategy |
 
 ### Gestures
 
-| Method   | Signature                             | Description    |
-| -------- | ------------------------------------- | -------------- |
-| `swipe`  | `(direction, opts?) => Promise<void>` | Swipe gesture  |
-| `scroll` | `(direction) => Promise<void>`        | Scroll gesture |
+| Method               | Signature                             | Description                                    |
+| -------------------- | ------------------------------------- | ---------------------------------------------- |
+| `swipe`              | `(direction, opts?) => Promise<void>` | Swipe gesture                                  |
+| `scroll`             | `(direction) => Promise<void>`        | Scroll gesture                                 |
+| `scrollUntilVisible` | `(selector, opts?) => Promise<void>`  | Scroll until a target becomes visible          |
+| `backUntilVisible`   | `(selector, opts?) => Promise<void>`  | Use system back until a target becomes visible |
 
 ### App lifecycle
 

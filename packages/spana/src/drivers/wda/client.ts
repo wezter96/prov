@@ -1,3 +1,5 @@
+import { splitGraphemes } from "../../core/graphemes.js";
+
 /**
  * HTTP client for WebDriverAgent (WDA) on iOS.
  *
@@ -253,7 +255,7 @@ export class WDAClient {
    */
   async sendKeys(text: string, frequency = 0): Promise<void> {
     const body: Record<string, unknown> = {
-      value: [...text], // spread to char array
+      value: splitGraphemes(text),
     };
     if (frequency > 0) {
       body["frequency"] = frequency;

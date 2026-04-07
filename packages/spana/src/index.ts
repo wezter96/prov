@@ -8,7 +8,12 @@ export {
   type FlowFn,
   type FlowDefinition,
 } from "./api/flow.js";
-export { type PromiseApp } from "./api/app.js";
+export {
+  type PromiseApp,
+  type BackUntilVisibleOptions,
+  type DismissKeyboardOptions,
+  type ScrollUntilVisibleOptions,
+} from "./api/app.js";
 export { type PromiseExpectation } from "./api/expect.js";
 
 // Schemas

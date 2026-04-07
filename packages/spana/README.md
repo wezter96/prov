@@ -63,10 +63,10 @@ import { flow } from "spana-test";
 export default flow("user can log in", async ({ app, expect }) => {
   await app.tap({ testID: "email-input" });
   await app.inputText("user@example.com");
-  await app.hideKeyboard();
+  await app.dismissKeyboard();
   await app.tap({ testID: "password-input" });
   await app.inputText("secret");
-  await app.hideKeyboard();
+  await app.dismissKeyboard();
   await app.tap({ testID: "login-button" });
   await expect({ testID: "home-screen" }).toBeVisible();
 });
@@ -117,8 +117,9 @@ export default flow(
   async ({ app, expect }) => {
     await app.tap({ text: "Sign In" });
     await app.inputText("hello@example.com");
-    await app.hideKeyboard();
+    await app.dismissKeyboard();
 
+    await app.scrollUntilVisible({ testID: "order-summary" });
     await app.doubleTap({ testID: "promo-card" });
     await app.longPress({ testID: "options-trigger" });
     await app.scroll("down");
@@ -128,6 +129,8 @@ export default flow(
   },
 );
 ```
+
+Use `scrollUntilVisible()` for off-screen targets instead of hand-written scroll loops. Use `dismissKeyboard()` for a platform-aware keyboard close path, and `backUntilVisible()` when you want system back navigation to stop on a known screen. Tap-like actions also prefer the nearest actionable container for nested label-inside-button layouts.
 
 ### FlowConfig options
 

@@ -1,3 +1,5 @@
+import { splitGraphemes } from "../../core/graphemes.js";
+
 /**
  * HTTP client for the Appium UiAutomator2 server.
  *
@@ -213,9 +215,9 @@ export class UiAutomator2Client {
   async sendKeys(text: string): Promise<void> {
     // W3C Actions key sequence — triggers TextWatcher events on Android
     const keyActions: Array<{ type: string; value?: string }> = [];
-    for (const ch of text) {
-      keyActions.push({ type: "keyDown", value: ch });
-      keyActions.push({ type: "keyUp", value: ch });
+    for (const segment of splitGraphemes(text)) {
+      keyActions.push({ type: "keyDown", value: segment });
+      keyActions.push({ type: "keyUp", value: segment });
     }
     await this.request("POST", this.sessionPath("/actions"), {
       actions: [

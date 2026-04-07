@@ -79,6 +79,21 @@ describe("WDA client", () => {
     expect(calls[2]?.init?.method).toBe("DELETE");
   });
 
+  test("sendKeys preserves grapheme clusters for combined Unicode input", async () => {
+    const calls = queueFetch([
+      { body: { sessionId: "session-3", value: {} } },
+      { body: { value: null } },
+    ]);
+    const client = new WDAClient("127.0.0.1", 8100);
+
+    await client.createSession("com.example.app");
+    await client.sendKeys("Hi👨‍👩‍👧‍👦e\u0301");
+
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({
+      value: ["H", "i", "👨‍👩‍👧‍👦", "e\u0301"],
+    });
+  });
+
   test("surfaces embedded WDA errors and non-OK request failures", async () => {
     queueFetch([
       { body: { value: { sessionId: "session-2" } } },

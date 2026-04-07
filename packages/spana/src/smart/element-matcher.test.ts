@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Element } from "../schemas/element.js";
 import {
+  findActionElementExtended,
   centerOf,
   findElement,
   flattenElements,
@@ -75,6 +76,24 @@ describe("element-matcher", () => {
     });
 
     expect(findElement(tree, { testID: "cta" })).toBe(target);
+  });
+
+  test("findActionElementExtended prefers a clickable ancestor for nested label targets", () => {
+    const label = makeElement({
+      id: "card-label",
+      text: "Open details",
+      clickable: false,
+      bounds: { x: 30, y: 40, width: 60, height: 20 },
+    });
+    const card = makeElement({
+      id: "card",
+      clickable: true,
+      bounds: { x: 10, y: 20, width: 140, height: 80 },
+      children: [label],
+    });
+    const tree = makeElement({ children: [card] });
+
+    expect(findActionElementExtended(tree, { text: "Open details" })).toBe(card);
   });
 
   test("centerOf rounds the midpoint of bounds", () => {

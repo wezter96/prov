@@ -139,20 +139,25 @@ All methods return `Promise<void>` unless noted.
 
 ### Interaction
 
-| Method         | Signature                             | Description                        |
-| -------------- | ------------------------------------- | ---------------------------------- |
-| `tap`          | `(selector, opts?) => Promise<void>`  | Tap an element                     |
-| `tapXY`        | `(x, y) => Promise<void>`             | Tap at absolute coordinates        |
-| `doubleTap`    | `(selector, opts?) => Promise<void>`  | Double-tap an element              |
-| `longPress`    | `(selector, opts?) => Promise<void>`  | Long-press an element              |
-| `longPressXY`  | `(x, y, opts?) => Promise<void>`      | Long-press at coordinates          |
-| `inputText`    | `(text) => Promise<void>`             | Type text into the focused element |
-| `pressKey`     | `(key) => Promise<void>`              | Press a named key                  |
-| `hideKeyboard` | `() => Promise<void>`                 | Dismiss the software keyboard      |
-| `swipe`        | `(direction, opts?) => Promise<void>` | Swipe in a direction               |
-| `scroll`       | `(direction) => Promise<void>`        | Scroll in a direction              |
+| Method               | Signature                             | Description                                      |
+| -------------------- | ------------------------------------- | ------------------------------------------------ |
+| `tap`                | `(selector, opts?) => Promise<void>`  | Tap an element                                   |
+| `tapXY`              | `(x, y) => Promise<void>`             | Tap at absolute coordinates                      |
+| `doubleTap`          | `(selector, opts?) => Promise<void>`  | Double-tap an element                            |
+| `longPress`          | `(selector, opts?) => Promise<void>`  | Long-press an element                            |
+| `longPressXY`        | `(x, y, opts?) => Promise<void>`      | Long-press at coordinates                        |
+| `inputText`          | `(text) => Promise<void>`             | Type text into the focused element               |
+| `pressKey`           | `(key) => Promise<void>`              | Press a named key                                |
+| `hideKeyboard`       | `() => Promise<void>`                 | Dismiss the software keyboard                    |
+| `dismissKeyboard`    | `(opts?) => Promise<void>`            | Use a platform-aware keyboard dismissal strategy |
+| `swipe`              | `(direction, opts?) => Promise<void>` | Swipe in a direction                             |
+| `scroll`             | `(direction) => Promise<void>`        | Scroll in a direction                            |
+| `scrollUntilVisible` | `(selector, opts?) => Promise<void>`  | Scroll until a target becomes visible            |
+| `backUntilVisible`   | `(selector, opts?) => Promise<void>`  | Use system back until a target becomes visible   |
 
 Direction values: `"up" | "down" | "left" | "right"`
+
+`dismissKeyboard()` defaults to an auto strategy that uses the driver-specific keyboard dismissal path and falls back to Android system back when needed. `scrollUntilVisible()` and `backUntilVisible()` are useful for replacing ad hoc retry loops in mobile-heavy flows.
 
 ### App lifecycle
 

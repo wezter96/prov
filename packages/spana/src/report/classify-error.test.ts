@@ -78,6 +78,55 @@ describe("classifyError", () => {
     expect(result.suggestion).toContain('"tap"');
   });
 
+  it("adds scroll-specific guidance for scrollUntilVisible failures", () => {
+    const error = Object.assign(
+      new Error(
+        'Element not found after 5 scroll(s) toward down — selector: testID: "playground-sentinel"',
+      ),
+      {
+        _tag: "ElementNotFoundError",
+        selector: { testID: "playground-sentinel" },
+        timeoutMs: 5000,
+      },
+    );
+    const result = classifyError(error);
+    expect(result.category).toBe("element-not-found");
+    expect(result.suggestion).toContain("stayed off-screen while scrolling");
+    expect(result.suggestion).toContain("maxScrolls");
+  });
+
+  it("adds back-navigation guidance for backUntilVisible failures", () => {
+    const error = Object.assign(
+      new Error(
+        'Element not found after 2 back action(s) — selector: testID: "home-title". If this screen uses an in-app close or back control, tap that element instead of relying on system back.',
+      ),
+      {
+        _tag: "ElementNotFoundError",
+        selector: { testID: "home-title" },
+        timeoutMs: 5000,
+      },
+    );
+    const result = classifyError(error);
+    expect(result.category).toBe("element-not-found");
+    expect(result.suggestion).toContain("navigating back");
+    expect(result.suggestion).toContain("maxBacks");
+  });
+
+  it("adds keyboard dismissal guidance for DriverError messages", () => {
+    const error = Object.assign(
+      new Error(
+        'dismissKeyboard() failed with strategy "auto" on android. hideKeyboard(): nope. back(): nope.',
+      ),
+      {
+        _tag: "DriverError",
+      },
+    );
+    const result = classifyError(error);
+    expect(result.category).toBe("driver-error");
+    expect(result.suggestion).toContain("Keyboard dismissal failed");
+    expect(result.suggestion).toContain('strategy: "back"');
+  });
+
   it("classifies ConfigError by tag", () => {
     const error = Object.assign(new Error("bad config"), { _tag: "ConfigError" });
     const result = classifyError(error);

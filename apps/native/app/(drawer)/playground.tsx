@@ -12,6 +12,7 @@ export default function Playground() {
   const [inputValue, setInputValue] = useState("");
   const [doubleTapStatus, setDoubleTapStatus] = useState("Ready");
   const [longPressActive, setLongPressActive] = useState(false);
+  const [nestedTapCount, setNestedTapCount] = useState(0);
   const [sectionExpanded, setSectionExpanded] = useState(false);
   const lastTapAtRef = useRef(0);
 
@@ -117,6 +118,31 @@ export default function Playground() {
             </Text>
           </Pressable>
 
+          {/* Nested clickable container */}
+          <Pressable
+            testID="playground-nested-card"
+            accessibilityLabel="Nested clickable card"
+            accessibilityRole="button"
+            onPress={() => setNestedTapCount((count) => count + 1)}
+            style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Nested Click Target</Text>
+            <View
+              testID="playground-nested-content"
+              style={[styles.nestedContent, { backgroundColor: theme.background }]}
+            >
+              <Text testID="playground-nested-label" style={{ color: theme.text }}>
+                Tap this label to hit the parent card
+              </Text>
+            </View>
+            <Text
+              testID="playground-nested-status"
+              style={[styles.mirrorText, { color: theme.primary }]}
+            >
+              {nestedTapCount === 0 ? "Idle" : `Activated ${nestedTapCount}x`}
+            </Text>
+          </Pressable>
+
           {/* Expandable section */}
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Pressable
@@ -203,6 +229,11 @@ const styles = StyleSheet.create({
   },
   mirrorText: {
     fontSize: 14,
+    marginBottom: 12,
+  },
+  nestedContent: {
+    borderRadius: 6,
+    padding: 12,
     marginBottom: 12,
   },
   button: {

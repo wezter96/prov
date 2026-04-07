@@ -88,6 +88,34 @@ describe("UiAutomator2 client", () => {
     expect(calls[3]?.init?.method).toBe("DELETE");
   });
 
+  test("sendKeys keeps combined Unicode graphemes intact", async () => {
+    const calls = queueFetch([
+      { body: { value: { sessionId: "session-2" } } },
+      { body: { value: null } },
+    ]);
+    const client = new UiAutomator2Client("127.0.0.1", 4723);
+
+    await client.createSession("com.example.app");
+    await client.sendKeys("A👨‍👩‍👧‍👦e\u0301");
+
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({
+      actions: [
+        {
+          type: "key",
+          id: "keyboard",
+          actions: [
+            { type: "keyDown", value: "A" },
+            { type: "keyUp", value: "A" },
+            { type: "keyDown", value: "👨‍👩‍👧‍👦" },
+            { type: "keyUp", value: "👨‍👩‍👧‍👦" },
+            { type: "keyDown", value: "e\u0301" },
+            { type: "keyUp", value: "e\u0301" },
+          ],
+        },
+      ],
+    });
+  });
+
   test("surfaces embedded UiAutomator2 errors and non-OK request failures", async () => {
     queueFetch([
       { body: { sessionId: "session-2", value: {} } },

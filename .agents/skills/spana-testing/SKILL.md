@@ -66,13 +66,16 @@ export default flow(
 | `app.inputText(text)`            | Type text into focused element    |
 | `app.pressKey(key)`              | Press a keyboard key              |
 | `app.hideKeyboard()`             | Dismiss keyboard                  |
+| `app.dismissKeyboard(opts?)`     | Platform-aware keyboard dismissal |
 | `app.swipe(direction, opts?)`    | Swipe: "up"/"down"/"left"/"right" |
 | `app.scroll(direction)`          | Scroll (slower swipe)             |
+| `app.scrollUntilVisible(sel)`    | Scroll until target is visible    |
 | `app.launch(opts?)`              | Launch/relaunch app               |
 | `app.stop()` / `app.kill()`      | Stop or force-kill app            |
 | `app.clearState()`               | Clear app data                    |
 | `app.openLink(url)`              | Open deep link or URL             |
 | `app.back()`                     | Navigate back                     |
+| `app.backUntilVisible(sel)`      | Back until target is visible      |
 | `app.takeScreenshot(name?)`      | Capture screenshot                |
 | `app.evaluate(fn, ...args)`      | Run JS in web context             |
 
@@ -172,7 +175,7 @@ await app.tap({ testID: "email-input" });
 await app.inputText("user@example.com");
 await app.tap({ testID: "password-input" });
 await app.inputText("secret123");
-await app.hideKeyboard();
+await app.dismissKeyboard();
 await app.tap({ testID: "submit-btn" });
 await expect({ testID: "dashboard" }).toBeVisible();
 ```

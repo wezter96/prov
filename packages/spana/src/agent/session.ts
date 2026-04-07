@@ -15,7 +15,13 @@ import { createWDADriver } from "../drivers/wda/driver.js";
 import { parseWebHierarchy } from "../drivers/playwright-parser.js";
 import { parseAndroidHierarchy } from "../drivers/uiautomator2/pagesource.js";
 import { parseIOSHierarchy } from "../drivers/wda/pagesource.js";
-import { flattenElements, findElementExtended, centerOf } from "../smart/element-matcher.js";
+import { flattenElements } from "../smart/element-matcher.js";
+import {
+  createCoordinator,
+  type BackUntilVisibleOptions,
+  type DismissKeyboardOptions,
+  type ScrollUntilVisibleOptions,
+} from "../smart/coordinator.js";
 import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
 import { setupWDA } from "../drivers/wda/installer.js";
 import { allocatePort } from "../core/port-allocator.js";
@@ -52,6 +58,7 @@ export class Session {
   readonly platform: Platform;
   private parse: (raw: string) => Element;
   private cleanups: (() => void)[];
+  private coordinatorPromise?: Promise<ReturnType<typeof createCoordinator>>;
 
   constructor(
     driver: RawDriverService,
@@ -65,6 +72,18 @@ export class Session {
     this.parse = parse;
     this.appId = appId;
     this.cleanups = cleanups;
+  }
+
+  private async coordinator() {
+    this.coordinatorPromise ??= Effect.runPromise(this.driver.getDeviceInfo()).then((info) =>
+      createCoordinator(this.driver, {
+        parse: this.parse,
+        screenWidth: info.screenWidth,
+        screenHeight: info.screenHeight,
+      }),
+    );
+
+    return this.coordinatorPromise;
   }
 
   // ---------------------------------------------------------------------------
@@ -110,35 +129,28 @@ export class Session {
   // ---------------------------------------------------------------------------
 
   async tap(selector: ExtendedSelector): Promise<void> {
-    const root = await this.hierarchy();
-    const el = findElementExtended(root, selector);
-    if (!el) throw new Error(`Element not found: ${JSON.stringify(selector)}`);
-    const { x, y } = centerOf(el);
-    await Effect.runPromise(this.driver.tapAtCoordinate(x, y));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.tap(selector, { timeout: 1 }));
   }
 
   async tapXY(x: number, y: number): Promise<void> {
-    await Effect.runPromise(this.driver.tapAtCoordinate(x, y));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.tapXY(x, y));
   }
 
   async doubleTap(selector: ExtendedSelector): Promise<void> {
-    const root = await this.hierarchy();
-    const el = findElementExtended(root, selector);
-    if (!el) throw new Error(`Element not found: ${JSON.stringify(selector)}`);
-    const { x, y } = centerOf(el);
-    await Effect.runPromise(this.driver.doubleTapAtCoordinate(x, y));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.doubleTap(selector, { timeout: 1 }));
   }
 
   async longPress(selector: ExtendedSelector, opts?: { duration?: number }): Promise<void> {
-    const root = await this.hierarchy();
-    const el = findElementExtended(root, selector);
-    if (!el) throw new Error(`Element not found: ${JSON.stringify(selector)}`);
-    const { x, y } = centerOf(el);
-    await Effect.runPromise(this.driver.longPressAtCoordinate(x, y, opts?.duration ?? 1000));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.longPress(selector, opts?.duration, { timeout: 1 }));
   }
 
   async longPressXY(x: number, y: number, opts?: { duration?: number }): Promise<void> {
-    await Effect.runPromise(this.driver.longPressAtCoordinate(x, y, opts?.duration ?? 1000));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.longPressXY(x, y, opts?.duration));
   }
 
   // ---------------------------------------------------------------------------
@@ -146,24 +158,29 @@ export class Session {
   // ---------------------------------------------------------------------------
 
   async swipe(direction: Direction, opts?: { duration?: number }): Promise<void> {
-    const info = await Effect.runPromise(this.driver.getDeviceInfo());
-    const cx = info.screenWidth / 2;
-    const cy = info.screenHeight / 2;
-    const dist = Math.min(info.screenWidth, info.screenHeight) * 0.3;
-    const dur = opts?.duration ?? 300;
-
-    const vectors: Record<Direction, [number, number, number, number]> = {
-      up: [cx, cy + dist, cx, cy - dist],
-      down: [cx, cy - dist, cx, cy + dist],
-      left: [cx + dist, cy, cx - dist, cy],
-      right: [cx - dist, cy, cx + dist, cy],
-    };
-    const [sx, sy, ex, ey] = vectors[direction];
-    await Effect.runPromise(this.driver.swipe(sx, sy, ex, ey, dur));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.swipe(direction, opts));
   }
 
   async scroll(direction: Direction): Promise<void> {
-    await this.swipe(direction, { duration: 500 });
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.scroll(direction));
+  }
+
+  async scrollUntilVisible(
+    selector: ExtendedSelector,
+    opts?: ScrollUntilVisibleOptions,
+  ): Promise<void> {
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.scrollUntilVisible(selector, opts));
+  }
+
+  async backUntilVisible(
+    selector: ExtendedSelector,
+    opts?: BackUntilVisibleOptions,
+  ): Promise<void> {
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.backUntilVisible(selector, opts));
   }
 
   // ---------------------------------------------------------------------------
@@ -171,15 +188,23 @@ export class Session {
   // ---------------------------------------------------------------------------
 
   async inputText(text: string): Promise<void> {
-    await Effect.runPromise(this.driver.inputText(text));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.inputText(text));
   }
 
   async pressKey(key: string): Promise<void> {
-    await Effect.runPromise(this.driver.pressKey(key));
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.pressKey(key));
   }
 
   async hideKeyboard(): Promise<void> {
-    await Effect.runPromise(this.driver.hideKeyboard());
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.hideKeyboard());
+  }
+
+  async dismissKeyboard(opts?: DismissKeyboardOptions): Promise<void> {
+    const coordinator = await this.coordinator();
+    await Effect.runPromise(coordinator.dismissKeyboard(opts));
   }
 
   // ---------------------------------------------------------------------------

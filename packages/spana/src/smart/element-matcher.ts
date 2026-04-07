@@ -47,11 +47,61 @@ export function findElements(root: Element, selector: Selector): Element[] {
   return flattenElements(root).filter((el) => matchesSelector(el, selector));
 }
 
+interface ElementPath {
+  element: Element;
+  ancestors: Element[];
+}
+
 function isProbablyOnScreen(element: Element): boolean {
   const centerX = element.bounds.x + element.bounds.width / 2;
   const centerY = element.bounds.y + element.bounds.height / 2;
 
   return element.bounds.width > 0 && element.bounds.height > 0 && centerX >= 0 && centerY >= 0;
+}
+
+function findPathToElement(root: Element, target: Element): ElementPath | undefined {
+  const stack: ElementPath[] = [{ element: root, ancestors: [] }];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current.element === target) {
+      return current;
+    }
+
+    const children = current.element.children;
+    if (!children) {
+      continue;
+    }
+
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index]!;
+      stack.push({
+        element: child,
+        ancestors: [...current.ancestors, current.element],
+      });
+    }
+  }
+
+  return undefined;
+}
+
+function isActionable(element: Element): boolean {
+  return (
+    element.visible !== false &&
+    element.enabled !== false &&
+    element.clickable === true &&
+    isProbablyOnScreen(element)
+  );
+}
+
+function resolveActionTarget(root: Element, element: Element): Element {
+  const path = findPathToElement(root, element);
+  if (!path) {
+    return element;
+  }
+
+  const candidates = [path.element, ...path.ancestors.slice().reverse()];
+  return candidates.find(isActionable) ?? element;
 }
 
 /** Find the best matching element — prefer clickable, then deepest */
@@ -66,6 +116,12 @@ export function findElement(root: Element, selector: Selector): Element | undefi
   const clickable = visibleMatches.filter((el) => el.clickable);
   if (clickable.length > 0) return clickable[clickable.length - 1]!; // deepest clickable
   return visibleMatches[visibleMatches.length - 1]!; // deepest match
+}
+
+/** Find the best actionable target for touch-style interactions. */
+export function findActionElement(root: Element, selector: Selector): Element | undefined {
+  const match = findElement(root, selector);
+  return match ? resolveActionTarget(root, match) : undefined;
 }
 
 /** Calculate the center point of an element's bounds */
@@ -109,6 +165,15 @@ export function findElementExtended(
   }
 
   return findRelativeElement(root, selector);
+}
+
+/** Find the best actionable element for a simple or relative selector. */
+export function findActionElementExtended(
+  root: Element,
+  selector: ExtendedSelector,
+): Element | undefined {
+  const match = findElementExtended(root, selector);
+  return match ? resolveActionTarget(root, match) : undefined;
 }
 
 function findRelativeElement(root: Element, rel: RelativeSelector): Element | undefined {

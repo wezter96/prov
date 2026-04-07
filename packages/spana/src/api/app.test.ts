@@ -16,8 +16,10 @@ function createElement(overrides: Partial<Element> = {}): Element {
   };
 }
 
-function createDriver(hierarchy: Element) {
+function createDriver(hierarchy: Element | Element[]) {
   const events: Array<[string, ...unknown[]]> = [];
+  const hierarchies = Array.isArray(hierarchy) ? hierarchy : [hierarchy];
+  let dumpCount = 0;
   const deviceInfo: DeviceInfo = {
     platform: "web",
     deviceId: "playwright",
@@ -29,7 +31,11 @@ function createDriver(hierarchy: Element) {
   };
 
   const driver: RawDriverService = {
-    dumpHierarchy: () => Effect.succeed(JSON.stringify(hierarchy)),
+    dumpHierarchy: () => {
+      const index = Math.min(dumpCount, hierarchies.length - 1);
+      dumpCount += 1;
+      return Effect.succeed(JSON.stringify(hierarchies[index]));
+    },
     tapAtCoordinate: (x, y) => {
       events.push(["tapAtCoordinate", x, y]);
       return Effect.void;
@@ -269,6 +275,83 @@ describe("promise app", () => {
     expect(events).toContainEqual(["saveAuthState", "./auth.json"]);
     expect(events).toContainEqual(["loadAuthState", "./auth.json"]);
     expect(events).toContainEqual(["takeScreenshot"]);
+  });
+
+  test("scrollUntilVisible records a targeted helper step and stops once the element appears", async () => {
+    const { driver, events } = createDriver([
+      createElement({ children: [createElement({ text: "Top" })] }),
+      createElement({ children: [createElement({ id: "target-card" })] }),
+    ]);
+    const { recorder, stepCalls } = createRecorder();
+    const app = createPromiseApp(
+      driver,
+      "com.example.app",
+      { parse, screenWidth: 100, screenHeight: 200 },
+      recorder,
+    );
+
+    await app.scrollUntilVisible({ testID: "target-card" });
+
+    expect(stepCalls).toEqual([
+      {
+        command: "scrollUntilVisible(down)",
+        opts: {
+          selector: {
+            target: { testID: "target-card" },
+            direction: "down",
+            maxScrolls: 5,
+          },
+          captureScreenshot: true,
+        },
+      },
+    ]);
+    expect(events.filter((event) => event[0] === "swipe")).toEqual([
+      ["swipe", 50, 130, 50, 70, 500],
+    ]);
+  });
+
+  test("dismissKeyboard records the requested strategy and delegates to back when asked", async () => {
+    const { driver, events } = createDriver(createElement());
+    const { recorder, stepCalls } = createRecorder();
+    const app = createPromiseApp(driver, "com.example.app", { parse }, recorder);
+
+    await app.dismissKeyboard({ strategy: "back" });
+
+    expect(stepCalls).toEqual([
+      {
+        command: "dismissKeyboard(back)",
+        opts: {
+          selector: { strategy: "back" },
+          captureScreenshot: true,
+        },
+      },
+    ]);
+    expect(events).toEqual([["back"]]);
+  });
+
+  test("backUntilVisible records a targeted helper step and stops once the target screen appears", async () => {
+    const { driver, events } = createDriver([
+      createElement({ children: [createElement({ text: "Modal title" })] }),
+      createElement({ children: [createElement({ id: "home-title" })] }),
+    ]);
+    const { recorder, stepCalls } = createRecorder();
+    const app = createPromiseApp(driver, "com.example.app", { parse }, recorder);
+
+    await app.backUntilVisible({ testID: "home-title" }, { maxBacks: 2 });
+
+    expect(stepCalls).toEqual([
+      {
+        command: "backUntilVisible(2)",
+        opts: {
+          selector: {
+            target: { testID: "home-title" },
+            maxBacks: 2,
+          },
+          captureScreenshot: true,
+        },
+      },
+    ]);
+    expect(events).toEqual([["back"]]);
   });
 
   test("works without a step recorder", async () => {
