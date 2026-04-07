@@ -28,6 +28,8 @@ export interface WebExecutionConfig {
   headless?: boolean;
   /** Optional Playwright storage state JSON file to preload for web runs */
   storageState?: string;
+  /** Print verbose Playwright runtime events to stdout for local web debugging */
+  verboseLogging?: boolean;
 }
 
 export interface CloudAppReferenceConfig {
@@ -94,6 +96,7 @@ export interface ArtifactConfig {
   uiHierarchy?: boolean;
   consoleLogs?: boolean;
   jsErrors?: boolean;
+  har?: boolean;
 }
 
 export interface HookContext {
@@ -145,7 +148,7 @@ export interface ProvConfig {
 }
 
 const platformSchema = z.enum(["web", "android", "ios"]);
-const reporterSchema = z.enum(["console", "json", "junit", "html", "allure"]);
+const reporterSchema = z.string().min(1);
 const hookSchema = z.custom<(...args: unknown[]) => Promise<void>>(
   (value) => typeof value === "function",
   { message: "Expected function" },
@@ -232,6 +235,7 @@ const webExecutionConfigSchema = z
     browser: z.enum(["chromium", "firefox", "webkit"]).optional(),
     headless: z.boolean().optional(),
     storageState: z.string().min(1).optional(),
+    verboseLogging: z.boolean().optional(),
   })
   .strict();
 
@@ -253,6 +257,7 @@ const artifactConfigSchema = z
     uiHierarchy: z.boolean().optional(),
     consoleLogs: z.boolean().optional(),
     jsErrors: z.boolean().optional(),
+    har: z.boolean().optional(),
   })
   .strict();
 

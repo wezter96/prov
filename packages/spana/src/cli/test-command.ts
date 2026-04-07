@@ -10,6 +10,7 @@ import {
 } from "../core/runner.js";
 import { orchestrate, type PlatformConfig } from "../core/orchestrator.js";
 import type { ProvConfig } from "../schemas/config.js";
+import type { Reporter } from "../report/types.js";
 import type { Platform } from "../schemas/selector.js";
 import type { RuntimeHandle } from "../runtime/types.js";
 import { resolveCapabilities } from "../runtime/capabilities.js";
@@ -274,6 +275,50 @@ async function buildSerialPlatformConfigs(
   return platformConfigs;
 }
 
+const BUILTIN_REPORTERS = new Set(["console", "json", "junit", "html", "allure"]);
+
+/**
+ * Load a custom reporter from a module path.
+ * The module must have a default export that is either a Reporter object
+ * or a factory function (options: { outputDir: string }) => Reporter.
+ */
+export async function loadCustomReporter(
+  modulePath: string,
+  configDir: string,
+): Promise<Reporter> {
+  const resolvedPath = modulePath.startsWith(".")
+    ? resolve(configDir, modulePath)
+    : resolve(modulePath);
+
+  let mod: Record<string, unknown>;
+  try {
+    mod = await import(resolvedPath);
+  } catch (err) {
+    throw new Error(
+      `Failed to load custom reporter from "${modulePath}" (resolved: ${resolvedPath}): ${err instanceof Error ? err.message : err}`, { cause: err },
+    );
+  }
+
+  const exported = mod.default;
+  if (!exported) {
+    throw new Error(
+      `Custom reporter "${modulePath}" has no default export. Export a Reporter object or a (options) => Reporter factory function.`,
+    );
+  }
+
+  if (typeof exported === "function") {
+    return exported({ outputDir: configDir }) as Reporter;
+  }
+
+  if (typeof exported === "object") {
+    return exported as Reporter;
+  }
+
+  throw new Error(
+    `Custom reporter "${modulePath}" default export must be a Reporter object or factory function, got ${typeof exported}.`,
+  );
+}
+
 async function setupReporters(
   reporterNames: string,
   config: ProvConfig,
@@ -292,20 +337,41 @@ async function setupReporters(
   const { createAllureReporter } = await import("../report/allure.js");
 
   const resolvedOutputDir = config.artifacts?.outputDir ?? resolveFromConfig("./spana-output");
-  const reporters = reporterNames.split(",").map((r) => {
-    switch (r.trim()) {
-      case "json":
-        return createJsonReporter();
-      case "junit":
-        return createJUnitReporter(resolvedOutputDir);
-      case "html":
-        return createHtmlReporter(resolvedOutputDir);
-      case "allure":
-        return createAllureReporter();
-      default:
-        return createConsoleReporter({ quiet: opts.quiet });
+  const reporters: Reporter[] = [];
+
+  for (const name of reporterNames.split(",")) {
+    const trimmed = name.trim();
+    if (!trimmed) continue;
+
+    if (BUILTIN_REPORTERS.has(trimmed)) {
+      switch (trimmed) {
+        case "json":
+          reporters.push(createJsonReporter());
+          break;
+        case "junit":
+          reporters.push(createJUnitReporter(resolvedOutputDir));
+          break;
+        case "html":
+          reporters.push(createHtmlReporter(resolvedOutputDir));
+          break;
+        case "allure":
+          reporters.push(createAllureReporter());
+          break;
+        default:
+          reporters.push(createConsoleReporter({ quiet: opts.quiet }));
+          break;
+      }
+    } else {
+      const configDir = resolve(resolveFromConfig("."));
+      try {
+        const custom = await loadCustomReporter(trimmed, configDir);
+        reporters.push(custom);
+      } catch (err) {
+        console.log(err instanceof Error ? err.message : String(err));
+        throw err;
+      }
     }
-  });
+  }
 
   return { redactor, reporters };
 }
@@ -417,17 +483,6 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     : config.reporters && config.reporters.length > 0
       ? config.reporters.join(",")
       : "console";
-  const reporterList = reporterNames.split(",").map((name) => name.trim());
-  const validReporters = new Set(["console", "json", "junit", "html", "allure"]);
-  for (const reporterName of reporterList) {
-    if (!validReporters.has(reporterName)) {
-      console.log(
-        `Unknown reporter "${reporterName}". Use one of: ${Array.from(validReporters).join(", ")}.`,
-      );
-      return false;
-    }
-  }
-
   // 2. Discover flows and step definitions
   const flowDir = opts.flowPath ?? resolveFromConfig(config.flowDir ?? "./flows");
   const flowPaths = await discoverFlows(flowDir);
