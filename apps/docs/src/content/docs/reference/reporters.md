@@ -169,3 +169,9 @@ export default defineConfig({
 ```
 
 This gives you live terminal feedback, a JUnit file for CI test-result ingestion, and an HTML report to upload as a build artifact.
+
+---
+
+## Custom reporters
+
+Need a reporter that isn't built in? See [Custom Reporters](/reference/custom-reporters/) to learn how to write your own using spana's `Reporter` interface.
