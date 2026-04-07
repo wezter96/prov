@@ -86,6 +86,9 @@ function makePage(browserName: string, context: Record<string, unknown>) {
       return undefined;
     },
     mouse: {
+      async click(x: number, y: number) {
+        playwrightState.events.push(["mouseClick", x, y]);
+      },
       async dblclick(x: number, y: number) {
         playwrightState.events.push(["dblclick", x, y]);
       },

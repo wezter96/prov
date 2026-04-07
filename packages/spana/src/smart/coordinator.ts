@@ -5,7 +5,7 @@ import type { ExtendedSelector } from "../schemas/selector.js";
 import type { WaitTimeoutError } from "../errors.js";
 import { DriverError, ElementNotFoundError, TextMismatchError } from "../errors.js";
 import { splitGraphemes } from "../core/graphemes.js";
-import { centerOf, formatSelector } from "./element-matcher.js";
+import { centerOf, findElementExtended, formatSelector } from "./element-matcher.js";
 import {
   waitForActionElement,
   waitForElement,
@@ -391,21 +391,29 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
     > =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        if (element.text !== expected) {
-          return yield* new TextMismatchError({
-            message: `Expected text "${expected}" but got "${element.text ?? "(no text)"}"`,
-            expected,
-            actual: element.text,
-            selector,
-          });
+        const timeout = opts?.timeout ?? defaults?.timeout ?? 5000;
+        const pollInterval = opts?.pollInterval ?? defaults?.pollInterval ?? 200;
+        const start = Date.now();
+        let lastActual: string | undefined;
+
+        while (Date.now() - start < timeout) {
+          if (cache) cache.invalidate();
+          const raw = yield* driver.dumpHierarchy();
+          const root = parse(raw);
+          const element = findElementExtended(root, selector);
+          if (element) {
+            if (element.text === expected) return;
+            lastActual = element.text;
+          }
+          yield* Effect.sleep(Duration.millis(pollInterval));
         }
+
+        return yield* new TextMismatchError({
+          message: `Expected text "${expected}" but got "${lastActual ?? "(no text)"}" after ${timeout}ms`,
+          expected,
+          actual: lastActual,
+          selector,
+        });
       }),
 
     assertContainsText: (
@@ -417,22 +425,30 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
     > =>
       Effect.gen(function* () {
-        const element = yield* waitForElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        const actual = element.text ?? "";
-        if (!actual.toLowerCase().includes(expected.toLowerCase())) {
-          return yield* new TextMismatchError({
-            message: `Expected text to contain "${expected}" but got "${actual}"`,
-            expected,
-            actual: element.text,
-            selector,
-          });
+        const timeout = opts?.timeout ?? defaults?.timeout ?? 5000;
+        const pollInterval = opts?.pollInterval ?? defaults?.pollInterval ?? 200;
+        const start = Date.now();
+        let lastActual: string | undefined;
+
+        while (Date.now() - start < timeout) {
+          if (cache) cache.invalidate();
+          const raw = yield* driver.dumpHierarchy();
+          const root = parse(raw);
+          const element = findElementExtended(root, selector);
+          if (element) {
+            const actual = element.text ?? "";
+            if (actual.toLowerCase().includes(expected.toLowerCase())) return;
+            lastActual = element.text;
+          }
+          yield* Effect.sleep(Duration.millis(pollInterval));
         }
+
+        return yield* new TextMismatchError({
+          message: `Expected text to contain "${expected}" but got "${lastActual ?? "(no text)"}" after ${timeout}ms`,
+          expected,
+          actual: lastActual,
+          selector,
+        });
       }),
 
     assertEnabled: (

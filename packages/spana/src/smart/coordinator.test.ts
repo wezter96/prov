@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import type { RawDriverService } from "../drivers/raw-driver.js";
 import type { DeviceInfo } from "../schemas/device.js";
 import type { Element } from "../schemas/element.js";
-import { ElementNotFoundError, TextMismatchError } from "../errors.js";
+import { DriverError, ElementNotFoundError, TextMismatchError } from "../errors.js";
 import { createCoordinator } from "./coordinator.js";
 
 const deviceInfo: DeviceInfo = {
@@ -26,7 +26,7 @@ function createElement(overrides: Partial<Element> = {}): Element {
   };
 }
 
-function createDriver(hierarchies: Element[]) {
+function createDriver(hierarchies: Element[], overrides: Partial<RawDriverService> = {}) {
   let dumpCount = 0;
   const taps: Array<{ x: number; y: number }> = [];
   const doubleTaps: Array<{ x: number; y: number }> = [];
@@ -39,7 +39,7 @@ function createDriver(hierarchies: Element[]) {
     duration: number;
   }> = [];
 
-  const driver: RawDriverService = {
+  const baseDriver: RawDriverService = {
     dumpHierarchy: () => {
       const index = Math.min(dumpCount, hierarchies.length - 1);
       dumpCount += 1;
@@ -74,6 +74,8 @@ function createDriver(hierarchies: Element[]) {
     back: () => Effect.void,
     evaluate: () => Effect.void as any,
   };
+
+  const driver = { ...baseDriver, ...overrides } as RawDriverService;
 
   return {
     driver,
@@ -176,6 +178,63 @@ describe("coordinator", () => {
     expect(swipes).toHaveLength(2);
   });
 
+  test("dismissKeyboard falls back to back on Android when hideKeyboard fails", async () => {
+    const backCalls: number[] = [];
+    const { driver } = createDriver([createElement()], {
+      getDeviceInfo: () =>
+        Effect.succeed({ ...deviceInfo, platform: "android", driverType: "uiautomator2" }),
+      hideKeyboard: () =>
+        Effect.fail(new DriverError({ message: "no on-screen keyboard visible" })),
+      back: () => {
+        backCalls.push(1);
+        return Effect.void;
+      },
+    });
+    const coordinator = createCoordinator(driver, { parse });
+
+    await Effect.runPromise(coordinator.dismissKeyboard());
+
+    expect(backCalls).toEqual([1]);
+  });
+
+  test("backUntilVisible navigates back until the target appears", async () => {
+    const backCalls: number[] = [];
+    const { driver } = createDriver(
+      [
+        createElement({ children: [createElement({ text: "Modal title" })] }),
+        createElement({ children: [createElement({ id: "home-title" })] }),
+      ],
+      {
+        back: () => {
+          backCalls.push(1);
+          return Effect.void;
+        },
+      },
+    );
+    const coordinator = createCoordinator(driver, { parse });
+
+    await Effect.runPromise(coordinator.backUntilVisible({ testID: "home-title" }));
+
+    expect(backCalls).toEqual([1]);
+  });
+
+  test("backUntilVisible surfaces driver failures immediately", async () => {
+    const { driver } = createDriver([createElement()], {
+      back: () => Effect.fail(new DriverError({ message: "back() is not supported on iOS" })),
+    });
+    const coordinator = createCoordinator(driver, { parse });
+
+    const result = await Effect.runPromise(
+      Effect.either(coordinator.backUntilVisible({ testID: "home-title" })),
+    );
+
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left") {
+      expect(result.left.message).toContain("backUntilVisible() failed on back attempt 1");
+      expect(result.left.message).toContain("back() is not supported on iOS");
+    }
+  });
+
   test("getText returns element text content", async () => {
     const { driver } = createDriver([
       createElement({ children: [createElement({ text: "Hello" })] }),
@@ -194,7 +253,9 @@ describe("coordinator", () => {
     const coordinator = createCoordinator(driver, { parse });
 
     const result = await Effect.runPromise(
-      Effect.either(coordinator.assertText({ text: "Actual" }, "Expected")),
+      Effect.either(
+        coordinator.assertText({ text: "Actual" }, "Expected", { timeout: 50, pollInterval: 10 }),
+      ),
     );
 
     expect(result._tag).toBe("Left");

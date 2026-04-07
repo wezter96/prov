@@ -239,7 +239,7 @@ export function makePlaywrightDriver(
                     bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                     enabled: !el.hasAttribute("disabled"),
                     visible: isVisible && rect.width > 0 && rect.height > 0,
-                    clickable: el.tagName === "BUTTON" || el.tagName === "A" || el.getAttribute("role") === "button" || el.onclick !== null,
+                    clickable: el.tagName === "BUTTON" || el.tagName === "A" || el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA" || el.getAttribute("role") === "button" || el.onclick !== null,
                     children: Array.from(el.children).map(walk),
                   };
                 }
@@ -253,48 +253,20 @@ export function makePlaywrightDriver(
 
       tapAtCoordinate: (x, y) =>
         Effect.tryPromise({
-          try: () =>
-            page.evaluate(`
+          try: async () => {
+            // Use Playwright's native mouse for proper event dispatch (mousedown+mouseup+click)
+            // which triggers focus on form elements
+            await page.mouse.click(x, y);
+            // Ensure focus is set for input elements (React Native Web needs explicit focus)
+            await page.evaluate(`
               (function(x, y) {
-                function isClickable(el) {
-                  return el.tagName === "BUTTON"
-                    || el.tagName === "A"
-                    || el.getAttribute("role") === "button"
-                    || el.onclick !== null;
+                var el = document.elementFromPoint(x, y);
+                if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) {
+                  el.focus();
                 }
-
-                function area(el) {
-                  var rect = el.getBoundingClientRect();
-                  return rect.width * rect.height;
-                }
-
-                var elements = document.elementsFromPoint(x, y);
-                var candidates = [];
-
-                for (var i = 0; i < elements.length; i++) {
-                  var raw = elements[i];
-                  var candidate = raw.closest("button, a, [role=\\"button\\"]") || raw;
-
-                  if (
-                    candidate instanceof HTMLElement
-                    && isClickable(candidate)
-                    && candidates.indexOf(candidate) === -1
-                  ) {
-                    candidates.push(candidate);
-                  }
-                }
-
-                var target = candidates.sort(function(a, b) {
-                  return area(a) - area(b);
-                })[0] || document.elementFromPoint(x, y);
-
-                if (!(target instanceof HTMLElement)) {
-                  throw new Error("No clickable element found at tap point");
-                }
-
-                target.click();
               })(${x}, ${y})
-            `),
+            `);
+          },
           catch: (e) => new DriverError({ message: `Failed to tap at (${x}, ${y}): ${e}` }),
         }),
 

@@ -1,4 +1,4 @@
-import { Given, When, Then } from "../../../src/gherkin/steps.js";
+import { Given, When, Then } from "spana-test/steps";
 import { buildFrameworkHref, navigateToHomeScreen } from "../support/navigation.js";
 
 // --- Navigation steps ---
@@ -37,10 +37,10 @@ When("I take a screenshot named {string}", async ({ app }, name) => {
 
 // --- Interaction steps ---
 
-When("I type {string} into the {string} field", async ({ app }, text, testID) => {
+When("I type {string} into the {string} field", async ({ app, expect: expectFn }, text, testID) => {
+  await expectFn({ testID: testID as string }).toBeVisible();
   await app.tap({ testID: testID as string });
   await app.inputText(text as string);
-  await app.hideKeyboard();
 });
 
 When("I tap the {string} element", async ({ app }, testID) => {
@@ -57,6 +57,10 @@ When("I long press the {string} element", async ({ app }, testID) => {
 
 When("I scroll down", async ({ app }) => {
   await app.scroll("up");
+});
+
+When("I scroll until I see the element {string}", async ({ app }, testID) => {
+  await app.scrollUntilVisible({ testID: testID as string });
 });
 
 // --- Assertion steps ---

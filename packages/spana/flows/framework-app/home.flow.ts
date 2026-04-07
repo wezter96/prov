@@ -1,5 +1,5 @@
-import { flow } from "../../src/api/flow.js";
-import type { Platform } from "../../src/schemas/selector.js";
+import { flow } from "spana-test";
+import type { Platform } from "spana-test";
 
 const WEB_BASE_URL = "http://127.0.0.1:8081";
 

@@ -1,4 +1,4 @@
-import { flow } from "../../src/api/flow.js";
+import { flow } from "spana-test";
 import { navigateToTabsScreen } from "./support/navigation.js";
 
 export default flow(
@@ -10,7 +10,7 @@ export default flow(
     artifacts: { captureOnSuccess: true, captureSteps: true },
   },
   async (ctx) => {
-    const { app, expect } = ctx;
+    const { app, expect, platform } = ctx;
 
     await navigateToTabsScreen(ctx);
     await app.tap({ testID: "modal-open-button" });
@@ -19,7 +19,12 @@ export default flow(
     await expect({ testID: "modal-description" }).toBeVisible();
     await app.takeScreenshot("modal-open");
 
-    await app.tap({ testID: "modal-dismiss-button" });
+    if (platform === "android" || platform === "web") {
+      await app.backUntilVisible({ testID: "tab-one-title" }, { maxBacks: 2 });
+    } else {
+      await app.tap({ testID: "modal-dismiss-button" });
+    }
+
     await expect({ testID: "tab-one-title" }).toBeVisible({ timeout: 5_000 });
     await app.takeScreenshot("modal-dismissed");
   },

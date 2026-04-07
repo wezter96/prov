@@ -1,4 +1,4 @@
-import { flow } from "../../src/api/flow.js";
+import { flow } from "spana-test";
 import { navigateToTabsScreen } from "./support/navigation.js";
 
 export default flow(
