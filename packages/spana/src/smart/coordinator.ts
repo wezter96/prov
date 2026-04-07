@@ -211,9 +211,6 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
           cache,
         );
         const { x, y } = centerOf(element);
-        // Two separate taps with delay. On Android (UiAutomator2), both taps
-        // fire React Native's onPress. On iOS (WDA), this is best-effort —
-        // XCUITest touch synthesis cannot reliably fire onPress twice.
         yield* driver.tapAtCoordinate(x, y);
         yield* Effect.promise(() => new Promise((r) => setTimeout(r, 200)));
         yield* driver.tapAtCoordinate(x, y);

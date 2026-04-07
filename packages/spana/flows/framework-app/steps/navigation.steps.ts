@@ -55,12 +55,8 @@ When("I type {string} into the {string} field", async ({ app, expect: expectFn }
   await app.inputText(text as string);
 });
 
-When("I dismiss the keyboard", async ({ app, platform }) => {
-  // On iOS, hideKeyboard can accidentally tap the navigation menu.
-  // Only explicitly dismiss on Android where the keyboard blocks interactions.
-  if (platform !== "ios") {
-    await app.dismissKeyboard();
-  }
+When("I dismiss the keyboard", async ({ app }) => {
+  await app.dismissKeyboard();
 });
 
 When("I tap the {string} element", async ({ app }, testID) => {
@@ -80,7 +76,7 @@ When("I scroll down", async ({ app }) => {
 });
 
 When("I scroll until I see the element {string}", async ({ app }, testID) => {
-  await app.scrollUntilVisible({ testID: testID as string });
+  await app.scrollUntilVisible({ testID: testID as string }, { timeout: 20_000, maxScrolls: 10 });
 });
 
 // --- Assertion steps ---

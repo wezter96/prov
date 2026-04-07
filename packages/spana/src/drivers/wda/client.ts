@@ -207,13 +207,30 @@ export class WDAClient {
   }
 
   async doubleTap(x: number, y: number): Promise<void> {
-    // WDA/XCUITest cannot reliably fire React Native Pressable's onPress
-    // twice via any touch synthesis API (/wda/tap, /wda/doubleTap, W3C
-    // Actions, element click). The coordinator handles double-tap by
-    // calling tapAtCoordinate twice instead of using this method.
-    // This implementation is kept for non-React-Native use cases where
-    // the native double-tap gesture is appropriate.
-    await this.request("POST", this.sessionPath("/wda/doubleTap"), { x, y });
+    // Two SEPARATE W3C Action requests. Each uses XCSynthesizedEventRecord
+    // (lower-level than /wda/tap's [XCUICoordinate tap]) and includes a
+    // quiescence wait after completion. Splitting into two requests ensures
+    // iOS treats them as independent gestures — a single request with both
+    // taps gets interpreted as a scroll/pan by the ScrollView.
+    const rx = Math.round(x);
+    const ry = Math.round(y);
+    const singleTap = [
+      {
+        type: "pointer" as const,
+        id: "finger1",
+        parameters: { pointerType: "touch" },
+        actions: [
+          { type: "pointerMove", duration: 0, x: rx, y: ry },
+          { type: "pointerDown", button: 0 },
+          { type: "pointerUp", button: 0 },
+        ],
+      },
+    ];
+    // Two taps with delay. Uses W3C Actions (XCSynthesizedEventRecord)
+    // for each tap independently, with quiescence wait between them.
+    await this.request("POST", this.sessionPath("/actions"), { actions: singleTap });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await this.request("POST", this.sessionPath("/actions"), { actions: singleTap });
   }
 
   /**
