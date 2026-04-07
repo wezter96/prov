@@ -282,10 +282,7 @@ const BUILTIN_REPORTERS = new Set(["console", "json", "junit", "html", "allure"]
  * The module must have a default export that is either a Reporter object
  * or a factory function (options: { outputDir: string }) => Reporter.
  */
-export async function loadCustomReporter(
-  modulePath: string,
-  configDir: string,
-): Promise<Reporter> {
+export async function loadCustomReporter(modulePath: string, configDir: string): Promise<Reporter> {
   const resolvedPath = modulePath.startsWith(".")
     ? resolve(configDir, modulePath)
     : resolve(modulePath);
@@ -295,7 +292,8 @@ export async function loadCustomReporter(
     mod = await import(resolvedPath);
   } catch (err) {
     throw new Error(
-      `Failed to load custom reporter from "${modulePath}" (resolved: ${resolvedPath}): ${err instanceof Error ? err.message : err}`, { cause: err },
+      `Failed to load custom reporter from "${modulePath}" (resolved: ${resolvedPath}): ${err instanceof Error ? err.message : err}`,
+      { cause: err },
     );
   }
 
@@ -624,6 +622,17 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     for (const reporter of reporters) {
       if (reporter.flowCount !== undefined || "flowCount" in reporter) {
         reporter.flowCount = totalFlowCount;
+      }
+    }
+
+    // Set per-platform flow counts for detailed progress
+    const platformCounts: Partial<Record<Platform, number>> = {};
+    for (const p of platforms) {
+      platformCounts[p] = selectedFlows.length;
+    }
+    for (const reporter of reporters) {
+      if ("platformFlowCounts" in reporter) {
+        reporter.platformFlowCounts = platformCounts;
       }
     }
 

@@ -28,6 +28,9 @@ export interface ScenarioStepResult {
 
 export type FailureCategory =
   | "element-not-found"
+  | "element-not-visible"
+  | "element-off-screen"
+  | "element-not-interactive"
   | "text-mismatch"
   | "timeout"
   | "device-disconnected"
@@ -79,4 +82,6 @@ export interface Reporter {
   onRunComplete(summary: RunSummary): void;
   /** Total number of flows to run (for progress display). */
   flowCount?: number;
+  /** Per-platform flow counts for detailed progress display. */
+  platformFlowCounts?: Partial<Record<Platform, number>>;
 }

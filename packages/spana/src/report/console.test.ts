@@ -81,7 +81,7 @@ describe("console reporter", () => {
           platform: "android",
           status: "failed",
           durationMs: 900,
-          error: { message: "android boom", category: "unknown" },
+          error: { message: "android boom", category: "element-not-visible" },
         },
         {
           name: "iOS fail",
@@ -97,6 +97,7 @@ describe("console reporter", () => {
     expect(logs.some((line) => line.includes("ios (WebDriverAgent)"))).toBe(true);
     expect(logs.some((line) => line.includes("--- Failures ---"))).toBe(true);
     expect(logs.some((line) => line.includes("Android fail"))).toBe(true);
+    expect(logs.some((line) => line.includes("Category: element-not-visible"))).toBe(true);
     expect(logs.some((line) => line.includes("android boom"))).toBe(true);
     expect(logs.some((line) => line.includes("iOS fail"))).toBe(true);
     expect(logs.some((line) => line.includes("1/3 passed, 2 failed (3.5s)"))).toBe(true);
@@ -162,6 +163,30 @@ describe("console reporter", () => {
     expect(logs.some((line) => line.includes("Worker Stats"))).toBe(true);
     expect(logs.some((line) => line.includes("Pixel 8") && line.includes("5 flows"))).toBe(true);
     expect(logs.some((line) => line.includes("iPhone 15") && line.includes("3 flows"))).toBe(true);
+  });
+
+  test("shows per-platform progress when platformFlowCounts is set", () => {
+    const reporter = createConsoleReporter();
+    reporter.platformFlowCounts = { web: 2, android: 3 };
+
+    reporter.onFlowPass?.({
+      name: "Flow A",
+      platform: "web",
+      status: "passed",
+      durationMs: 100,
+    });
+
+    reporter.onFlowPass?.({
+      name: "Flow B",
+      platform: "android",
+      status: "passed",
+      durationMs: 200,
+    });
+
+    const progressLines = logs.filter((line) => line.includes("✓"));
+    expect(progressLines.length).toBe(2);
+    expect(progressLines[0]).toContain("[1/2");
+    expect(progressLines[1]).toContain("[1/3");
   });
 
   test("quiet mode suppresses pass output but shows failures", () => {

@@ -44,8 +44,18 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
   let completed = 0;
   let total = 0;
   let currentPlatform: Platform | undefined;
+  const platformDone = new Map<Platform, number>();
+  let platformTotals: Partial<Record<Platform, number>> | undefined;
 
-  function progressPrefix(): string {
+  function progressPrefix(platform?: Platform): string {
+    if (platformTotals && platform) {
+      const done = platformDone.get(platform) ?? 0;
+      const ptotal = platformTotals[platform] ?? 0;
+      if (ptotal > 0) {
+        const pct = Math.round((done / ptotal) * 100);
+        return `${platform} [${done}/${ptotal} ${pct}%]`;
+      }
+    }
     return total > 0 ? `[${completed}/${total}]` : "";
   }
 
@@ -60,12 +70,15 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
       }
 
       if (process.stderr.isTTY) {
-        process.stderr.write(`  ▸ ${workerPrefix(workerName)}${progressPrefix()} ${name}...\r`);
+        process.stderr.write(
+          `  ▸ ${workerPrefix(workerName)}${progressPrefix(platform)} ${name}...\r`,
+        );
       }
     },
 
     onFlowPass(result) {
       completed++;
+      platformDone.set(result.platform, (platformDone.get(result.platform) ?? 0) + 1);
       if (quiet) return;
 
       // Clear progress line
@@ -76,7 +89,7 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
       const duration = `(${result.durationMs}ms)`;
       const flakyTag = result.flaky ? ` [flaky, passed on attempt ${result.attempts}]` : "";
       console.log(
-        `  ✓ ${workerPrefix(result.workerName)}${progressPrefix()} ${result.name} ${duration}${flakyTag}`,
+        `  ✓ ${workerPrefix(result.workerName)}${progressPrefix(result.platform)} ${result.name} ${duration}${flakyTag}`,
       );
       if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
@@ -84,6 +97,7 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
 
     onFlowFail(result) {
       completed++;
+      platformDone.set(result.platform, (platformDone.get(result.platform) ?? 0) + 1);
 
       // Clear progress line
       if (process.stderr.isTTY) {
@@ -93,7 +107,7 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
       // Always show failures, even in quiet mode
       const duration = `(${result.durationMs}ms)`;
       console.log(
-        `  ✗ ${workerPrefix(result.workerName)}${progressPrefix()} [${result.platform}] ${result.name} ${duration}`,
+        `  ✗ ${workerPrefix(result.workerName)}${progressPrefix(result.platform)} [${result.platform}] ${result.name} ${duration}`,
       );
       if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
@@ -131,6 +145,7 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
           const deviceLabel = f.workerName ? `${f.platform} on ${f.workerName}` : f.platform;
           console.log(`✗ [${deviceLabel}] ${f.name}`);
           if (f.error) {
+            console.log(`  Category: ${f.error.category}`);
             console.log(`  ${f.error.message}`);
             if (f.error.suggestion) {
               for (const line of f.error.suggestion.split("\n")) {
@@ -176,6 +191,10 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
     // Allow callers to set total for progress tracking
     set flowCount(n: number) {
       total = n;
+    },
+
+    set platformFlowCounts(counts: Partial<Record<Platform, number>>) {
+      platformTotals = counts;
     },
   };
 }
