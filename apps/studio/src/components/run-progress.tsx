@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   Image as ImageIcon,
+  Filter,
 } from "lucide-react";
 
 export interface Attachment {
@@ -33,6 +34,50 @@ export interface FlowResult {
   }>;
 }
 
+type Platform = "web" | "android" | "ios";
+type StatusFilter = "passed" | "failed" | "skipped";
+
+function ProgressBar({ platform, done, total }: { platform: string; done: number; total: number }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-zinc-400 w-16">{platform}</span>
+      <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-zinc-500 tabular-nums w-20 text-right">
+        {done}/{total} ({pct}%)
+      </span>
+    </div>
+  );
+}
+
+function FilterToggle({
+  label,
+  active,
+  onClick,
+  color,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  color: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-2 py-0.5 rounded text-xs transition-colors border ${
+        active ? `${color} border-current` : "text-zinc-600 border-zinc-800 hover:text-zinc-400"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 interface RunProgressProps {
   results: FlowResult[];
   isRunning: boolean;
@@ -40,6 +85,7 @@ interface RunProgressProps {
   onRemoveResult?: (index: number) => void;
   onClearResults?: () => void;
   selectedResult?: FlowResult;
+  progress?: Record<string, { done: number; total: number }>;
 }
 
 function StatusIcon({ status }: { status: FlowResult["status"] | "running" }) {
@@ -178,8 +224,29 @@ export function RunProgress({
   onRemoveResult,
   onClearResults,
   selectedResult,
+  progress,
 }: RunProgressProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [platformFilter, setPlatformFilter] = useState<Set<Platform>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<StatusFilter>>(new Set());
+
+  const togglePlatformFilter = (p: Platform) => {
+    setPlatformFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  };
+
+  const toggleStatusFilter = (s: StatusFilter) => {
+    setStatusFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  };
 
   const toggleExpand = (key: string) => {
     setExpanded((prev) => {
@@ -196,6 +263,14 @@ export function RunProgress({
   const passed = results.filter((r) => r.status === "passed").length;
   const failed = results.filter((r) => r.status === "failed").length;
   const skipped = results.filter((r) => r.status === "skipped").length;
+
+  const filteredResults = results.filter((r) => {
+    if (platformFilter.size > 0 && !platformFilter.has(r.platform as Platform)) return false;
+    if (statusFilter.size > 0 && !statusFilter.has(r.status as StatusFilter)) return false;
+    return true;
+  });
+
+  const resultPlatforms = [...new Set(results.map((r) => r.platform))] as Platform[];
 
   return (
     <div className="flex flex-col h-full">
@@ -220,6 +295,67 @@ export function RunProgress({
         )}
       </div>
 
+      {/* Per-platform progress bars */}
+      {progress && Object.keys(progress).length > 0 && isRunning && (
+        <div className="px-4 py-2 space-y-1.5 border-b border-zinc-800">
+          {Object.entries(progress).map(([platform, { done, total }]) => (
+            <ProgressBar key={platform} platform={platform} done={done} total={total} />
+          ))}
+        </div>
+      )}
+
+      {/* Filter controls */}
+      {results.length > 0 && (
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-zinc-800">
+          <Filter className="w-3 h-3 text-zinc-500" />
+          {resultPlatforms.map((p) => (
+            <FilterToggle
+              key={p}
+              label={p}
+              active={platformFilter.has(p)}
+              onClick={() => togglePlatformFilter(p)}
+              color="text-blue-400"
+            />
+          ))}
+          {resultPlatforms.length > 0 && <span className="text-zinc-800">|</span>}
+          {passed > 0 && (
+            <FilterToggle
+              label="passed"
+              active={statusFilter.has("passed")}
+              onClick={() => toggleStatusFilter("passed")}
+              color="text-emerald-400"
+            />
+          )}
+          {failed > 0 && (
+            <FilterToggle
+              label="failed"
+              active={statusFilter.has("failed")}
+              onClick={() => toggleStatusFilter("failed")}
+              color="text-red-400"
+            />
+          )}
+          {skipped > 0 && (
+            <FilterToggle
+              label="skipped"
+              active={statusFilter.has("skipped")}
+              onClick={() => toggleStatusFilter("skipped")}
+              color="text-zinc-400"
+            />
+          )}
+          {(platformFilter.size > 0 || statusFilter.size > 0) && (
+            <button
+              onClick={() => {
+                setPlatformFilter(new Set());
+                setStatusFilter(new Set());
+              }}
+              className="text-xs text-zinc-600 hover:text-zinc-400 ml-1"
+            >
+              clear
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {results.length === 0 && !isRunning && (
           <p className="text-sm text-zinc-500 px-2 py-4 text-center">No results yet</p>
@@ -231,8 +367,9 @@ export function RunProgress({
           </p>
         )}
         <div className="divide-y divide-zinc-800/50">
-          {results.map((result, i) => {
-            const key = `${result.name}-${result.platform}-${i}`;
+          {filteredResults.map((result) => {
+            const originalIndex = results.indexOf(result);
+            const key = `${result.name}-${result.platform}-${originalIndex}`;
             const isExpanded = expanded.has(key);
             const isSelected =
               selectedResult?.name === result.name && selectedResult?.platform === result.platform;
@@ -266,7 +403,7 @@ export function RunProgress({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onRemoveResult(i);
+                        onRemoveResult(originalIndex);
                       }}
                       className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-zinc-600 hover:text-zinc-300 transition-all shrink-0"
                       title="Remove result"

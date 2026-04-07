@@ -82,6 +82,9 @@ export function RunnerPage() {
   const isRunning = !!runId && statusData?.status === "running";
   const liveResults: FlowResult[] = (statusData?.results as FlowResult[]) ?? [];
   const runCompleted = statusData?.status === "completed";
+  const progress = (statusData as any)?.progress as
+    | Record<string, { done: number; total: number }>
+    | undefined;
 
   // Use live results when available, fall back to cached
   const results = liveResults.length > 0 ? liveResults : cachedResults;
@@ -293,6 +296,7 @@ export function RunnerPage() {
             onRemoveResult={handleRemoveResult}
             onClearResults={handleClearResults}
             selectedResult={selectedResult}
+            progress={progress}
           />
         </div>
       </div>
