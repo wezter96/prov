@@ -79,6 +79,8 @@ export interface AppiumExecutionConfig {
   reportToProvider?: boolean;
   browserstack?: BrowserStackHelperConfig;
   saucelabs?: SauceLabsHelperConfig;
+  /** Path to a custom cloud provider module (default export must conform to CloudProvider interface). */
+  cloudProvider?: string;
 }
 
 export interface ExecutionConfig {
@@ -136,6 +138,11 @@ export interface ProvConfig {
   parallelPlatforms?: boolean;
   flowDir?: string;
   launchOptions?: LaunchOptions;
+  /**
+   * Reporter names or module paths. Built-in: "console", "json", "junit", "html", "allure".
+   * Custom reporters: provide a relative path (e.g., "./reporters/slack.ts") that default-exports
+   * a Reporter object or a `(options: { outputDir: string }) => Reporter` factory function.
+   */
   reporters?: string[];
   hooks?: {
     beforeAll?: (ctx: HookContext) => Promise<void>;
@@ -227,6 +234,7 @@ const appiumExecutionConfigSchema = z
     reportToProvider: z.boolean().optional(),
     browserstack: browserStackHelperSchema.optional(),
     saucelabs: sauceLabsHelperSchema.optional(),
+    cloudProvider: z.string().min(1).optional(),
   })
   .strict();
 
