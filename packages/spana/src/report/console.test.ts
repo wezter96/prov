@@ -189,6 +189,37 @@ describe("console reporter", () => {
     expect(progressLines[1]).toContain("[1/3");
   });
 
+  test("prints selector warnings after flow results", () => {
+    const reporter = createConsoleReporter();
+
+    reporter.onFlowPass?.({
+      name: "Tappy flow",
+      platform: "web",
+      status: "passed",
+      durationMs: 100,
+      steps: [
+        { command: "tapXY", status: "passed", durationMs: 50 },
+        { command: "tap", selector: { testID: "btn" }, status: "passed", durationMs: 50 },
+      ],
+    });
+
+    expect(logs.some((line) => line.includes("coordinate tap"))).toBe(true);
+  });
+
+  test("suppresses selector warnings in quiet mode", () => {
+    const reporter = createConsoleReporter({ quiet: true });
+
+    reporter.onFlowPass?.({
+      name: "Tappy flow",
+      platform: "web",
+      status: "passed",
+      durationMs: 100,
+      steps: [{ command: "tapXY", status: "passed", durationMs: 50 }],
+    });
+
+    expect(logs.some((line) => line.includes("coordinate tap"))).toBe(false);
+  });
+
   test("quiet mode suppresses pass output but shows failures", () => {
     const reporter = createConsoleReporter({ quiet: true });
 

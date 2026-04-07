@@ -1,4 +1,5 @@
 import type { Platform } from "../schemas/selector.js";
+import { analyzeStepQuality } from "./selector-guardrails.js";
 import type { FlowResult, Reporter, ScenarioStepResult } from "./types.js";
 
 export interface ConsoleReporterOptions {
@@ -26,6 +27,16 @@ function printScenarioSteps(steps: ScenarioStepResult[]): void {
     if (step.error) {
       console.log(`        ${step.error}`);
     }
+  }
+}
+
+function printSelectorWarnings(result: FlowResult): void {
+  if (!result.steps || result.steps.length === 0) return;
+  const warnings = analyzeStepQuality(result.steps);
+  if (warnings.length === 0) return;
+  console.log("    Selector warnings:");
+  for (const w of warnings) {
+    console.log(`      ! ${w.message}`);
   }
 }
 
@@ -93,6 +104,7 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
       );
       if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
+      printSelectorWarnings(result);
     },
 
     onFlowFail(result) {
