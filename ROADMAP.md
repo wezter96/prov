@@ -112,7 +112,7 @@ Fill critical API gaps that affect both mobile and web workflows.
 
 ---
 
-## Phase 6.85 — Error Messages & Diagnostics (v1.2.6)
+## Phase 6.85 — Error Messages & Diagnostics (v1.2.6) [complete]
 
 Improve failure messages to be actionable and guide users toward solutions.
 
@@ -184,21 +184,28 @@ WebdriverIO and maestro-runner both present a broader web workflow story than Sp
 
 ---
 
-## Phase 9 — Ecosystem & Integration Surface (v1.5.0)
+## Phase 9 — Ecosystem & Integration Surface (v1.5.0) [complete]
 
-WebdriverIO's biggest advantage is breadth: more official extension points, more integrations, and a larger ecosystem surface. Spana should grow selectively here.
+spana now supports custom reporters and cloud providers via config-path loading, per-platform progress in both CLI and Studio, result filtering in Studio UI, and improved JSDoc coverage for AI tooling.
 
-- Stabilize and document a public custom reporter API
-- Decide on an extension model for reporters first, then services/integrations if needed
-- Add first-class helper coverage for additional cloud providers such as LambdaTest and TestingBot if demand justifies it
-- Ship more reusable CI examples for cloud, hybrid, and multi-device execution
-- Improve machine-readable output and agent-facing docs so AI-driven automation remains a clear Spana strength
+- [x] Stabilize and document a public custom reporter API
+- [x] Custom reporters loadable via module path in `spana.config.ts`
+- [x] Export all Reporter and CloudProvider types from the main `spana` package
+- [x] Custom cloud provider support via `cloudProvider` config field
+- [x] Per-platform progress display in console reporter and Studio UI
+- [x] Platform and status filtering in Studio runner results
+- [x] JSDoc on all public API exports for AI-driven automation
+- [x] Custom reporters documentation with examples
+- [ ] ~~Full plugin/service extension model~~ — deferred (hooks cover current use cases)
+- [ ] ~~LambdaTest / TestingBot cloud helpers~~ — dropped (no demand)
 
 ### Success criteria
 
-- Teams can extend reporting and integrations without patching Spana internals
-- Cloud and CI adoption do not depend on reading implementation code
-- Spana grows an ecosystem story without losing focus
+- Teams can write and load custom reporters without patching spana internals
+- Teams can add custom cloud providers without patching spana internals
+- Console and Studio show per-platform progress during test runs
+- Studio results are filterable by platform and status
+- AI tools get rich inline documentation from JSDoc
 
 ---
 
