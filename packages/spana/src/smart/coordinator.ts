@@ -235,6 +235,254 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       yield* afterMutation();
     });
 
+  const scaleGesture = (
+    methodName: "pinch" | "zoom",
+    selector: ExtendedSelector,
+    opts?: { scale?: number; duration?: number } & WaitOptions,
+  ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+    Effect.gen(function* () {
+      const element = yield* waitForActionElement(
+        driver,
+        selector,
+        parse,
+        { ...defaults, ...opts },
+        cache,
+      );
+      const { x, y } = centerOf(element);
+      const scale = opts?.scale ?? 0.5;
+      const duration = opts?.duration ?? 1500;
+      const fn = methodName === "pinch" ? driver.pinch : driver.zoom;
+      if (!fn) {
+        return yield* new DriverError({
+          message: `${methodName}() is only supported on mobile platforms (Android/iOS)`,
+        });
+      }
+      yield* fn.call(driver, x, y, scale, duration);
+      yield* afterMutation();
+    });
+
+  const assertEnabledState = (
+    selector: ExtendedSelector,
+    expectedEnabled: boolean,
+    opts?: WaitOptions,
+  ): Effect.Effect<
+    void,
+    ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+  > =>
+    Effect.gen(function* () {
+      const element = yield* waitForElement(
+        driver,
+        selector,
+        parse,
+        { ...defaults, ...opts },
+        cache,
+      );
+      const isEnabled = element.enabled !== false;
+      if (isEnabled !== expectedEnabled) {
+        const state = expectedEnabled ? "enabled" : "disabled";
+        const actual = expectedEnabled ? "disabled" : "enabled";
+        return yield* new TextMismatchError({
+          message: `Expected element to be ${state} but it is ${actual} — selector: ${formatSelector(selector)}`,
+          expected: state,
+          actual,
+          selector,
+        });
+      }
+    });
+
+  const createAssertions = () => ({
+    assertVisible: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<Element, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+      waitForElement(driver, selector, parse, { ...defaults, ...opts }, cache),
+
+    assertHidden: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<void, WaitTimeoutError | DriverError> =>
+      waitForNotVisible(driver, selector, parse, { ...defaults, ...opts }, cache),
+
+    assertText: (
+      selector: ExtendedSelector,
+      expected: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      pollUntilMatch(
+        selector,
+        opts,
+        (el) => ({ matched: el.text === expected, actual: el.text }),
+        (actual, timeout) => ({
+          message: `Expected text "${expected}" but got "${actual ?? "(no text)"}" after ${timeout}ms`,
+          expected,
+        }),
+      ),
+
+    assertContainsText: (
+      selector: ExtendedSelector,
+      expected: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      pollUntilMatch(
+        selector,
+        opts,
+        (el) => {
+          const actual = el.text ?? "";
+          return {
+            matched: actual.toLowerCase().includes(expected.toLowerCase()),
+            actual: el.text,
+          };
+        },
+        (actual, timeout) => ({
+          message: `Expected text to contain "${expected}" but got "${actual ?? "(no text)"}" after ${timeout}ms`,
+          expected,
+        }),
+      ),
+
+    assertEnabled: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > => assertEnabledState(selector, true, opts),
+
+    assertDisabled: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > => assertEnabledState(selector, false, opts),
+
+    getText: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<string, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        return element.text ?? "";
+      }),
+
+    isElementEnabled: (
+      selector: ExtendedSelector,
+      opts?: WaitOptions,
+    ): Effect.Effect<boolean, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        return element.enabled !== false;
+      }),
+
+    assertValue: (
+      selector: ExtendedSelector,
+      expected: string | number,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > => {
+      const expectedStr = String(expected);
+      return pollUntilMatch(
+        selector,
+        opts,
+        (el) => {
+          const actual = el.value ?? "";
+          return { matched: actual === expectedStr, actual };
+        },
+        (actual, timeout) => ({
+          message: `Expected value "${expectedStr}" but got "${actual ?? "(no value)"}" after ${timeout}ms`,
+          expected: expectedStr,
+        }),
+      );
+    },
+
+    assertAttribute: (
+      selector: ExtendedSelector,
+      name: string,
+      expectedValue?: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      pollUntilMatch(
+        selector,
+        opts,
+        (el) => {
+          const actual = el.attributes?.[name];
+          if (expectedValue === undefined) {
+            return { matched: actual !== undefined, actual };
+          }
+          return { matched: actual === expectedValue, actual };
+        },
+        (actual, timeout) =>
+          expectedValue === undefined
+            ? {
+                message: `Expected attribute "${name}" to exist but it was not found after ${timeout}ms`,
+                expected: name,
+              }
+            : {
+                message: `Expected attribute "${name}" to be "${expectedValue}" but got "${actual ?? "(not found)"}" after ${timeout}ms`,
+                expected: expectedValue,
+              },
+      ),
+
+    assertMatchesText: (
+      selector: ExtendedSelector,
+      pattern: RegExp,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      pollUntilMatch(
+        selector,
+        opts,
+        (el) => {
+          const actual = el.text ?? "";
+          return { matched: pattern.test(actual), actual };
+        },
+        (actual, timeout) => ({
+          message: `Expected text to match ${pattern} but got "${actual ?? "(no text)"}" after ${timeout}ms`,
+          expected: String(pattern),
+        }),
+      ),
+
+    getAttribute: (
+      selector: ExtendedSelector,
+      name: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<string | undefined, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+      Effect.gen(function* () {
+        const element = yield* waitForElement(
+          driver,
+          selector,
+          parse,
+          { ...defaults, ...opts },
+          cache,
+        );
+        return element.attributes?.[name];
+      }),
+  });
+
   return {
     tap: (
       selector: ExtendedSelector,
@@ -446,49 +694,13 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       selector: ExtendedSelector,
       opts?: { scale?: number; duration?: number } & WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
-      Effect.gen(function* () {
-        const element = yield* waitForActionElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        const { x, y } = centerOf(element);
-        const scale = opts?.scale ?? 0.5;
-        const duration = opts?.duration ?? 1500;
-        if (!driver.pinch) {
-          return yield* new DriverError({
-            message: "pinch() is only supported on mobile platforms (Android/iOS)",
-          });
-        }
-        yield* driver.pinch(x, y, scale, duration);
-        yield* afterMutation();
-      }),
+      scaleGesture("pinch", selector, opts),
 
     zoom: (
       selector: ExtendedSelector,
       opts?: { scale?: number; duration?: number } & WaitOptions,
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
-      Effect.gen(function* () {
-        const element = yield* waitForActionElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        const { x, y } = centerOf(element);
-        const scale = opts?.scale ?? 0.5;
-        const duration = opts?.duration ?? 1500;
-        if (!driver.zoom) {
-          return yield* new DriverError({
-            message: "zoom() is only supported on mobile platforms (Android/iOS)",
-          });
-        }
-        yield* driver.zoom(x, y, scale, duration);
-        yield* afterMutation();
-      }),
+      scaleGesture("zoom", selector, opts),
 
     multiTouch: (
       sequences: import("../drivers/raw-driver.js").TouchSequence[],
@@ -503,229 +715,6 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         yield* afterMutation();
       }),
 
-    assertVisible: (
-      selector: ExtendedSelector,
-      opts?: WaitOptions,
-    ): Effect.Effect<Element, ElementNotFoundError | WaitTimeoutError | DriverError> =>
-      waitForElement(driver, selector, parse, { ...defaults, ...opts }, cache),
-
-    assertHidden: (
-      selector: ExtendedSelector,
-      opts?: WaitOptions,
-    ): Effect.Effect<void, WaitTimeoutError | DriverError> =>
-      waitForNotVisible(driver, selector, parse, { ...defaults, ...opts }, cache),
-
-    assertText: (
-      selector: ExtendedSelector,
-      expected: string,
-      opts?: WaitOptions,
-    ): Effect.Effect<
-      void,
-      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
-    > =>
-      pollUntilMatch(
-        selector,
-        opts,
-        (el) => ({ matched: el.text === expected, actual: el.text }),
-        (actual, timeout) => ({
-          message: `Expected text "${expected}" but got "${actual ?? "(no text)"}" after ${timeout}ms`,
-          expected,
-        }),
-      ),
-
-    assertContainsText: (
-      selector: ExtendedSelector,
-      expected: string,
-      opts?: WaitOptions,
-    ): Effect.Effect<
-      void,
-      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
-    > =>
-      pollUntilMatch(
-        selector,
-        opts,
-        (el) => {
-          const actual = el.text ?? "";
-          return {
-            matched: actual.toLowerCase().includes(expected.toLowerCase()),
-            actual: el.text,
-          };
-        },
-        (actual, timeout) => ({
-          message: `Expected text to contain "${expected}" but got "${actual ?? "(no text)"}" after ${timeout}ms`,
-          expected,
-        }),
-      ),
-
-    assertEnabled: (
-      selector: ExtendedSelector,
-      opts?: WaitOptions,
-    ): Effect.Effect<
-      void,
-      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
-    > =>
-      Effect.gen(function* () {
-        const element = yield* waitForElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        if (element.enabled === false) {
-          return yield* new TextMismatchError({
-            message: `Expected element to be enabled but it is disabled — selector: ${formatSelector(selector)}`,
-            expected: "enabled",
-            actual: "disabled",
-            selector,
-          });
-        }
-      }),
-
-    assertDisabled: (
-      selector: ExtendedSelector,
-      opts?: WaitOptions,
-    ): Effect.Effect<
-      void,
-      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
-    > =>
-      Effect.gen(function* () {
-        const element = yield* waitForElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        if (element.enabled !== false) {
-          return yield* new TextMismatchError({
-            message: `Expected element to be disabled but it is enabled — selector: ${formatSelector(selector)}`,
-            expected: "disabled",
-            actual: "enabled",
-            selector,
-          });
-        }
-      }),
-
-    getText: (
-      selector: ExtendedSelector,
-      opts?: WaitOptions,
-    ): Effect.Effect<string, ElementNotFoundError | WaitTimeoutError | DriverError> =>
-      Effect.gen(function* () {
-        const element = yield* waitForElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        return element.text ?? "";
-      }),
-
-    isElementEnabled: (
-      selector: ExtendedSelector,
-      opts?: WaitOptions,
-    ): Effect.Effect<boolean, ElementNotFoundError | WaitTimeoutError | DriverError> =>
-      Effect.gen(function* () {
-        const element = yield* waitForElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        return element.enabled !== false;
-      }),
-
-    assertValue: (
-      selector: ExtendedSelector,
-      expected: string | number,
-      opts?: WaitOptions,
-    ): Effect.Effect<
-      void,
-      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
-    > => {
-      const expectedStr = String(expected);
-      return pollUntilMatch(
-        selector,
-        opts,
-        (el) => {
-          const actual = el.value ?? "";
-          return { matched: actual === expectedStr, actual };
-        },
-        (actual, timeout) => ({
-          message: `Expected value "${expectedStr}" but got "${actual ?? "(no value)"}" after ${timeout}ms`,
-          expected: expectedStr,
-        }),
-      );
-    },
-
-    assertAttribute: (
-      selector: ExtendedSelector,
-      name: string,
-      expectedValue?: string,
-      opts?: WaitOptions,
-    ): Effect.Effect<
-      void,
-      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
-    > =>
-      pollUntilMatch(
-        selector,
-        opts,
-        (el) => {
-          const actual = el.attributes?.[name];
-          if (expectedValue === undefined) {
-            return { matched: actual !== undefined, actual };
-          }
-          return { matched: actual === expectedValue, actual };
-        },
-        (actual, timeout) =>
-          expectedValue === undefined
-            ? {
-                message: `Expected attribute "${name}" to exist but it was not found after ${timeout}ms`,
-                expected: name,
-              }
-            : {
-                message: `Expected attribute "${name}" to be "${expectedValue}" but got "${actual ?? "(not found)"}" after ${timeout}ms`,
-                expected: expectedValue,
-              },
-      ),
-
-    assertMatchesText: (
-      selector: ExtendedSelector,
-      pattern: RegExp,
-      opts?: WaitOptions,
-    ): Effect.Effect<
-      void,
-      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
-    > =>
-      pollUntilMatch(
-        selector,
-        opts,
-        (el) => {
-          const actual = el.text ?? "";
-          return { matched: pattern.test(actual), actual };
-        },
-        (actual, timeout) => ({
-          message: `Expected text to match ${pattern} but got "${actual ?? "(no text)"}" after ${timeout}ms`,
-          expected: String(pattern),
-        }),
-      ),
-
-    getAttribute: (
-      selector: ExtendedSelector,
-      name: string,
-      opts?: WaitOptions,
-    ): Effect.Effect<string | undefined, ElementNotFoundError | WaitTimeoutError | DriverError> =>
-      Effect.gen(function* () {
-        const element = yield* waitForElement(
-          driver,
-          selector,
-          parse,
-          { ...defaults, ...opts },
-          cache,
-        );
-        return element.attributes?.[name];
-      }),
+    ...createAssertions(),
   };
 }

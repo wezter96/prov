@@ -24,6 +24,15 @@ import { buildAppiumAndroidRuntime, buildAppiumIOSRuntime } from "../runtime/app
 import { createCloudProviderHelper } from "../cloud/provider.js";
 import type { DeviceWorkerConfig } from "../core/parallel.js";
 import { collectDiagnosticSections } from "../report/failure-diagnostics.js";
+import {
+  buildLastRunState,
+  createLastRunStatePath,
+  getGitChangedFiles,
+  readLastRunState,
+  selectChangedFlowPaths,
+  writeLastRunState,
+} from "./iteration.js";
+import { collectWatchRoots, runWatchLoop } from "./watch-mode.js";
 
 export interface TestCommandOptions {
   platforms: Platform[];
@@ -48,6 +57,9 @@ export interface TestCommandOptions {
   workers?: number;
   devices?: string[];
   verbose?: boolean;
+  lastFailed?: boolean;
+  changed?: boolean;
+  watch?: boolean;
 }
 
 function validateOptions(opts: TestCommandOptions): string | null {
@@ -82,6 +94,10 @@ function validateOptions(opts: TestCommandOptions): string | null {
 
   if (opts.device && opts.workers) {
     return "Cannot use --workers with --device. --device targets a single device.";
+  }
+
+  if (opts.watch && opts.validateConfigOnly) {
+    return "Cannot use --watch with --validate-config.";
   }
 
   return null;
@@ -372,14 +388,17 @@ async function setupReporters(
   return { redactor, reporters };
 }
 
-export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
-  const validationError = validateOptions(opts);
-  if (validationError) {
-    console.log(validationError);
-    return false;
-  }
+interface ExecutionContext {
+  config: ProvConfig;
+  configPath?: string;
+  configDir: string;
+  executionMode: string;
+  resolveFromConfig: (p: string) => string;
+}
 
-  // 1. Load config
+async function resolveExecutionContext(
+  opts: TestCommandOptions,
+): Promise<{ ok: true; context: ExecutionContext } | { ok: false; success: boolean }> {
   let config: ProvConfig = {};
   let loadedConfigPath: string | undefined;
   try {
@@ -388,17 +407,17 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     loadedConfigPath = loaded.configPath;
   } catch (error) {
     console.log(error instanceof Error ? error.message : String(error));
-    return false;
+    return { ok: false, success: false };
   }
   const configDir = dirname(loadedConfigPath ?? resolve("spana.config.ts"));
 
   if (opts.validateConfigOnly) {
     if (!loadedConfigPath) {
       console.log("No config file found to validate.");
-      return false;
+      return { ok: false, success: false };
     }
     console.log(`✓ Config valid (${loadedConfigPath})`);
-    return true;
+    return { ok: false, success: true };
   }
 
   // Resolve paths relative to config file location
@@ -417,7 +436,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       JSON.parse(opts.capsJson);
     } catch {
       console.log("Invalid JSON in --caps-json flag.");
-      return false;
+      return { ok: false, success: false };
     }
   }
 
@@ -428,16 +447,302 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       console.log(
         "Appium mode requires a server URL. Set --appium-url or execution.appium.serverUrl in config.",
       );
-      return false;
+      return { ok: false, success: false };
     }
     // Validate --device conflicts with appium mode
     if (opts.device) {
       console.log(
         "Cannot use --device with appium mode. Use --caps or --caps-json to set device capabilities.",
       );
-      return false;
+      return { ok: false, success: false };
     }
   }
+
+  return {
+    ok: true,
+    context: { config, configPath: loadedConfigPath, configDir, executionMode, resolveFromConfig },
+  };
+}
+
+async function resolveTargetDevice(
+  deviceId: string,
+  platforms: Platform[],
+  cliPlatforms: Platform[],
+): Promise<
+  | { ok: true; device: import("../device/discover.js").DiscoveredDevice; platforms: Platform[] }
+  | { ok: false; success: boolean }
+> {
+  const { findDeviceById } = await import("../device/discover.js");
+  const targetDevice = findDeviceById(deviceId);
+  if (!targetDevice) {
+    const { discoverDevices } = await import("../device/discover.js");
+    const available = discoverDevices(["web", "android", "ios"]);
+    console.log(`Device "${deviceId}" not found. Available devices:`);
+    for (const d of available) {
+      console.log(`  ${d.id.padEnd(30)} ${d.platform.padEnd(8)} ${d.type}`);
+    }
+    return { ok: false, success: false };
+  }
+  // If --platform wasn't explicitly passed on CLI, infer from device
+  const updatedPlatforms = cliPlatforms.length === 0 ? [targetDevice.platform] : [...platforms];
+  // Validate platform match
+  if (!updatedPlatforms.includes(targetDevice.platform)) {
+    console.log(
+      `Device "${deviceId}" is ${targetDevice.platform}, but --platform ${updatedPlatforms.join(",")} was specified.`,
+    );
+    return { ok: false, success: false };
+  }
+  return { ok: true, device: targetDevice, platforms: updatedPlatforms };
+}
+
+interface LoadedFlowSource {
+  sourcePath: string;
+  flow: import("../api/flow.js").FlowDefinition;
+}
+
+interface FlowDiscoveryInput {
+  flowDir: string;
+  configPath?: string;
+  tags?: string[];
+  grep?: string;
+  platforms: Platform[];
+  shard?: ShardOptions;
+  lastFailed?: boolean;
+  changed?: boolean;
+  outputDir: string;
+}
+
+interface FlowDiscoverySuccess {
+  ok: true;
+  selectedLoadedFlows: LoadedFlowSource[];
+  selectedFlows: import("../api/flow.js").FlowDefinition[];
+  watchRoots: string[];
+}
+
+interface FlowDiscoveryEarlyExit {
+  ok: false;
+  success: boolean;
+  watchRoots: string[];
+}
+
+async function discoverAndFilterFlows(
+  input: FlowDiscoveryInput,
+): Promise<FlowDiscoverySuccess | FlowDiscoveryEarlyExit> {
+  const watchRoots = collectWatchRoots(input.flowDir, input.configPath);
+  let flowPaths = await discoverFlows(input.flowDir);
+
+  if (flowPaths.length === 0) {
+    console.log("No flow files found.");
+    return { ok: false, success: true, watchRoots };
+  }
+
+  // Load step definition files before compiling .feature files
+  let stepPaths: string[] = [];
+  const hasFeatureFiles = flowPaths.some((p) => p.endsWith(".feature"));
+  if (hasFeatureFiles) {
+    const { stat: statPath } = await import("node:fs/promises");
+    const { dirname: dirnameDyn } = await import("node:path");
+    const flowDirStats = await statPath(input.flowDir).catch(() => null);
+    const stepSearchDir = flowDirStats?.isDirectory() ? input.flowDir : dirnameDyn(input.flowDir);
+    stepPaths = await discoverStepFiles(stepSearchDir);
+  }
+
+  // Handle --changed flag
+  if (input.changed) {
+    let changedFiles: string[];
+    try {
+      changedFiles = getGitChangedFiles(process.cwd());
+    } catch (error) {
+      console.log(error instanceof Error ? error.message : String(error));
+      return { ok: false, success: false, watchRoots };
+    }
+
+    const selection = selectChangedFlowPaths({
+      flowPaths,
+      changedFiles,
+      stepPaths,
+      configPath: input.configPath,
+    });
+
+    if (selection.mode === "none") {
+      console.log(selection.reason);
+      return { ok: false, success: true, watchRoots };
+    }
+
+    if (selection.mode === "targeted") {
+      flowPaths = selection.flowPaths;
+      console.log(selection.reason);
+    } else {
+      console.log(selection.reason);
+    }
+  }
+
+  if (flowPaths.length === 0) {
+    console.log("No flow files found.");
+    return { ok: false, success: true, watchRoots };
+  }
+
+  if (flowPaths.some((path) => path.endsWith(".feature")) && stepPaths.length > 0) {
+    await loadStepFiles(stepPaths);
+  }
+
+  // Load and filter flows (supports both .flow.ts and .feature)
+  const loadedFlows: LoadedFlowSource[] = [];
+  for (const sourcePath of flowPaths) {
+    const loaded = await loadTestSource(sourcePath);
+    for (const flow of loaded) {
+      loadedFlows.push({ sourcePath, flow });
+    }
+  }
+
+  const filteredFlows = filterFlows(
+    loadedFlows.map((l) => l.flow),
+    { tags: input.tags, grep: input.grep, platforms: input.platforms },
+  );
+  const allowedFlows = new Set(filteredFlows);
+  let filteredLoadedFlows = loadedFlows.filter((l) => allowedFlows.has(l.flow));
+
+  // Handle --last-failed flag
+  if (input.lastFailed) {
+    const lastRunStatePath = createLastRunStatePath(input.outputDir);
+    const state = await readLastRunState(lastRunStatePath);
+
+    if (!state) {
+      console.log(
+        "No previous Spana run state found. Run `spana test` once before using --last-failed.",
+      );
+      return { ok: false, success: true, watchRoots };
+    }
+
+    if (state.failedFlowNames.length === 0) {
+      console.log("No failed flows were recorded in the last Spana run.");
+      return { ok: false, success: true, watchRoots };
+    }
+
+    const failedFlowNames = new Set(state.failedFlowNames);
+    filteredLoadedFlows = filteredLoadedFlows.filter((l) => failedFlowNames.has(l.flow.name));
+
+    if (filteredLoadedFlows.length === 0) {
+      console.log("No last-failed flows match the current filters.");
+      return { ok: false, success: true, watchRoots };
+    }
+
+    console.log(`Rerunning ${filteredLoadedFlows.length} flow(s) from the last failed run.`);
+  }
+
+  const selectedLoadedFlows = applyShard(filteredLoadedFlows, input.shard);
+  const selectedFlows = selectedLoadedFlows.map((l) => l.flow);
+
+  if (filteredLoadedFlows.length === 0) {
+    console.log("No flows match the given filters.");
+    return { ok: false, success: true, watchRoots };
+  }
+
+  if (selectedFlows.length === 0) {
+    console.log(`No flows assigned to shard ${input.shard!.current}/${input.shard!.total}.`);
+    return { ok: false, success: true, watchRoots };
+  }
+
+  if (input.shard) {
+    console.log(
+      `Running shard ${input.shard.current}/${input.shard.total} (${selectedFlows.length}/${filteredLoadedFlows.length} flow(s))...`,
+    );
+  }
+
+  return { ok: true, selectedLoadedFlows, selectedFlows, watchRoots };
+}
+
+function createResultHandler(
+  reporters: Reporter[],
+  redactResult: <T extends import("../core/engine.js").TestResult>(r: T) => T,
+  redactor: { redact: (s: string) => string },
+  opts: { verbose?: boolean },
+): (r: import("../core/engine.js").TestResult) => void {
+  return (r) => {
+    const redacted = redactResult(r);
+    for (const reporter of reporters) {
+      if (redacted.status === "passed") {
+        reporter.onFlowPass?.(redacted);
+      } else if (redacted.status === "failed") {
+        reporter.onFlowFail?.(redacted);
+        if (opts.verbose && redacted.error) {
+          console.log(
+            `\n[verbose] Failure details for "${redacted.name}" on ${redacted.platform}:`,
+          );
+          console.log(`  Category: ${redacted.error.category}`);
+          console.log(`  Message: ${redacted.error.message}`);
+          if (redacted.error.suggestion) {
+            console.log(`  Suggestion: ${redacted.error.suggestion}`);
+          }
+          for (const section of collectDiagnosticSections(redacted.attachments, {
+            verbose: true,
+          })) {
+            console.log(`  ${section.title}: ${redactor.redact(section.path)}`);
+            console.log(
+              section.body
+                .split("\n")
+                .map((line) => `    ${redactor.redact(line)}`)
+                .join("\n"),
+            );
+          }
+          if (redacted.error.stack) {
+            console.log(
+              `  Stack:\n${redacted.error.stack
+                .split("\n")
+                .map((l: string) => `    ${l}`)
+                .join("\n")}`,
+            );
+          }
+        }
+      }
+    }
+  };
+}
+
+async function reportToCloudProvider(
+  runtimes: RuntimeHandle[],
+  appiumUrl: string,
+  result: { failed: number },
+  platforms: Platform[],
+): Promise<void> {
+  const { detectProvider } = await import("../cloud/provider.js");
+  for (const rt of runtimes) {
+    if (rt.metadata.mode === "appium" && rt.metadata.provider) {
+      const provider = detectProvider(appiumUrl);
+      if (provider) {
+        try {
+          const meta: Record<string, string> = {};
+          provider.extractMeta(rt.metadata.sessionId!, rt.metadata.sessionCaps ?? {}, meta);
+          await provider.reportResult(appiumUrl, meta, {
+            passed: result.failed === 0,
+            name: `spana ${platforms.join(",")}`,
+          });
+        } catch (e) {
+          console.log(
+            `Warning: Failed to report to ${rt.metadata.provider}: ${e instanceof Error ? e.message : e}`,
+          );
+        }
+      }
+    }
+  }
+}
+
+interface RunTestCommandOnceResult {
+  success: boolean;
+  watchRoots: string[];
+}
+
+async function runTestCommandOnce(opts: TestCommandOptions): Promise<RunTestCommandOnceResult> {
+  const validationError = validateOptions(opts);
+  if (validationError) {
+    console.log(validationError);
+    return { success: false, watchRoots: [] };
+  }
+
+  // 1. Load config and resolve execution context
+  const ctxResult = await resolveExecutionContext(opts);
+  if (!ctxResult.ok) return { success: ctxResult.success, watchRoots: [] };
+  const { config, configPath, executionMode, resolveFromConfig } = ctxResult.context;
 
   const platforms: Platform[] =
     opts.platforms.length > 0
@@ -446,32 +751,21 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
         ? config.platforms
         : ["web"];
 
+  const flowDir = opts.flowPath ?? resolveFromConfig(config.flowDir ?? "./flows");
+
   // Resolve explicit device targeting
   let targetDevice: import("../device/discover.js").DiscoveredDevice | null = null;
   if (opts.device) {
-    const { findDeviceById } = await import("../device/discover.js");
-    targetDevice = findDeviceById(opts.device);
-    if (!targetDevice) {
-      const { discoverDevices } = await import("../device/discover.js");
-      const available = discoverDevices(["web", "android", "ios"]);
-      console.log(`Device "${opts.device}" not found. Available devices:`);
-      for (const d of available) {
-        console.log(`  ${d.id.padEnd(30)} ${d.platform.padEnd(8)} ${d.type}`);
-      }
-      return false;
+    const deviceResult = await resolveTargetDevice(opts.device, platforms, opts.platforms);
+    if (!deviceResult.ok) {
+      return {
+        success: deviceResult.success,
+        watchRoots: collectWatchRoots(flowDir, configPath),
+      };
     }
-    // If --platform wasn't explicitly passed on CLI, infer from device
-    if (opts.platforms.length === 0) {
-      platforms.length = 0;
-      platforms.push(targetDevice.platform);
-    }
-    // Validate platform match
-    if (!platforms.includes(targetDevice.platform)) {
-      console.log(
-        `Device "${opts.device}" is ${targetDevice.platform}, but --platform ${platforms.join(",")} was specified.`,
-      );
-      return false;
-    }
+    targetDevice = deviceResult.device;
+    platforms.length = 0;
+    platforms.push(...deviceResult.platforms);
   }
 
   const reporterNames = opts.reporter?.trim()
@@ -479,60 +773,26 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     : config.reporters && config.reporters.length > 0
       ? config.reporters.join(",")
       : "console";
+
   // 2. Discover flows and step definitions
-  const flowDir = opts.flowPath ?? resolveFromConfig(config.flowDir ?? "./flows");
-  const flowPaths = await discoverFlows(flowDir);
-
-  if (flowPaths.length === 0) {
-    console.log("No flow files found.");
-    return true;
-  }
-
-  // Load step definition files before compiling .feature files
-  const hasFeatureFiles = flowPaths.some((p) => p.endsWith(".feature"));
-  if (hasFeatureFiles) {
-    // When flowDir is a file, search for steps in its parent directory
-    const { stat: statPath } = await import("node:fs/promises");
-    const { dirname: dirnameDyn } = await import("node:path");
-    const flowDirStats = await statPath(flowDir).catch(() => null);
-    const stepSearchDir = flowDirStats?.isDirectory() ? flowDir : dirnameDyn(flowDir);
-    const stepPaths = await discoverStepFiles(stepSearchDir);
-    if (stepPaths.length > 0) {
-      await loadStepFiles(stepPaths);
-    }
-  }
-
-  // 3. Load and filter flows (supports both .flow.ts and .feature)
-  const flows = [];
-  for (const p of flowPaths) {
-    const loaded = await loadTestSource(p);
-    flows.push(...loaded);
-  }
-  const filtered = filterFlows(flows, {
+  const outputDir = config.artifacts?.outputDir ?? resolveFromConfig("./spana-output");
+  const flowResult = await discoverAndFilterFlows({
+    flowDir,
+    configPath,
     tags: opts.tags,
     grep: opts.grep,
     platforms,
+    shard: opts.shard,
+    lastFailed: opts.lastFailed,
+    changed: opts.changed,
+    outputDir,
   });
-  const selectedFlows = applyShard(filtered, opts.shard);
+  if (!flowResult.ok) return { success: flowResult.success, watchRoots: flowResult.watchRoots };
+  const { selectedLoadedFlows, selectedFlows, watchRoots } = flowResult;
 
-  if (filtered.length === 0) {
-    console.log("No flows match the given filters.");
-    return true;
-  }
-
-  if (selectedFlows.length === 0) {
-    console.log(`No flows assigned to shard ${opts.shard!.current}/${opts.shard!.total}.`);
-    return true;
-  }
-
-  if (opts.shard) {
-    console.log(
-      `Running shard ${opts.shard.current}/${opts.shard.total} (${selectedFlows.length}/${filtered.length} flow(s))...`,
-    );
-  }
   console.log(`Running ${selectedFlows.length} flow(s) on ${platforms.join(", ")}...\n`);
 
-  // 4. Setup platform drivers via runtime builders
+  // 3. Setup platform drivers via runtime builders
   const runtimes: RuntimeHandle[] = [];
   const platformConfigs: PlatformConfig[] = [];
   const runCleanups: Array<() => Promise<void>> = [];
@@ -606,7 +866,7 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       );
     }
 
-    // 5. Set up redactor and reporters (before run for real-time streaming)
+    // 4. Set up redactor and reporters (before run for real-time streaming)
     const { redactor, reporters } = await setupReporters(
       reporterNames,
       config,
@@ -651,9 +911,10 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       };
     };
 
-    // 6. Run with real-time reporter callbacks
+    // 5. Run with real-time reporter callbacks
     const retries = opts.retries ?? config.defaults?.retries ?? 0;
     const retryDelay = config.defaults?.retryDelay ?? 0;
+    const onResult = createResultHandler(reporters, redactResult, redactor, opts);
     const result = await orchestrate(selectedFlows, platformConfigs, {
       retries,
       retryDelay,
@@ -664,48 +925,10 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
           reporter.onFlowStart?.(name, platform, workerName);
         }
       },
-      onResult(r) {
-        const redacted = redactResult(r);
-        for (const reporter of reporters) {
-          if (redacted.status === "passed") {
-            reporter.onFlowPass?.(redacted);
-          } else if (redacted.status === "failed") {
-            reporter.onFlowFail?.(redacted);
-            if (opts.verbose && redacted.error) {
-              console.log(
-                `\n[verbose] Failure details for "${redacted.name}" on ${redacted.platform}:`,
-              );
-              console.log(`  Category: ${redacted.error.category}`);
-              console.log(`  Message: ${redacted.error.message}`);
-              if (redacted.error.suggestion) {
-                console.log(`  Suggestion: ${redacted.error.suggestion}`);
-              }
-              for (const section of collectDiagnosticSections(redacted.attachments, {
-                verbose: true,
-              })) {
-                console.log(`  ${section.title}: ${redactor.redact(section.path)}`);
-                console.log(
-                  section.body
-                    .split("\n")
-                    .map((line) => `    ${redactor.redact(line)}`)
-                    .join("\n"),
-                );
-              }
-              if (redacted.error.stack) {
-                console.log(
-                  `  Stack:\n${redacted.error.stack
-                    .split("\n")
-                    .map((l: string) => `    ${l}`)
-                    .join("\n")}`,
-                );
-              }
-            }
-          }
-        }
-      },
+      onResult,
     });
 
-    // 7. Final summary
+    // 6. Final summary
     const redactedResults = result.results.map(redactResult);
     for (const reporter of reporters) {
       reporter.onRunComplete({
@@ -723,31 +946,33 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
       });
     }
 
-    // Report to cloud provider if applicable
-    if (shouldReportToProvider && appiumUrl) {
-      const { detectProvider } = await import("../cloud/provider.js");
-      for (const rt of runtimes) {
-        if (rt.metadata.mode === "appium" && rt.metadata.provider) {
-          const provider = detectProvider(appiumUrl);
-          if (provider) {
-            try {
-              const meta: Record<string, string> = {};
-              provider.extractMeta(rt.metadata.sessionId!, rt.metadata.sessionCaps ?? {}, meta);
-              await provider.reportResult(appiumUrl, meta, {
-                passed: result.failed === 0,
-                name: `spana ${platforms.join(",")}`,
-              });
-            } catch (e) {
-              console.log(
-                `Warning: Failed to report to ${rt.metadata.provider}: ${e instanceof Error ? e.message : e}`,
-              );
-            }
-          }
-        }
-      }
+    // Write last run state for --last-failed support
+    const sourcePathsByFlowName = new Map(
+      selectedLoadedFlows.map((loaded) => [loaded.flow.name, loaded.sourcePath]),
+    );
+    const iterationStatePath = createLastRunStatePath(outputDir);
+    try {
+      await writeLastRunState(
+        iterationStatePath,
+        buildLastRunState({
+          flowDir,
+          platforms,
+          results: result.results,
+          sourcePathsByFlowName,
+        }),
+      );
+    } catch (error) {
+      console.log(
+        `Warning: Failed to update last run state at ${iterationStatePath}: ${error instanceof Error ? error.message : error}`,
+      );
     }
 
-    return result.failed === 0;
+    // Report to cloud provider if applicable
+    if (shouldReportToProvider && appiumUrl) {
+      await reportToCloudProvider(runtimes, appiumUrl, result, platforms);
+    }
+
+    return { success: result.failed === 0, watchRoots };
   } finally {
     // 7. Cleanup — always runs even if orchestration/reporting fails
     for (const rt of runtimes) {
@@ -767,4 +992,28 @@ export async function runTestCommand(opts: TestCommandOptions): Promise<boolean>
     process.removeListener("SIGINT", handleSignal);
     process.removeListener("SIGTERM", handleSignal);
   }
+}
+
+export async function runTestCommand(opts: TestCommandOptions): Promise<boolean> {
+  if (!opts.watch) {
+    return (await runTestCommandOnce(opts)).success;
+  }
+
+  let lastResult = await runTestCommandOnce({ ...opts, watch: false });
+  if (lastResult.watchRoots.length === 0) {
+    return lastResult.success;
+  }
+
+  console.log(
+    `Watching ${lastResult.watchRoots.length} path(s) for changes. Press Ctrl+C to stop.`,
+  );
+  await runWatchLoop({
+    roots: lastResult.watchRoots,
+    onChange: async (changedPaths) => {
+      console.log(`\nChange detected:\n${changedPaths.map((path) => `  ${path}`).join("\n")}\n`);
+      lastResult = await runTestCommandOnce({ ...opts, watch: false });
+    },
+  });
+
+  return lastResult.success;
 }

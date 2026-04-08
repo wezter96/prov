@@ -30,44 +30,126 @@ function saveSession(data: { runId: string | null; results: FlowResult[]; platfo
   }
 }
 
-export function RunnerPage() {
+function useRunnerSession() {
   const session = useRef(loadSession());
-  const [platforms, setPlatforms] = useState<Set<Platform>>(new Set(session.current.platforms));
-  const [selectedFlows, setSelectedFlows] = useState<Set<string>>(new Set());
   const [runId, setRunId] = useState<string | null>(session.current.runId);
-  const [isStarting, setIsStarting] = useState(false);
-  const [selectedResult, setSelectedResult] = useState<FlowResult | undefined>(undefined);
   const [cachedResults, setCachedResults] = useState<FlowResult[]>(session.current.results);
+  const [platforms, setPlatforms] = useState<Set<Platform>>(new Set(session.current.platforms));
+
+  const saveResults = useCallback(
+    (results: FlowResult[], completed: boolean) => {
+      if (completed && results.length > 0) {
+        setCachedResults(results);
+        saveSession({ runId, results, platforms: [...platforms] });
+      }
+    },
+    [runId, platforms],
+  );
+
+  const clearSession = useCallback(() => {
+    setCachedResults([]);
+    setRunId(null);
+    saveSession({ runId: null, results: [], platforms: [...platforms] });
+  }, [platforms]);
+
+  return {
+    runId,
+    setRunId,
+    cachedResults,
+    setCachedResults,
+    platforms,
+    setPlatforms,
+    saveResults,
+    clearSession,
+  };
+}
+
+function useRunExecution(opts: {
+  platforms: Set<Platform>;
+  selectedFlows: Set<string>;
+  flowCount: number;
+  deviceIds: Record<Platform, string | undefined>;
+  captureScreenshots: boolean;
+  captureSteps: boolean;
+  onRunStarted: (runId: string) => void;
+}) {
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleRun = useCallback(async () => {
+    if (opts.platforms.size === 0 || opts.selectedFlows.size === 0) return;
+    setIsStarting(true);
+    try {
+      const allSelected = opts.selectedFlows.size === opts.flowCount;
+      const devices = [...opts.platforms]
+        .map((p) => ({ platform: p, deviceId: opts.deviceIds[p] }))
+        .filter((d) => d.deviceId);
+      const result = await client.tests.run({
+        platforms: [...opts.platforms],
+        grep: allSelected ? undefined : [...opts.selectedFlows][0],
+        captureScreenshots: opts.captureScreenshots || undefined,
+        captureSteps: opts.captureSteps || undefined,
+        devices: devices.length > 0 ? devices : undefined,
+      });
+      opts.onRunStarted(result.runId);
+    } finally {
+      setIsStarting(false);
+    }
+  }, [
+    opts.platforms,
+    opts.selectedFlows,
+    opts.flowCount,
+    opts.deviceIds,
+    opts.captureScreenshots,
+    opts.captureSteps,
+    opts.onRunStarted,
+  ]);
+
+  const handleRerunFailed = useCallback(
+    async (failedResults: FlowResult[]) => {
+      const failedNames = failedResults.filter((r) => r.status === "failed").map((r) => r.name);
+      if (failedNames.length === 0 || opts.platforms.size === 0) return;
+      setIsStarting(true);
+      try {
+        const grep = failedNames.join("|");
+        const result = await client.tests.run({
+          platforms: [...opts.platforms],
+          grep,
+        });
+        opts.onRunStarted(result.runId);
+      } finally {
+        setIsStarting(false);
+      }
+    },
+    [opts.platforms, opts.onRunStarted],
+  );
+
+  return { isStarting, handleRun, handleRerunFailed };
+}
+
+export function RunnerPage() {
+  const {
+    runId,
+    setRunId,
+    cachedResults,
+    setCachedResults,
+    platforms,
+    setPlatforms,
+    saveResults,
+    clearSession,
+  } = useRunnerSession();
+
+  const [selectedFlows, setSelectedFlows] = useState<Set<string>>(new Set());
+  const [selectedResult, setSelectedResult] = useState<FlowResult | undefined>(undefined);
   const [captureScreenshots, setCaptureScreenshots] = useState(false);
   const [captureSteps, setCaptureSteps] = useState(false);
-  const [deviceIds, setDeviceIds] = useState<Record<Platform, string | undefined>>(() => {
-    const initial: Record<Platform, string | undefined> = {
-      web: undefined,
-      android: undefined,
-      ios: undefined,
-    };
-    return initial;
-  });
+  const [deviceIds, setDeviceIds] = useState<Record<Platform, string | undefined>>(() => ({
+    web: undefined,
+    android: undefined,
+    ios: undefined,
+  }));
 
   // Discover flows
-  console.log("[runner] Starting flow query...");
-  const {
-    data: flowsData,
-    error: flowsError,
-    isLoading,
-  } = useQuery(
-    orpc.tests.listFlows.queryOptions({
-      input: {},
-      onError: (err: unknown) => {
-        console.error("[runner] Failed to fetch flows:", err);
-      },
-    }),
-  );
-  console.log("[runner] Query state:", { isLoading, hasData: !!flowsData, hasError: !!flowsError });
-  if (flowsError) {
-    console.error("[runner] Flow error:", flowsError);
-  }
-
+  const { data: flowsData } = useQuery(orpc.tests.listFlows.queryOptions({ input: {} }));
   const flows = flowsData?.flows ?? [];
 
   // Poll run status when we have an active run
@@ -91,11 +173,31 @@ export function RunnerPage() {
 
   // Persist results to sessionStorage when run completes
   useEffect(() => {
-    if (runCompleted && liveResults.length > 0) {
-      setCachedResults(liveResults);
-      saveSession({ runId, results: liveResults, platforms: [...platforms] });
-    }
+    saveResults(liveResults, runCompleted);
   }, [runCompleted, liveResults.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onRunStarted = useCallback(
+    (newRunId: string) => {
+      setRunId(newRunId);
+      setCachedResults([]);
+      saveSession({ runId: newRunId, results: [], platforms: [...platforms] });
+    },
+    [setRunId, setCachedResults, platforms],
+  );
+
+  const {
+    isStarting,
+    handleRun: executeRun,
+    handleRerunFailed: executeRerunFailed,
+  } = useRunExecution({
+    platforms,
+    selectedFlows,
+    flowCount: flows.length,
+    deviceIds,
+    captureScreenshots,
+    captureSteps,
+    onRunStarted,
+  });
 
   // Auto-select all flows on first load
   useEffect(() => {
@@ -103,6 +205,16 @@ export function RunnerPage() {
       setSelectedFlows(new Set(flows.map((f) => f.name)));
     }
   }, [flows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRun = useCallback(async () => {
+    setSelectedResult(undefined);
+    await executeRun();
+  }, [executeRun]);
+
+  const handleRerunFailed = useCallback(async () => {
+    setSelectedResult(undefined);
+    await executeRerunFailed(results);
+  }, [executeRerunFailed, results]);
 
   const handleDeviceSelect = useCallback((platform: Platform, id: string | undefined) => {
     setDeviceIds((prev) => ({ ...prev, [platform]: id }));
@@ -137,47 +249,6 @@ export function RunnerPage() {
     setSelectedFlows(new Set());
   }, []);
 
-  const handleRun = useCallback(async () => {
-    if (platforms.size === 0 || selectedFlows.size === 0) return;
-    setIsStarting(true);
-    setSelectedResult(undefined);
-    setCachedResults([]);
-    try {
-      const allSelected = selectedFlows.size === flows.length;
-      const devices = [...platforms]
-        .map((p) => ({ platform: p, deviceId: deviceIds[p] }))
-        .filter((d) => d.deviceId);
-      const result = await client.tests.run({
-        platforms: [...platforms],
-        grep: allSelected ? undefined : [...selectedFlows][0],
-        captureScreenshots: captureScreenshots || undefined,
-        captureSteps: captureSteps || undefined,
-        devices: devices.length > 0 ? devices : undefined,
-      });
-      setRunId(result.runId);
-      saveSession({ runId: result.runId, results: [], platforms: [...platforms] });
-    } finally {
-      setIsStarting(false);
-    }
-  }, [platforms, selectedFlows, flows.length]);
-
-  const handleRerunFailed = useCallback(async () => {
-    const failedNames = results.filter((r) => r.status === "failed").map((r) => r.name);
-    if (failedNames.length === 0 || platforms.size === 0) return;
-    setIsStarting(true);
-    setSelectedResult(undefined);
-    try {
-      const grep = failedNames.join("|");
-      const result = await client.tests.run({
-        platforms: [...platforms],
-        grep,
-      });
-      setRunId(result.runId);
-    } finally {
-      setIsStarting(false);
-    }
-  }, [platforms, results]);
-
   const hasFailed = results.some((r) => r.status === "failed");
 
   const handleRemoveResult = useCallback(
@@ -189,15 +260,13 @@ export function RunnerPage() {
         setSelectedResult(undefined);
       }
     },
-    [results, runId, platforms, selectedResult],
+    [results, runId, platforms, selectedResult, setCachedResults],
   );
 
   const handleClearResults = useCallback(() => {
-    setCachedResults([]);
-    setRunId(null);
+    clearSession();
     setSelectedResult(undefined);
-    saveSession({ runId: null, results: [], platforms: [...platforms] });
-  }, [platforms]);
+  }, [clearSession]);
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-64px)]">

@@ -117,6 +117,12 @@ export function createPromiseApp(
   const unsupportedWebFeature = (feature: string) =>
     Effect.fail(new DriverError({ message: `${feature}() is only supported on the web platform` }));
 
+  const optionalMethod = <A extends any[], R>(
+    name: string,
+    method: ((...args: A) => Effect.Effect<R, DriverError>) | undefined,
+  ): ((...args: A) => Effect.Effect<R, DriverError>) =>
+    method ?? ((..._args: A) => unsupportedWebFeature(name));
+
   const runStep = <A>(
     command: string,
     action: () => Promise<A>,
@@ -228,13 +234,7 @@ export function createPromiseApp(
     mockNetwork: (matcher, response) =>
       runStep(
         "mockNetwork",
-        () =>
-          run(
-            (driver.mockNetwork ?? ((..._args) => unsupportedWebFeature("mockNetwork")))(
-              matcher,
-              response,
-            ),
-          ),
+        () => run(optionalMethod("mockNetwork", driver.mockNetwork)(matcher, response)),
         {
           selector: { matcher: describeMatcher(matcher), response },
         },
@@ -242,119 +242,83 @@ export function createPromiseApp(
     blockNetwork: (matcher) =>
       runStep(
         "blockNetwork",
-        () =>
-          run(
-            (driver.blockNetwork ?? ((_matcher) => unsupportedWebFeature("blockNetwork")))(matcher),
-          ),
+        () => run(optionalMethod("blockNetwork", driver.blockNetwork)(matcher)),
         {
           selector: { matcher: describeMatcher(matcher) },
         },
       ),
     clearNetworkMocks: () =>
       runStep("clearNetworkMocks", () =>
-        run((driver.clearNetworkMocks ?? (() => unsupportedWebFeature("clearNetworkMocks")))()),
+        run(optionalMethod("clearNetworkMocks", driver.clearNetworkMocks)()),
       ),
     setNetworkConditions: (conditions) =>
       runStep(
         "setNetworkConditions",
-        () =>
-          run(
-            (
-              driver.setNetworkConditions ??
-              ((_conditions) => unsupportedWebFeature("setNetworkConditions"))
-            )(conditions),
-          ),
+        () => run(optionalMethod("setNetworkConditions", driver.setNetworkConditions)(conditions)),
         { selector: conditions },
       ),
     saveCookies: (path) =>
-      runStep(
-        "saveCookies",
-        () => run((driver.saveCookies ?? ((_path) => unsupportedWebFeature("saveCookies")))(path)),
-        { selector: { path } },
-      ),
+      runStep("saveCookies", () => run(optionalMethod("saveCookies", driver.saveCookies)(path)), {
+        selector: { path },
+      }),
     loadCookies: (path) =>
-      runStep(
-        "loadCookies",
-        () => run((driver.loadCookies ?? ((_path) => unsupportedWebFeature("loadCookies")))(path)),
-        { selector: { path } },
-      ),
+      runStep("loadCookies", () => run(optionalMethod("loadCookies", driver.loadCookies)(path)), {
+        selector: { path },
+      }),
     saveAuthState: (path) =>
       runStep(
         "saveAuthState",
-        () =>
-          run((driver.saveAuthState ?? ((_path) => unsupportedWebFeature("saveAuthState")))(path)),
+        () => run(optionalMethod("saveAuthState", driver.saveAuthState)(path)),
         { selector: { path } },
       ),
     loadAuthState: (path) =>
       runStep(
         "loadAuthState",
-        () =>
-          run((driver.loadAuthState ?? ((_path) => unsupportedWebFeature("loadAuthState")))(path)),
+        () => run(optionalMethod("loadAuthState", driver.loadAuthState)(path)),
         { selector: { path } },
       ),
     downloadFile: (path) =>
       runStep(
         "downloadFile",
-        () =>
-          run((driver.downloadFile ?? ((_path) => unsupportedWebFeature("downloadFile")))(path)),
+        () => run(optionalMethod("downloadFile", driver.downloadFile)(path)),
         { selector: { path } },
       ),
     uploadFile: (selector, path) =>
       runStep(
         "uploadFile",
-        () =>
-          run(
-            (driver.uploadFile ?? ((_selector, _path) => unsupportedWebFeature("uploadFile")))(
-              selector,
-              path,
-            ),
-          ),
+        () => run(optionalMethod("uploadFile", driver.uploadFile)(selector, path)),
         {
           selector: { target: selector, path },
           captureScreenshot: true,
         },
       ),
     newTab: (url) =>
-      runStep(
-        "newTab",
-        () => run((driver.newTab ?? ((_url) => unsupportedWebFeature("newTab")))(url)),
-        {
-          selector: url ? { url } : undefined,
-          captureScreenshot: true,
-        },
-      ),
+      runStep("newTab", () => run(optionalMethod("newTab", driver.newTab)(url)), {
+        selector: url ? { url } : undefined,
+        captureScreenshot: true,
+      }),
     switchToTab: (index) =>
       runStep(
         `switchToTab(${index})`,
-        () =>
-          run((driver.switchToTab ?? ((_index) => unsupportedWebFeature("switchToTab")))(index)),
+        () => run(optionalMethod("switchToTab", driver.switchToTab)(index)),
         {
           selector: { index },
           captureScreenshot: true,
         },
       ),
     closeTab: () =>
-      runStep(
-        "closeTab",
-        () => run((driver.closeTab ?? (() => unsupportedWebFeature("closeTab")))()),
-        {
-          captureScreenshot: true,
-        },
-      ),
+      runStep("closeTab", () => run(optionalMethod("closeTab", driver.closeTab)()), {
+        captureScreenshot: true,
+      }),
     getTabIds: () =>
-      runStep("getTabIds", () =>
-        run((driver.getTabIds ?? (() => unsupportedWebFeature("getTabIds")))()),
-      ),
+      runStep("getTabIds", () => run(optionalMethod("getTabIds", driver.getTabIds)())),
     getConsoleLogs: () =>
       runStep("getConsoleLogs", () =>
-        run((driver.getConsoleLogs ?? (() => unsupportedWebFeature("getConsoleLogs")))()),
+        run(optionalMethod("getConsoleLogs", driver.getConsoleLogs)()),
       ),
     getJSErrors: () =>
-      runStep("getJSErrors", () =>
-        run((driver.getJSErrors ?? (() => unsupportedWebFeature("getJSErrors")))()),
-      ),
-    getHAR: () =>
-      runStep("getHAR", () => run((driver.getHAR ?? (() => unsupportedWebFeature("getHAR")))())),
+      runStep("getJSErrors", () => run(optionalMethod("getJSErrors", driver.getJSErrors)())),
+    getHAR: () => runStep("getHAR", () => run(optionalMethod("getHAR", driver.getHAR)())),
 
     pinch: (selector, opts) =>
       runStep("pinch", () => run(coord.pinch(selector, opts)), {
