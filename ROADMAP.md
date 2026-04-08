@@ -261,6 +261,94 @@ Spana's raw capability is now broad enough that the next big win is tightening t
 
 ---
 
+## Phase 21 — API Ergonomics & Method Chaining (v1.17.0)
+
+Chainable expectations:
+
+```ts
+await expect({ testID: "btn" }).toBeVisible().toBeEnabled();
+```
+
+---
+
+## Phase 22 — WaitOptions & Timing Ergonomics (v1.17.1)
+
+Action-specific timeout tiers with intelligent defaults.
+
+---
+
+## Phase 23 — Config Presets (v1.17.2)
+
+Pre-configured setup presets:
+
+```ts
+export default defineConfig({ preset: "react-native-local" });
+```
+
+---
+
+## Phase 24 — Environment-Based Config (v1.17.3)
+
+Auto-load environment-specific configs.
+
+---
+
+## Phase 25 — Typed Config with Smart Inference (v1.17.4)
+
+Platform-narrowed TypeScript types.
+
+---
+
+## Phase 26 — Incremental Test Running (v1.18.0)
+
+Git-aware test selection:
+
+```bash
+spana test --since HEAD~3
+```
+
+---
+
+## Phase 27 — Background Watch Mode (v1.18.1)
+
+Persistent runtime, notifications.
+
+---
+
+## Phase 28 — Flake Detection & Handling (v1.18.2)
+
+Track and auto-retry flaky flows.
+
+---
+
+## Phase 29 — Better Failure Reproduction (v1.18.3)
+
+```bash
+spana test --repro
+```
+
+---
+
+## Phase 30 — Flow Recipes & Snippets (v1.19.0)
+
+Reusable common patterns.
+
+---
+
+## Phase 31 — Selector Validation at Validate Time (v1.19.1)
+
+```bash
+spana validate --strict
+```
+
+---
+
+## Phase 32 — Enhanced Error Messages (v1.19.2)
+
+Context-aware fix suggestions.
+
+---
+
 ## Strategic bets — Explore, don't commit yet
 
 These are real areas where WebdriverIO is broader, but they are product-direction decisions rather than obvious next roadmap items.
