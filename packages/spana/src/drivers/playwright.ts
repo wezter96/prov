@@ -659,17 +659,23 @@ export function makePlaywrightDriver(
       tapAtCoordinate: (x, y) =>
         Effect.tryPromise({
           try: async () => {
-            // Use Playwright's native mouse for proper event dispatch (mousedown+mouseup+click)
-            // which triggers focus on form elements
             await page.mouse.click(x, y);
-            // Ensure focus is set for input elements (React Native Web needs explicit focus)
+            // Ensure focus is set for input elements (React Native Web needs explicit focus).
+            // React concurrent renders can steal focus back to <body> after our click, so
+            // we wait for a rAF + microtask flush, then re-focus if needed, retrying once.
             await page.evaluate(`
-              (function(x, y) {
-                var el = document.elementFromPoint(x, y);
-                if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) {
-                  el.focus();
+              new Promise(resolve => {
+                function tryFocus() {
+                  var el = document.elementFromPoint(${x}, ${y});
+                  if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) {
+                    el.focus();
+                  }
                 }
-              })(${x}, ${y})
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                  tryFocus();
+                  setTimeout(() => { tryFocus(); resolve(); }, 16);
+                }));
+              })
             `);
           },
           catch: (e) => new DriverError({ message: `Failed to tap at (${x}, ${y}): ${e}` }),

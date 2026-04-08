@@ -4,6 +4,7 @@ import { stdin, stdout } from "node:process";
 
 interface InitOptions {
   force: boolean;
+  preset?: string;
 }
 
 interface PlatformAnswers {
@@ -78,10 +79,10 @@ export default flow(
 `;
 }
 
-export async function runInitCommand(options: InitOptions) {
+export async function runInitCommand(options: InitOptions): Promise<boolean> {
   if (existsSync("spana.config.ts") && !options.force) {
     console.log("\n  spana.config.ts already exists. Use --force to overwrite.\n");
-    process.exit(1);
+    return false;
   }
 
   console.log("\n  Setting up spana...\n");
@@ -95,7 +96,7 @@ export async function runInitCommand(options: InitOptions) {
 
     if (!web && !android && !ios) {
       console.log("\n  No platforms selected. At least one is required.\n");
-      process.exit(1);
+      return false;
     }
 
     console.log("");
@@ -128,6 +129,7 @@ export async function runInitCommand(options: InitOptions) {
     console.log("    3. Edit flows/example.flow.ts with your app's selectors");
     console.log("    4. Run: npx spana test");
     console.log("");
+    return true;
   } finally {
     rl.close();
   }

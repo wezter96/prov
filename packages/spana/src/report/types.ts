@@ -73,6 +73,8 @@ export interface FlowError {
   category: FailureCategory;
   /** Actionable suggestion for resolving the failure (e.g., "increase waitTimeout"). */
   suggestion?: string;
+  /** Machine-readable error code for programmatic handling. */
+  errorCode?: string;
 }
 
 /** Result of a single flow execution on a specific platform. */

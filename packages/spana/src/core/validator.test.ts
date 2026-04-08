@@ -69,14 +69,14 @@ describe("validateProject", () => {
     const errors = await validateProject(emptyDir);
 
     expect(errors).toHaveLength(1);
-    expect(errors[0]!.error).toBe("No flow files found");
+    expect((errors[0] as any).error).toBe("No flow files found");
   });
 
   test("warns when flow directory does not exist", async () => {
     const errors = await validateProject(join(tempDir, "nonexistent-dir"));
 
     expect(errors).toHaveLength(1);
-    expect(errors[0]!.error).toBe("Flow directory does not exist");
+    expect((errors[0] as any).error).toBe("Flow directory does not exist");
   });
 
   test("detects duplicate flow names", async () => {
@@ -92,10 +92,12 @@ describe("validateProject", () => {
     );
 
     const errors = await validateProject(dupeDir);
-    const dupeErrors = errors.filter((e) => e.error.includes("Duplicate flow name"));
+    const dupeErrors = errors.filter(
+      (e) => "error" in e && e.error.includes("Duplicate flow name"),
+    );
 
     expect(dupeErrors).toHaveLength(1);
-    expect(dupeErrors[0]!.error).toContain('Duplicate flow name "login"');
+    expect((dupeErrors[0] as any).error).toContain('Duplicate flow name "login"');
   });
 
   test("detects invalid platform values", async () => {
@@ -107,10 +109,10 @@ describe("validateProject", () => {
     );
 
     const errors = await validateProject(platDir);
-    const platErrors = errors.filter((e) => e.error.includes("Invalid platform"));
+    const platErrors = errors.filter((e) => "error" in e && e.error.includes("Invalid platform"));
 
     expect(platErrors).toHaveLength(1);
-    expect(platErrors[0]!.error).toContain('Invalid platform "windows"');
+    expect((platErrors[0] as any).error).toContain('Invalid platform "windows"');
   });
 
   test("returns no errors for valid flows", async () => {

@@ -7,6 +7,30 @@ export interface ValidationError {
   error: string;
 }
 
+export interface ValidationWarning {
+  file: string;
+  message: string;
+}
+
+export type ValidationResult = ValidationError | ValidationWarning;
+
+export function isValidationIssue(result: ValidationResult): result is ValidationError {
+  return "error" in result;
+}
+
+export function summarizeValidationResults(results: ValidationResult[]): {
+  errorCount: number;
+  warningCount: number;
+} {
+  let errorCount = 0;
+  let warningCount = 0;
+  for (const r of results) {
+    if (isValidationIssue(r)) errorCount++;
+    else warningCount++;
+  }
+  return { errorCount, warningCount };
+}
+
 export async function validateFlowFile(filePath: string): Promise<ValidationError | null> {
   try {
     const absolutePath = resolve(filePath);
@@ -38,7 +62,7 @@ export async function validateFlows(paths: string[]): Promise<ValidationError[]>
 
 const VALID_PLATFORMS = new Set(["web", "android", "ios"]);
 
-export async function validateProject(flowDir: string): Promise<ValidationError[]> {
+export async function validateProject(flowDir: string): Promise<ValidationResult[]> {
   const errors: ValidationError[] = [];
 
   // Check flow directory exists and has flows

@@ -43,6 +43,7 @@ export interface ConnectOptions {
   headless?: boolean; // for web (default true)
   browser?: BrowserName; // for web (default chromium)
   storageState?: string; // for web
+  verboseLogging?: boolean; // for web
 }
 
 export interface SuggestedSelector {

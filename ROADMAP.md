@@ -261,91 +261,33 @@ Spana's raw capability is now broad enough that the next big win is tightening t
 
 ---
 
-## Phase 21 — API Ergonomics & Method Chaining (v1.17.0)
+## Phase 24 — Environment-Based Config (v1.17.3) [complete]
 
-Chainable expectations:
-
-```ts
-await expect({ testID: "btn" }).toBeVisible().toBeEnabled();
-```
+Auto-load environment-specific configs (`spana.config.development.ts`, hostname variants).
+Already shipped in config-loader with layered config merging.
 
 ---
 
-## Phase 22 — WaitOptions & Timing Ergonomics (v1.17.1)
+## Phase 30 — Flow Scaffolding (v1.19.0) [complete]
 
-Action-specific timeout tiers with intelligent defaults.
-
----
-
-## Phase 23 — Config Presets (v1.17.2)
-
-Pre-configured setup presets:
-
-```ts
-export default defineConfig({ preset: "react-native-local" });
-```
+`spana init-flow <name>` generates starter `.flow.ts` files with preset templates (blank, smoke, auth).
 
 ---
 
-## Phase 24 — Environment-Based Config (v1.17.3)
+## Removed phases
 
-Auto-load environment-specific configs.
+The following phases were removed after competitive analysis showed they were unnecessary — either already covered by existing features, not present in any competing E2E framework (WebdriverIO, Maestro, Detox), or overengineered for the problem they solve:
 
----
-
-## Phase 25 — Typed Config with Smart Inference (v1.17.4)
-
-Platform-narrowed TypeScript types.
-
----
-
-## Phase 26 — Incremental Test Running (v1.18.0)
-
-Git-aware test selection:
-
-```bash
-spana test --since HEAD~3
-```
-
----
-
-## Phase 27 — Background Watch Mode (v1.18.1)
-
-Persistent runtime, notifications.
-
----
-
-## Phase 28 — Flake Detection & Handling (v1.18.2)
-
-Track and auto-retry flaky flows.
-
----
-
-## Phase 29 — Better Failure Reproduction (v1.18.3)
-
-```bash
-spana test --repro
-```
-
----
-
-## Phase 30 — Flow Recipes & Snippets (v1.19.0)
-
-Reusable common patterns.
-
----
-
-## Phase 31 — Selector Validation at Validate Time (v1.19.1)
-
-```bash
-spana validate --strict
-```
-
----
-
-## Phase 32 — Enhanced Error Messages (v1.19.2)
-
-Context-aware fix suggestions.
+- **Phase 21** (Method chaining) — No E2E framework chains assertions. Saves one line of code.
+- **Phase 22** (Timing tiers) — Valid concept but too small for a phase; can be a config tweak.
+- **Phase 23** (Config presets) — Redundant with `spana init` which already generates the right config.
+- **Phase 25** (Typed config inference) — TypeScript already catches undefined access.
+- **Phase 26** (--since) — No competitor has this. `--changed` and `--last-failed` already cover incremental runs.
+- **Phase 27** (Watch mode improvements) — Current watch mode works. No competitor has advanced watch features.
+- **Phase 28** (Flake detection) — `--retries` already handles flakes. Quarantine is a CI dashboard concern.
+- **Phase 29** (--repro) — Failure bundles already include repro commands, selectors, and screenshots.
+- **Phase 31** (Selector validation) — Runtime selector guardrails already ship. Static validation can't work without a running app.
+- **Phase 32** (Enhanced error messages) — Already covered by failure-bundle.ts and failure-diagnostics.ts.
 
 ---
 

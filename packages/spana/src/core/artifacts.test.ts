@@ -62,6 +62,7 @@ describe("artifacts", () => {
       uiHierarchy: true,
       consoleLogs: true,
       jsErrors: true,
+      har: true,
     });
   });
 
