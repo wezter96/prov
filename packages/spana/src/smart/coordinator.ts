@@ -77,6 +77,8 @@ export interface CoordinatorConfig {
   typingDelay?: number;
   /** Hierarchy cache TTL in ms. Default: 100. Set to 0 to disable caching. */
   hierarchyCacheTtl?: number;
+  /** Default output directory for screenshot diffs. */
+  outputDir?: string;
 }
 
 export function createCoordinator(driver: RawDriverService, config: CoordinatorConfig) {
@@ -480,6 +482,290 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
           cache,
         );
         return element.attributes?.[name];
+      }),
+
+    assertScreenshot: (
+      selector: ExtendedSelector | undefined,
+      name: string,
+      flowFilePath: string,
+      flowName: string,
+      platform: string,
+      options: {
+        threshold?: number;
+        maxDiffPixelRatio?: number;
+        mask?: Array<{ x: number; y: number; width: number; height: number }>;
+        updateBaselines?: boolean;
+        outputDir?: string;
+      },
+    ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
+      Effect.gen(function* () {
+        const { resolveBaselinePath, readBaseline, writeBaseline } = yield* Effect.promise(
+          () => import("../core/baseline-manager.js"),
+        );
+        const { cropToElement, applyMask, compareScreenshots } = yield* Effect.promise(
+          () => import("../core/screenshot-compare.js"),
+        );
+
+        // 1. Take screenshot
+        const raw = yield* driver.takeScreenshot();
+
+        // 2. Optionally crop to element bounds
+        let screenshotBuf: Buffer;
+        if (selector !== undefined) {
+          const element = yield* waitForElement(driver, selector, parse, { ...defaults }, cache);
+          screenshotBuf = yield* Effect.promise(() => cropToElement(raw, element.bounds));
+        } else {
+          screenshotBuf = Buffer.from(raw);
+        }
+
+        // 3. Resolve baseline path
+        const baselinePath = resolveBaselinePath(flowFilePath, flowName, platform, name);
+
+        // 4. If updateBaselines: write baseline and return
+        if (options.updateBaselines) {
+          yield* Effect.promise(() => Promise.resolve(writeBaseline(baselinePath, screenshotBuf)));
+          return;
+        }
+
+        // 5. If no baseline exists (first run): write baseline and return
+        const existing = readBaseline(baselinePath);
+        if (existing === null) {
+          yield* Effect.promise(() => Promise.resolve(writeBaseline(baselinePath, screenshotBuf)));
+          return;
+        }
+
+        // 6. Apply masks if provided
+        let actualBuf: Buffer = screenshotBuf;
+        if (options.mask && options.mask.length > 0) {
+          actualBuf = yield* Effect.promise(() => applyMask(screenshotBuf, options.mask!));
+        }
+
+        // 7. Compare
+        const result = compareScreenshots(existing, actualBuf, {
+          threshold: options.threshold,
+          maxDiffPixelRatio: options.maxDiffPixelRatio,
+        });
+
+        // 8. If mismatch: write output images and fail
+        if (!result.match) {
+          const { writeFileSync, mkdirSync } = yield* Effect.promise(() => import("node:fs"));
+          const { join } = yield* Effect.promise(() => import("node:path"));
+          const outDir = options.outputDir ?? config.outputDir ?? "spana-output";
+          mkdirSync(outDir, { recursive: true });
+          const safeFlowName = flowName
+            .toLowerCase()
+            .replaceAll(/[^a-z0-9]+/g, "-")
+            .replaceAll(/^-|-$/g, "");
+          const prefix = join(outDir, `${safeFlowName}-${platform}-${name}`);
+          writeFileSync(`${prefix}-expected.png`, existing);
+          writeFileSync(`${prefix}-actual.png`, actualBuf);
+          if (result.diffImage) {
+            writeFileSync(`${prefix}-diff.png`, result.diffImage);
+          }
+          const detail = result.sizeMismatch
+            ? "image dimensions differ"
+            : `${result.diffPixelCount} differing pixels (ratio: ${(result.diffPixelRatio * 100).toFixed(2)}%)`;
+          return yield* new DriverError({
+            message: `Screenshot mismatch for "${name}": ${detail}. Expected: ${prefix}-expected.png, Actual: ${prefix}-actual.png${result.diffImage ? `, Diff: ${prefix}-diff.png` : ""}`,
+          });
+        }
+      }),
+
+    assertAccessibilityLabel: (
+      selector: ExtendedSelector,
+      expected?: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      pollUntilMatch(
+        selector,
+        opts,
+        (el) => {
+          const label = el.accessibilityLabel;
+          if (expected === undefined) {
+            return { matched: label !== undefined && label.length > 0, actual: label };
+          }
+          return { matched: label === expected, actual: label };
+        },
+        (actual, timeout) =>
+          expected === undefined
+            ? {
+                message: `Expected element to have a non-empty accessibilityLabel but got "${actual ?? "(none)"}" after ${timeout}ms`,
+                expected: "(non-empty)",
+              }
+            : {
+                message: `Expected accessibilityLabel "${expected}" but got "${actual ?? "(none)"}" after ${timeout}ms`,
+                expected,
+              },
+      ),
+
+    assertFocusable: (
+      selector: ExtendedSelector,
+      platform: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      Effect.gen(function* () {
+        const { isFocusable } = yield* Effect.promise(
+          () => import("../core/accessibility-audit.js"),
+        );
+        yield* pollUntilMatch(
+          selector,
+          opts,
+          (el) => {
+            const focusable = isFocusable(el as unknown as Record<string, unknown>, {
+              platform: platform as import("../schemas/selector.js").Platform,
+            });
+            return { matched: focusable, actual: focusable ? "focusable" : "not focusable" };
+          },
+          (actual, timeout) => ({
+            message: `Expected element to be focusable but it was "${actual ?? "not focusable"}" after ${timeout}ms — selector: ${formatSelector(selector)}`,
+            expected: "focusable",
+          }),
+        );
+      }),
+
+    assertRole: (
+      selector: ExtendedSelector,
+      expectedRole: string,
+      platform: string,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      Effect.gen(function* () {
+        const { normalizeRole } = yield* Effect.promise(
+          () => import("../core/accessibility-audit.js"),
+        );
+        yield* pollUntilMatch(
+          selector,
+          opts,
+          (el) => {
+            const actual = normalizeRole(
+              platform as import("../schemas/selector.js").Platform,
+              el.elementType ?? "",
+              el.attributes ?? {},
+            );
+            return { matched: actual === expectedRole, actual };
+          },
+          (actual, timeout) => ({
+            message: `Expected role "${expectedRole}" but got "${actual ?? "(unknown)"}" after ${timeout}ms — selector: ${formatSelector(selector)}`,
+            expected: expectedRole,
+          }),
+        );
+      }),
+
+    assertMinTouchTarget: (
+      selector: ExtendedSelector,
+      minSize: number,
+      opts?: WaitOptions,
+    ): Effect.Effect<
+      void,
+      ElementNotFoundError | WaitTimeoutError | TextMismatchError | DriverError
+    > =>
+      pollUntilMatch(
+        selector,
+        opts,
+        (el) => {
+          const { width, height } = el.bounds;
+          const passed = width >= minSize && height >= minSize;
+          const actual = `${width}x${height}`;
+          return { matched: passed, actual };
+        },
+        (actual, timeout) => ({
+          message: `Expected touch target to be at least ${minSize}x${minSize}px but got "${actual ?? "(unknown)"}" after ${timeout}ms — selector: ${formatSelector(selector)}`,
+          expected: `${minSize}x${minSize}`,
+        }),
+      ),
+
+    assertAccessibilityAudit: (
+      platform: string,
+      options: {
+        severity?: "critical" | "serious" | "moderate" | "minor";
+        rules?: string[];
+        excludeSelectors?: string[];
+      } = {},
+    ): Effect.Effect<void, DriverError> =>
+      Effect.gen(function* () {
+        if (platform !== "web") {
+          return yield* new DriverError({
+            message: `assertAccessibilityAudit() is only supported on web — platform "${platform}" is not supported`,
+          });
+        }
+
+        const { readFileSync } = yield* Effect.promise(() => import("node:fs"));
+        const { createRequire } = yield* Effect.promise(() => import("node:module"));
+        const require = createRequire(import.meta.url);
+        const axePath: string = require.resolve("axe-core/axe.js");
+        const axeSource = readFileSync(axePath, "utf-8");
+
+        const { filterViolations, formatViolationSummary } = yield* Effect.promise(
+          () => import("../core/accessibility-audit.js"),
+        );
+
+        // Build axe context/options for exclude selectors
+        const axeContext =
+          options.excludeSelectors && options.excludeSelectors.length > 0
+            ? { exclude: options.excludeSelectors.map((s) => [s]) }
+            : undefined;
+
+        const axeOptions: Record<string, unknown> = {};
+        if (options.rules && options.rules.length > 0) {
+          const rulesConfig: Record<string, { enabled: boolean }> = {};
+          for (const r of options.rules) rulesConfig[r] = { enabled: true };
+          axeOptions["rules"] = rulesConfig;
+        }
+
+        // Inject axe-core and run
+        const script = `
+          (function() {
+            ${axeSource}
+            return axe.run(${axeContext ? JSON.stringify(axeContext) : "document"}, ${JSON.stringify(axeOptions)});
+          })()
+        `;
+
+        type AxeResult = {
+          violations: Array<{
+            id: string;
+            impact: string;
+            description: string;
+            helpUrl: string;
+            tags: string[];
+            nodes: Array<{
+              target: string[];
+              html: string;
+              failureSummary: string;
+            }>;
+          }>;
+        };
+
+        const axeResult = yield* driver.evaluate<AxeResult>(script);
+
+        const violations = axeResult.violations.map((v) => ({
+          ruleId: v.id,
+          severity: (v.impact ?? "minor") as "critical" | "serious" | "moderate" | "minor",
+          description: v.description,
+          helpUrl: v.helpUrl,
+          wcagCriteria: v.tags.filter((t) => t.startsWith("wcag")),
+          elements: v.nodes.map((n) => ({
+            selector: n.target.join(", "),
+            html: n.html,
+            failureSummary: n.failureSummary,
+          })),
+        }));
+
+        const minSeverity = options.severity ?? "serious";
+        const filtered = filterViolations(violations, minSeverity);
+
+        if (filtered.length > 0) {
+          const summary = formatViolationSummary(filtered);
+          return yield* new DriverError({ message: summary });
+        }
       }),
   });
 
