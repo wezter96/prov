@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { writeFileSync, mkdirSync, copyFileSync, existsSync } from "node:fs";
+import { writeFileSync, mkdirSync, copyFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Reporter, FlowResult, StepResult } from "./types.js";
 
@@ -61,6 +61,50 @@ function copyAttachments(result: FlowResult, outputDir: string): unknown[] {
           type: att.contentType,
         });
       }
+    }
+  }
+
+  // Visual diff attachments from spana-output
+  const spanaOutputDir = join(outputDir, "..", "spana-output");
+  const diffDir = join(spanaOutputDir, `${result.name}-${result.platform}`);
+  if (existsSync(diffDir)) {
+    let diffFiles: string[];
+    try {
+      diffFiles = readdirSync(diffDir).filter(
+        (f) => f.endsWith("-expected.png") || f.endsWith("-actual.png") || f.endsWith("-diff.png"),
+      );
+    } catch {
+      diffFiles = [];
+    }
+    for (const f of diffFiles) {
+      const srcPath = join(diffDir, f);
+      if (existsSync(srcPath)) {
+        const filename = `${randomUUID()}-attachment.png`;
+        copyFileSync(srcPath, join(outputDir, filename));
+        allureAttachments.push({
+          name: f,
+          source: filename,
+          type: "image/png",
+        });
+      }
+    }
+  }
+
+  // A11y violation JSON attachments for failed AccessibilityAudit steps
+  for (const step of result.steps ?? []) {
+    if (step.status === "failed" && step.command.includes("AccessibilityAudit") && step.error) {
+      const violationData = {
+        step: step.command,
+        selector: step.selector,
+        error: step.error,
+      };
+      const filename = `${randomUUID()}-attachment.json`;
+      writeFileSync(join(outputDir, filename), JSON.stringify(violationData, null, 2));
+      allureAttachments.push({
+        name: `a11y-violations-${step.command}`,
+        source: filename,
+        type: "application/json",
+      });
     }
   }
 

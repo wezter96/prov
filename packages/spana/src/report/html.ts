@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
+import { join, basename } from "node:path";
 import type { Reporter, FlowResult, RunSummary, StepResult, ScenarioStepResult } from "./types.js";
 import { collectDiagnosticSections } from "./failure-diagnostics.js";
 
@@ -75,6 +75,108 @@ function renderFinalScreenshot(result: FlowResult): string {
   return `<div class="final-card"><img src="${dataUri}" alt="${escapeHtml(result.platform)} final"><div class="label">${escapeHtml(result.platform)} (${driverName(result.platform)}) &bull; ${formatDuration(result.durationMs)}</div></div>`;
 }
 
+function renderDiffTriptych(flowName: string, platform: string, outputDir: string): string {
+  let diffFiles: string[];
+  const dir = join(outputDir, `${flowName}-${platform}`);
+  try {
+    diffFiles = readdirSync(dir).filter((f) => f.endsWith("-diff.png"));
+  } catch {
+    return "";
+  }
+  if (diffFiles.length === 0) return "";
+
+  const cards = diffFiles
+    .map((diffFile) => {
+      const base = diffFile.replace(/-diff\.png$/, "");
+      const expectedUri = toBase64DataUri(join(dir, `${base}-expected.png`));
+      const actualUri = toBase64DataUri(join(dir, `${base}-actual.png`));
+      const diffUri = toBase64DataUri(join(dir, diffFile));
+      if (!expectedUri && !actualUri && !diffUri) return "";
+      const label = escapeHtml(basename(base));
+      const imgStyle = `height:220px;max-width:100%;object-fit:contain;border-radius:.375rem;border:1px solid #262626;background:#0a0a0a`;
+      const colStyle = `display:flex;flex-direction:column;align-items:center;gap:.5rem;flex:1 1 0;min-width:0`;
+      const labelStyle = `font-size:.65rem;color:#525252;text-align:center`;
+      const expectedCol = expectedUri
+        ? `<div style="${colStyle}"><img src="${expectedUri}" alt="expected" style="${imgStyle}"><div style="${labelStyle}">Expected</div></div>`
+        : `<div style="${colStyle}"><div style="height:220px;display:flex;align-items:center;justify-content:center;color:#525252;font-size:.75rem">no file</div><div style="${labelStyle}">Expected</div></div>`;
+      const actualCol = actualUri
+        ? `<div style="${colStyle}"><img src="${actualUri}" alt="actual" style="${imgStyle}"><div style="${labelStyle}">Actual</div></div>`
+        : `<div style="${colStyle}"><div style="height:220px;display:flex;align-items:center;justify-content:center;color:#525252;font-size:.75rem">no file</div><div style="${labelStyle}">Actual</div></div>`;
+      const diffCol = diffUri
+        ? `<div style="${colStyle}"><img src="${diffUri}" alt="diff" style="${imgStyle}"><div style="${labelStyle}">Diff</div></div>`
+        : `<div style="${colStyle}"><div style="height:220px;display:flex;align-items:center;justify-content:center;color:#525252;font-size:.75rem">no file</div><div style="${labelStyle}">Diff</div></div>`;
+      return `<div style="margin-bottom:1rem"><div style="font-size:.7rem;color:#737373;margin-bottom:.5rem;font-family:'SF Mono',Menlo,monospace">${label}</div><div style="display:flex;gap:.75rem;overflow-x:auto">${expectedCol}${actualCol}${diffCol}</div></div>`;
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  if (!cards) return "";
+  return `<div class="screenshots"><h3>Visual diff</h3>${cards}</div>`;
+}
+
+const A11Y_SEVERITY_COLORS: Record<string, string> = {
+  critical: "#dc2626",
+  serious: "#f97316",
+  moderate: "#eab308",
+  minor: "#3b82f6",
+};
+
+function renderA11yViolations(steps: StepResult[]): string {
+  const a11ySteps = steps.filter(
+    (s) => s.status === "failed" && s.command.includes("AccessibilityAudit") && s.error,
+  );
+  if (a11ySteps.length === 0) return "";
+
+  // Parse violations from error text: lines like "  [critical] rule-id (n elements) [WCAG X.X.X]"
+  interface ViolationRow {
+    rule: string;
+    severity: string;
+    elements: string;
+    wcag: string;
+  }
+  const rows: ViolationRow[] = [];
+  const violationLineRe =
+    /^\s+\[(\w+)\]\s+([^\s(]+(?:\s+[^\s([]+)*?)\s+\((\d+)\s+element[s]?\)\s*(?:\[([^\]]+)\])?/;
+
+  for (const step of a11ySteps) {
+    for (const line of (step.error ?? "").split("\n")) {
+      const m = violationLineRe.exec(line);
+      if (m) {
+        rows.push({
+          severity: m[1] ?? "",
+          rule: m[2] ?? "",
+          elements: m[3] ?? "",
+          wcag: m[4] ?? "",
+        });
+      }
+    }
+  }
+
+  if (rows.length === 0) {
+    // Fallback: just show the raw error text
+    const rawRows = a11ySteps
+      .map(
+        (s) =>
+          `<tr><td colspan="4" style="padding:.5rem 1rem;font-family:'SF Mono',Menlo,monospace;font-size:.72rem;white-space:pre-wrap;color:#fca5a5">${escapeHtml(s.error ?? "")}</td></tr>`,
+      )
+      .join("");
+    return `<div class="diagnostics"><h3>Accessibility violations</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem">${rawRows}</table></div></div>`;
+  }
+
+  const headerStyle = `padding:.5rem 1rem;text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:#525252;border-bottom:1px solid #262626`;
+  const header = `<tr><th style="${headerStyle}">Rule</th><th style="${headerStyle}">Severity</th><th style="${headerStyle}">Elements</th><th style="${headerStyle}">WCAG</th></tr>`;
+  const tableRows = rows
+    .map((row) => {
+      const color = A11Y_SEVERITY_COLORS[row.severity] ?? "#e5e5e5";
+      const cellStyle = `padding:.45rem 1rem;border-bottom:1px solid #1a1a1a;color:#d4d4d4;font-size:.78rem`;
+      const severityBadge = `<span style="color:${color};font-weight:600">${escapeHtml(row.severity)}</span>`;
+      return `<tr><td style="${cellStyle};font-family:'SF Mono',Menlo,monospace">${escapeHtml(row.rule)}</td><td style="${cellStyle}">${severityBadge}</td><td style="${cellStyle};text-align:center">${escapeHtml(row.elements)}</td><td style="${cellStyle};font-size:.72rem;color:#737373">${escapeHtml(row.wcag)}</td></tr>`;
+    })
+    .join("\n");
+
+  return `<div class="diagnostics"><h3>Accessibility violations</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">${header}${tableRows}</table></div></div>`;
+}
+
 function renderDiagnosticSections(result: FlowResult): string {
   const diagnostics = collectDiagnosticSections(result.attachments)
     .map(
@@ -100,7 +202,7 @@ function renderScenarioStep(step: ScenarioStepResult): string {
   return `<div class="step"><span class="step-num" style="color:${statusClass === "pass" ? "#22c55e" : statusClass === "fail" ? "#ef4444" : "#525252"}">${icon}</span><span class="step-action"><strong>${escapeHtml(step.keyword)}</strong> ${escapeHtml(step.text)}</span>${duration}</div>${error}`;
 }
 
-function renderPlatform(result: FlowResult): string {
+function renderPlatform(result: FlowResult, outputDir: string): string {
   const scenarioStepsHtml = result.scenarioSteps
     ? `<div class="steps">${result.scenarioSteps.map(renderScenarioStep).join("\n")}</div>`
     : "";
@@ -129,12 +231,14 @@ function renderPlatform(result: FlowResult): string {
   ${scenarioStepsHtml}
   ${driverStepsHtml}
   ${renderScreenshots(result.steps ?? [])}
+  ${renderDiffTriptych(result.name, result.platform, outputDir)}
+  ${renderA11yViolations(result.steps ?? [])}
   ${renderDiagnosticSections(result)}
   ${errorHtml}
 </div>`;
 }
 
-function buildHTML(summary: RunSummary): string {
+function buildHTML(summary: RunSummary, outputDir: string): string {
   const timestamp = new Date()
     .toISOString()
     .replace("T", " ")
@@ -144,7 +248,7 @@ function buildHTML(summary: RunSummary): string {
 
   const finalScreenshots = summary.results.map(renderFinalScreenshot).filter(Boolean).join("\n");
 
-  const platforms = summary.results.map(renderPlatform).join("\n");
+  const platforms = summary.results.map((r) => renderPlatform(r, outputDir)).join("\n");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -254,7 +358,7 @@ ${platforms}
 export function createHtmlReporter(outputDir: string = "./spana-output"): Reporter {
   return {
     onRunComplete(summary) {
-      const html = buildHTML(summary);
+      const html = buildHTML(summary, outputDir);
       mkdirSync(outputDir, { recursive: true });
       const outputPath = join(outputDir, "report.html");
       writeFileSync(outputPath, html, "utf-8");

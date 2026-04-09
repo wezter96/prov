@@ -50,6 +50,17 @@ const driverNames: Record<Platform, string> = {
   ios: "WebDriverAgent",
 };
 
+function printA11yViolations(result: FlowResult): void {
+  for (const step of result.steps ?? []) {
+    if (step.status === "failed" && step.command.includes("AccessibilityAudit") && step.error) {
+      console.log(`    Accessibility violations (${step.command}):`);
+      for (const line of step.error.split("\n")) {
+        console.log(`      ${line}`);
+      }
+    }
+  }
+}
+
 export function createConsoleReporter(options?: ConsoleReporterOptions): Reporter {
   const quiet = options?.quiet ?? false;
   let completed = 0;
@@ -123,6 +134,7 @@ export function createConsoleReporter(options?: ConsoleReporterOptions): Reporte
       );
       if (result.scenarioSteps) printScenarioSteps(result.scenarioSteps);
       printResultAttachments(result);
+      printA11yViolations(result);
     },
 
     onRunComplete(summary) {
