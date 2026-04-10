@@ -14,6 +14,7 @@ export default function Playground() {
   const [longPressActive, setLongPressActive] = useState(false);
   const [nestedTapCount, setNestedTapCount] = useState(0);
   const [sectionExpanded, setSectionExpanded] = useState(false);
+  const [relativeActionCount, setRelativeActionCount] = useState(0);
   const lastTapAtRef = useRef(0);
 
   const handleDoubleTap = useCallback(() => {
@@ -163,13 +164,41 @@ export default function Playground() {
               </View>
             )}
             {!sectionExpanded && (
-              <Text
-                testID="playground-details-hidden"
-                style={{ color: theme.border, fontSize: 12 }}
-              >
+              <Text testID="playground-details-hidden" style={{ color: theme.text, fontSize: 12 }}>
                 Tap above to reveal content
               </Text>
             )}
+          </View>
+
+          {/* Horizontal row for relative-selector examples */}
+          <View
+            testID="playground-relative-card"
+            style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Relative Selectors</Text>
+            <View style={styles.actionRow}>
+              <Text
+                testID="playground-relative-label"
+                style={[styles.rowLabel, { color: theme.text }]}
+              >
+                Row Action
+              </Text>
+              <Pressable
+                testID="playground-relative-button"
+                accessibilityLabel="Trigger row action"
+                accessibilityRole="button"
+                onPress={() => setRelativeActionCount((count) => count + 1)}
+                style={[styles.inlineButton, { backgroundColor: theme.primary }]}
+              >
+                <Text style={styles.buttonText}>Trigger</Text>
+              </Pressable>
+            </View>
+            <Text
+              testID="playground-relative-status"
+              style={[styles.mirrorText, { color: theme.primary }]}
+            >
+              {relativeActionCount === 0 ? "Idle" : `Triggered ${relativeActionCount}x`}
+            </Text>
           </View>
 
           {/* Spacer content for scroll testing */}
@@ -231,6 +260,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 12,
   },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 14,
+  },
+  inlineButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 44,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   nestedContent: {
     borderRadius: 6,
     padding: 12,
@@ -238,8 +286,10 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 12,
+    minHeight: 44,
     borderRadius: 6,
     alignItems: "center",
+    justifyContent: "center",
   },
   buttonText: {
     color: "#ffffff",

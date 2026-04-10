@@ -59,6 +59,11 @@ export function createPromiseExpect(
   config: CoordinatorConfig,
   recorder?: StepRecorder,
   flowContext?: FlowContext,
+  visualRegression?: {
+    threshold?: number;
+    maxDiffPixelRatio?: number;
+    baselinesDir?: string;
+  },
 ): (selector: ExtendedSelector) => PromiseExpectation {
   const ctx: FlowContext = flowContext ?? {
     flowFilePath: "",
@@ -109,20 +114,24 @@ export function createPromiseExpect(
       runStep(`expect.toMatchScreenshot(${JSON.stringify(name)})`, selector, () =>
         run(
           coord.assertScreenshot(selector, name, ctx.flowFilePath, ctx.flowName, ctx.platform, {
-            threshold: options?.threshold,
-            maxDiffPixelRatio: options?.maxDiffPixelRatio,
+            threshold: options?.threshold ?? visualRegression?.threshold,
+            maxDiffPixelRatio: options?.maxDiffPixelRatio ?? visualRegression?.maxDiffPixelRatio,
             mask: [],
+            updateBaselines: ctx.updateBaselines,
+            baselinesDir: visualRegression?.baselinesDir,
           }),
         ),
       ),
 
     toPassAccessibilityAudit: (options) => {
       const excludeCss = options?.exclude?.map(selectorToCss).filter(Boolean) ?? [];
+      const targetCss = selectorToCss(selector);
       return runStep("expect.toPassAccessibilityAudit", selector, () =>
         run(
           coord.assertAccessibilityAudit(ctx.platform, {
             severity: options?.severity,
             rules: options?.rules,
+            targetSelector: targetCss || undefined,
             excludeSelectors: excludeCss,
           }),
         ),

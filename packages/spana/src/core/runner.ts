@@ -34,6 +34,7 @@ export async function loadFlowFile(filePath: string): Promise<FlowDefinition> {
     Object.assign(flowDef.config, mod.settings as FlowConfig);
   }
 
+  flowDef.sourcePath ??= absolutePath;
   return flowDef;
 }
 

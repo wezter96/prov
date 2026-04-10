@@ -52,10 +52,14 @@ const ANDROID_CLASS_ROLE_MAP: Record<string, string> = {
 
 const IOS_TRAIT_ROLE_MAP: Record<string, string> = {
   button: "button",
+  XCUIElementTypeButton: "button",
   header: "heading",
   link: "link",
+  XCUIElementTypeLink: "link",
   image: "image",
+  XCUIElementTypeImage: "image",
   staticText: "text",
+  XCUIElementTypeStaticText: "text",
 };
 
 export function normalizeRole(
@@ -97,9 +101,18 @@ export function isFocusable(
 ): boolean {
   switch (context.platform) {
     case "web": {
-      const tag = typeof element["tag"] === "string" ? element["tag"].toLowerCase() : "";
+      const tag =
+        typeof element["tag"] === "string"
+          ? element["tag"].toLowerCase()
+          : typeof element["elementType"] === "string"
+            ? element["elementType"].toLowerCase()
+            : "";
       if (WEB_FOCUSABLE_TAGS.has(tag)) return true;
-      const tabindex = element["tabindex"];
+      const attrs =
+        typeof element["attributes"] === "object" && element["attributes"] !== null
+          ? (element["attributes"] as Record<string, unknown>)
+          : undefined;
+      const tabindex = element["tabindex"] ?? attrs?.["tabindex"];
       if (tabindex !== undefined && tabindex !== null) {
         const idx = Number(tabindex);
         if (!isNaN(idx) && idx >= 0) return true;

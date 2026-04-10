@@ -13,6 +13,7 @@ export {
   type BackUntilVisibleOptions,
   type DismissKeyboardOptions,
   type ScrollUntilVisibleOptions,
+  type StorybookOpenOptions,
 } from "./api/app.js";
 export { type PromiseExpectation } from "./api/expect.js";
 
@@ -28,6 +29,8 @@ export {
   type ProvConfig,
   type AppConfig,
   type BrowserName,
+  type StorybookConfig,
+  type StorybookValue,
   type WebExecutionConfig,
   type ArtifactConfig,
 } from "./schemas/config.js";

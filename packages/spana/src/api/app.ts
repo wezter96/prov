@@ -11,7 +11,8 @@ import type {
   BrowserJSError,
   TouchSequence,
 } from "../drivers/raw-driver.js";
-import type { ExtendedSelector, Selector } from "../schemas/selector.js";
+import type { StorybookConfig } from "../schemas/config.js";
+import type { ExtendedSelector, Selector, Platform } from "../schemas/selector.js";
 import {
   createCoordinator,
   type BackUntilVisibleOptions,
@@ -22,6 +23,7 @@ import {
 } from "../smart/coordinator.js";
 import { waitForElement, type WaitOptions } from "../smart/auto-wait.js";
 import type { StepRecorder } from "../core/step-recorder.js";
+import { buildStorybookUrl, type StorybookOpenOptions } from "./storybook.js";
 
 export type {
   BackUntilVisibleOptions,
@@ -29,6 +31,7 @@ export type {
   ScrollUntilVisibleOptions,
 } from "../smart/coordinator.js";
 export type { BrowserConsoleLog, BrowserHAR, BrowserJSError } from "../drivers/raw-driver.js";
+export type { StorybookOpenOptions } from "./storybook.js";
 
 export interface PromiseApp {
   tap(selector: ExtendedSelector, opts?: WaitOptions): Promise<void>;
@@ -49,6 +52,7 @@ export interface PromiseApp {
   kill(): Promise<void>;
   clearState(): Promise<void>;
   openLink(url: string): Promise<void>;
+  openStory(storyId: string, opts?: StorybookOpenOptions): Promise<void>;
   back(): Promise<void>;
   takeScreenshot(name?: string): Promise<Uint8Array>;
   evaluate<T = unknown>(fn: ((...args: any[]) => T) | string, ...args: any[]): Promise<T>;
@@ -102,6 +106,11 @@ export interface PromiseApp {
   switchToNativeApp(): Promise<void>;
 }
 
+export interface PromiseAppOptions {
+  platform?: Platform;
+  storybook?: StorybookConfig;
+}
+
 const describeMatcher = (matcher: BrowserRouteMatcher) =>
   typeof matcher === "string" ? matcher : matcher.toString();
 
@@ -110,8 +119,12 @@ export function createPromiseApp(
   appId: string,
   config: CoordinatorConfig,
   recorder?: StepRecorder,
+  options: PromiseAppOptions = {},
 ): PromiseApp {
   const coord = createCoordinator(driver, config);
+  const platform =
+    options.platform ??
+    (appId.startsWith("http://") || appId.startsWith("https://") ? "web" : undefined);
 
   const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
   const unsupportedWebFeature = (feature: string) =>
@@ -222,6 +235,32 @@ export function createPromiseApp(
         selector: { url },
         captureScreenshot: true,
       }),
+    openStory: (storyId, opts) =>
+      runStep(
+        `openStory(${storyId})`,
+        async () => {
+          if (platform !== "web") {
+            await run(unsupportedWebFeature("openStory"));
+            return;
+          }
+
+          const url = buildStorybookUrl(storyId, opts, {
+            appBaseUrl: appId,
+            storybook: options.storybook,
+          });
+          await run(driver.openLink(url));
+        },
+        {
+          selector: {
+            storyId,
+            viewMode: opts?.viewMode ?? "story",
+            args: opts?.args,
+            globals: opts?.globals,
+            baseUrl: opts?.baseUrl,
+          },
+          captureScreenshot: true,
+        },
+      ),
     back: () => runStep("back", () => run(driver.back()), { captureScreenshot: true }),
     takeScreenshot: (name) =>
       runScreenshotStep(

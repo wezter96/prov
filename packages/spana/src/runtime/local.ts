@@ -36,6 +36,7 @@ function buildEngineConfig(
   platform: "web" | "android" | "ios",
   parseFn: CoordinatorConfig["parse"],
   config: ProvConfig,
+  screenSize?: { width: number; height: number },
 ): EngineConfig {
   return {
     appId,
@@ -45,15 +46,22 @@ function buildEngineConfig(
       defaults: {
         timeout: config.defaults?.waitTimeout,
         pollInterval: config.defaults?.pollInterval,
+        settleTimeout: config.defaults?.settleTimeout,
+        initialPollInterval: config.defaults?.initialPollInterval,
       },
       waitForIdleTimeout: config.defaults?.waitForIdleTimeout,
       typingDelay: config.defaults?.typingDelay,
+      hierarchyCacheTtl: config.defaults?.hierarchyCacheTtl,
+      screenWidth: screenSize?.width,
+      screenHeight: screenSize?.height,
     },
     autoLaunch: true,
     flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
     artifactConfig: config.artifacts,
     launchOptions: config.launchOptions,
     hooks: config.hooks,
+    storybook: platform === "web" ? config.execution?.web?.storybook : undefined,
+    visualRegression: config.visualRegression,
   };
 }
 
@@ -66,8 +74,10 @@ export async function buildWebRuntime(config: ProvConfig): Promise<RuntimeResult
       headless: webExecution?.headless ?? true,
       baseUrl: webUrl,
       storageState: webExecution?.storageState,
+      verboseLogging: webExecution?.verboseLogging,
     }),
   );
+  const deviceInfo = await Effect.runPromise(driver.getDeviceInfo());
 
   return {
     runtime: {
@@ -78,7 +88,10 @@ export async function buildWebRuntime(config: ProvConfig): Promise<RuntimeResult
         mode: "local",
       },
     },
-    engineConfig: buildEngineConfig(webUrl, "web", parseWebHierarchy, config),
+    engineConfig: buildEngineConfig(webUrl, "web", parseWebHierarchy, config, {
+      width: deviceInfo.screenWidth,
+      height: deviceInfo.screenHeight,
+    }),
   };
 }
 
@@ -121,6 +134,7 @@ export async function buildLocalAndroidRuntime(
     const driver = await Effect.runPromise(
       createUiAutomator2Driver(conn.host, conn.port, device.serial, packageName),
     );
+    const deviceInfo = await Effect.runPromise(driver.getDeviceInfo());
 
     return {
       runtime: {
@@ -136,7 +150,10 @@ export async function buildLocalAndroidRuntime(
           deviceId: device.serial,
         },
       },
-      engineConfig: buildEngineConfig(packageName, "android", parseAndroidHierarchy, config),
+      engineConfig: buildEngineConfig(packageName, "android", parseAndroidHierarchy, config, {
+        width: deviceInfo.screenWidth,
+        height: deviceInfo.screenHeight,
+      }),
     };
   } catch (e) {
     console.log(`Android setup failed on ${device.serial}: ${e instanceof Error ? e.message : e}`);
@@ -151,53 +168,45 @@ export async function buildLocalIOSRuntime(
 ): Promise<RuntimeResult | null> {
   const bundleId = config.apps?.ios?.bundleId ?? "";
   const iosAppPath = config.apps?.ios?.appPath;
-
-  // If a specific simulator was targeted, use it directly
-  if (targetDevice?.platform === "ios" && targetDevice.type === "simulator") {
-    if (iosAppPath && bundleId) {
-      ensureAppInstalled({
-        udid: targetDevice.id,
-        bundleId,
-        appPath: resolveFromConfig(iosAppPath),
-        isPhysicalDevice: false,
-      });
-    }
-    const wdaPort = allocatePort(8100);
-    try {
-      const conn = await setupWDA(targetDevice.id, wdaPort);
-      const driver = await Effect.runPromise(
-        createWDADriver(conn.host, conn.port, bundleId, targetDevice.id),
-      );
-
-      return {
-        runtime: {
-          driver,
-          cleanup: () =>
-            safeCleanup(
-              () => Effect.runPromise(driver.killApp("")),
-              () => conn.cleanup?.() ?? Promise.resolve(),
-            ),
-          metadata: {
-            platform: "ios",
-            mode: "local",
-            deviceId: targetDevice.id,
-          },
-        },
-        engineConfig: buildEngineConfig(bundleId, "ios", parseIOSHierarchy, config),
-      };
-    } catch (e) {
-      console.log(
-        `iOS setup failed for device ${targetDevice.id}: ${e instanceof Error ? e.message : e}`,
-      );
-      return null;
-    }
-  }
-
-  // Try physical device first, fall back to simulator
-  const physicalDevice = firstIOSPhysicalDevice();
   const signing = config.apps?.ios?.signing;
-  if (physicalDevice) {
+
+  const createIOSRuntime = async (
+    deviceId: string,
+    conn: { host: string; port: number; cleanup?: () => void },
+    simulatorUdid?: string,
+  ): Promise<RuntimeResult> => {
+    const driver = await Effect.runPromise(
+      createWDADriver(conn.host, conn.port, bundleId, simulatorUdid),
+    );
+    const deviceInfo = await Effect.runPromise(driver.getDeviceInfo());
+
+    return {
+      runtime: {
+        driver,
+        cleanup: () =>
+          safeCleanup(
+            () => Effect.runPromise(driver.killApp("")),
+            () => conn.cleanup?.() ?? Promise.resolve(),
+          ),
+        metadata: {
+          platform: "ios",
+          mode: "local",
+          deviceId,
+        },
+      },
+      engineConfig: buildEngineConfig(bundleId, "ios", parseIOSHierarchy, config, {
+        width: deviceInfo.screenWidth,
+        height: deviceInfo.screenHeight,
+      }),
+    };
+  };
+
+  const connectPhysicalRuntime = async (
+    physicalDevice: { udid: string; name: string },
+    allowSimulatorFallback: boolean,
+  ): Promise<RuntimeResult | null> => {
     let conn: { host: string; port: number; cleanup?: () => void } | undefined;
+
     try {
       console.log(`Found physical iOS device: ${physicalDevice.name} (${physicalDevice.udid})`);
       if (iosAppPath && bundleId) {
@@ -222,27 +231,7 @@ export async function buildLocalIOSRuntime(
         conn = connectPhysicalDevice(physicalDevice.udid);
       }
 
-      const activeConn = conn;
-      const driver = await Effect.runPromise(
-        createWDADriver(activeConn.host, activeConn.port, bundleId),
-      );
-
-      return {
-        runtime: {
-          driver,
-          cleanup: () =>
-            safeCleanup(
-              () => Effect.runPromise(driver.killApp("")),
-              () => activeConn.cleanup?.() ?? Promise.resolve(),
-            ),
-          metadata: {
-            platform: "ios",
-            mode: "local",
-            deviceId: physicalDevice.udid,
-          },
-        },
-        engineConfig: buildEngineConfig(bundleId, "ios", parseIOSHierarchy, config),
-      };
+      return await createIOSRuntime(physicalDevice.udid, conn);
     } catch (e) {
       if (conn?.cleanup) {
         try {
@@ -253,9 +242,53 @@ export async function buildLocalIOSRuntime(
           );
         }
       }
+
+      if (!allowSimulatorFallback) {
+        console.log(
+          `iOS setup failed for device ${physicalDevice.udid}: ${e instanceof Error ? e.message : e}`,
+        );
+        return null;
+      }
+
       console.log(
         `Physical device setup failed (${physicalDevice.name}): ${e instanceof Error ? e.message : e}. Falling back to simulator.`,
       );
+      return null;
+    }
+  };
+
+  // If a specific simulator was targeted, use it directly
+  if (targetDevice?.platform === "ios" && targetDevice.type === "simulator") {
+    if (iosAppPath && bundleId) {
+      ensureAppInstalled({
+        udid: targetDevice.id,
+        bundleId,
+        appPath: resolveFromConfig(iosAppPath),
+        isPhysicalDevice: false,
+      });
+    }
+    const wdaPort = allocatePort(8100);
+    try {
+      const conn = await setupWDA(targetDevice.id, wdaPort);
+      return await createIOSRuntime(targetDevice.id, conn, targetDevice.id);
+    } catch (e) {
+      console.log(
+        `iOS setup failed for device ${targetDevice.id}: ${e instanceof Error ? e.message : e}`,
+      );
+      return null;
+    }
+  }
+
+  if (targetDevice?.platform === "ios" && targetDevice.type === "device") {
+    return connectPhysicalRuntime({ udid: targetDevice.id, name: targetDevice.name }, false);
+  }
+
+  // Try physical device first, fall back to simulator
+  const physicalDevice = firstIOSPhysicalDevice();
+  if (physicalDevice) {
+    const runtime = await connectPhysicalRuntime(physicalDevice, true);
+    if (runtime) {
+      return runtime;
     }
   }
 
@@ -276,26 +309,7 @@ export async function buildLocalIOSRuntime(
   const wdaPort = allocatePort(8100);
   try {
     const conn = await setupWDA(simulator.udid, wdaPort);
-    const driver = await Effect.runPromise(
-      createWDADriver(conn.host, conn.port, bundleId, simulator.udid),
-    );
-
-    return {
-      runtime: {
-        driver,
-        cleanup: () =>
-          safeCleanup(
-            () => Effect.runPromise(driver.killApp("")),
-            () => conn.cleanup?.() ?? Promise.resolve(),
-          ),
-        metadata: {
-          platform: "ios",
-          mode: "local",
-          deviceId: simulator.udid,
-        },
-      },
-      engineConfig: buildEngineConfig(bundleId, "ios", parseIOSHierarchy, config),
-    };
+    return await createIOSRuntime(simulator.udid, conn, simulator.udid);
   } catch (e) {
     console.log(`iOS setup failed on ${simulator.name}: ${e instanceof Error ? e.message : e}`);
     return null;

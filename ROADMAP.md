@@ -39,6 +39,15 @@ Spana now has more capability than the top-level README and demo suite communica
 - The demo suite proves more than route checks and simple taps
 - Future comparisons do not misclassify shipped capabilities as missing
 
+### Remaining example-app showcase gaps
+
+- [x] Add a visual-regression example flow that uses `toMatchScreenshot()` and `--update-baselines`, not just ad hoc screenshot capture
+- [x] Add a relative-selector showcase flow so `below`, `rightOf`, and `childOf` show up in runnable example suites instead of docs only
+- [x] Add accessibility showcase coverage: `toPassAccessibilityAudit()` on web plus cross-platform element-level accessibility assertions
+- [ ] Add a multi-device showcase run for the framework app that explicitly demonstrates `--parallel`, `--device`, and `--devices`
+- [ ] Expand Studio coverage further into artifact drill-in and deeper inspector interactions
+- [ ] Add one provider-backed showcase smoke using the framework app plus the example BrowserStack/Sauce capabilities
+
 ---
 
 ## Phase 6 — Parallel Execution & Runner UX (v1.2.0) [complete]

@@ -389,6 +389,38 @@ describe("promise app", () => {
     expect(events).toContainEqual(["takeScreenshot"]);
   });
 
+  test("openStory builds a Storybook iframe URL and records the navigation step", async () => {
+    const { driver, events } = createDriver(createElement({ text: "Ready" }));
+    const { recorder, stepCalls } = createRecorder();
+    const app = createPromiseApp(driver, "http://localhost:3000", { parse }, recorder, {
+      platform: "web",
+      storybook: { url: "http://localhost:6006", iframePath: "/iframe.html" },
+    });
+
+    await app.openStory("components-button--primary", {
+      args: { disabled: true, size: "lg" },
+      globals: { theme: "dark" },
+    });
+
+    expect(stepCalls.at(-1)).toEqual({
+      command: "openStory(components-button--primary)",
+      opts: {
+        selector: {
+          storyId: "components-button--primary",
+          viewMode: "story",
+          args: { disabled: true, size: "lg" },
+          globals: { theme: "dark" },
+          baseUrl: undefined,
+        },
+        captureScreenshot: true,
+      },
+    });
+    expect(events.at(-1)).toEqual([
+      "openLink",
+      "http://localhost:6006/iframe.html?id=components-button--primary&viewMode=story&args=disabled%3Atrue%3Bsize%3Alg&globals=theme%3Adark",
+    ]);
+  });
+
   test("scrollUntilVisible records a targeted helper step and stops once the element appears", async () => {
     const { driver, events } = createDriver([
       createElement({ children: [createElement({ text: "Top" })] }),
@@ -634,5 +666,16 @@ describe("promise app", () => {
       "getConsoleLogs() is only supported on the web platform",
     );
     await expect(app.getHAR()).rejects.toThrow("getHAR() is only supported on the web platform");
+  });
+
+  test("openStory rejects on non-web platforms", async () => {
+    const { driver } = createDriver(createElement({ text: "Ready" }));
+    const app = createPromiseApp(driver, "com.example.app", { parse }, undefined, {
+      platform: "android",
+    });
+
+    await expect(app.openStory("components-button--primary")).rejects.toThrow(
+      "openStory() is only supported on the web platform",
+    );
   });
 });

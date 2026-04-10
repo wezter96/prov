@@ -49,7 +49,7 @@ This gives you the same information as `spana selectors` and `spana hierarchy`, 
 Discover and run flow files without leaving the browser.
 
 - **Flow discovery** — automatically lists all flows found under your configured `flowDir`.
-- **Device selector** — pick which device, emulator, or simulator to run tests on from a dropdown in the toolbar.
+- **Device selector** — pick the target device, emulator, or simulator for each selected platform from the toolbar.
 - **Run tests** — execute one or many flows with real-time progress updates.
 - **Step details** — expand any step to see its status, duration, and captured screenshot.
 

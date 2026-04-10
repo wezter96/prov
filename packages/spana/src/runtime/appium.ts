@@ -20,6 +20,7 @@ export async function buildAppiumAndroidRuntime(
   });
 
   const driver = await Effect.runPromise(createAppiumAndroidDriver(client));
+  const deviceInfo = await Effect.runPromise(driver.getDeviceInfo());
 
   const sessionId = client.getSessionId() ?? undefined;
   const sessionCaps = client.getSessionCaps();
@@ -54,15 +55,21 @@ export async function buildAppiumAndroidRuntime(
         defaults: {
           timeout: config.defaults?.waitTimeout,
           pollInterval: config.defaults?.pollInterval,
+          settleTimeout: config.defaults?.settleTimeout,
+          initialPollInterval: config.defaults?.initialPollInterval,
         },
         waitForIdleTimeout: config.defaults?.waitForIdleTimeout,
         typingDelay: config.defaults?.typingDelay,
+        hierarchyCacheTtl: config.defaults?.hierarchyCacheTtl,
+        screenWidth: deviceInfo.screenWidth,
+        screenHeight: deviceInfo.screenHeight,
       },
       autoLaunch: false, // Appium manages app lifecycle
       flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
       artifactConfig: config.artifacts,
       launchOptions: config.launchOptions,
       hooks: config.hooks,
+      visualRegression: config.visualRegression,
     },
   };
 }
@@ -80,6 +87,7 @@ export async function buildAppiumIOSRuntime(
   });
 
   const driver = await Effect.runPromise(createAppiumIOSDriver(client));
+  const deviceInfo = await Effect.runPromise(driver.getDeviceInfo());
 
   const sessionId = client.getSessionId() ?? undefined;
   const sessionCaps = client.getSessionCaps();
@@ -114,15 +122,21 @@ export async function buildAppiumIOSRuntime(
         defaults: {
           timeout: config.defaults?.waitTimeout,
           pollInterval: config.defaults?.pollInterval,
+          settleTimeout: config.defaults?.settleTimeout,
+          initialPollInterval: config.defaults?.initialPollInterval,
         },
         waitForIdleTimeout: config.defaults?.waitForIdleTimeout,
         typingDelay: config.defaults?.typingDelay,
+        hierarchyCacheTtl: config.defaults?.hierarchyCacheTtl,
+        screenWidth: deviceInfo.screenWidth,
+        screenHeight: deviceInfo.screenHeight,
       },
       autoLaunch: false, // Appium manages app lifecycle
       flowTimeout: config.defaults?.waitTimeout ? config.defaults.waitTimeout * 10 : 60_000,
       artifactConfig: config.artifacts,
       launchOptions: config.launchOptions,
       hooks: config.hooks,
+      visualRegression: config.visualRegression,
     },
   };
 }

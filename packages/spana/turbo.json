@@ -1,0 +1,9 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build", "@spana/studio#build"],
+      "outputs": ["dist/**", "studio-dist/**"]
+    }
+  }
+}

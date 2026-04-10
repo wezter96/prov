@@ -69,6 +69,34 @@ function nextRunId(): string {
 
 const platformEnum = z.enum(["web", "android", "ios"]);
 
+export function buildDeviceSelectionArgs(
+  devices?: Array<{ platform: Platform; deviceId?: string }>,
+): string[] {
+  if (!devices || devices.length === 0) {
+    return [];
+  }
+
+  const selectedPlatforms = new Set(devices.map((device) => device.platform));
+  const explicitlyTargeted = devices.filter(
+    (device): device is { platform: Platform; deviceId: string } => Boolean(device.deviceId),
+  );
+  const explicitPlatforms = new Set(explicitlyTargeted.map((device) => device.platform));
+  const explicitDeviceIds = [...new Set(explicitlyTargeted.map((device) => device.deviceId))];
+
+  if (explicitDeviceIds.length === 0) {
+    return [];
+  }
+
+  const canUseSingleDeviceFlag =
+    explicitDeviceIds.length === 1 &&
+    explicitPlatforms.size === 1 &&
+    selectedPlatforms.size === explicitPlatforms.size;
+
+  return canUseSingleDeviceFlag
+    ? ["--device", explicitDeviceIds[0]!]
+    : ["--devices", explicitDeviceIds.join(",")];
+}
+
 async function discoverAndLoad(flowDir: string): Promise<FlowDefinition[]> {
   const dir = resolve(flowDir);
 
@@ -231,13 +259,16 @@ export const testsRouter = {
           if (input.tags && input.tags.length > 0) {
             args.push("--tag", input.tags.join(","));
           }
-          if (input.devices && input.devices.length > 0) {
-            for (const d of input.devices) {
-              if (d.deviceId) {
-                args.push("--device", d.deviceId);
-              }
-            }
-          }
+          args.push(
+            ...buildDeviceSelectionArgs(
+              input.devices as
+                | Array<{
+                    platform: Platform;
+                    deviceId?: string;
+                  }>
+                | undefined,
+            ),
+          );
 
           // Create temp config with capture overrides if requested
           let tmpConfig: string | undefined;

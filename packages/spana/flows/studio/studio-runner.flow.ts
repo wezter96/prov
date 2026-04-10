@@ -9,75 +9,115 @@ export default flow(
     timeout: 600_000, // 10 minutes — full test suite takes time
   },
   async ({ app, expect }) => {
-    // Navigate to Studio Test Runner
     await app.launch({ deepLink: "http://localhost:4400" });
-
-    // Click the Test Runner tab
-    await app.tap("Test Runner");
-    await expect("Flows").toBeVisible({ timeout: 5_000 });
-
-    // Ensure all 3 platforms are selected (they should be by default)
-    // The platform buttons show as brighter text when active
-    await expect("web").toBeVisible();
-    await expect("android").toBeVisible();
-    await expect("ios").toBeVisible();
-
-    // Verify flows are listed
-    await expect("Select all").toBeVisible({ timeout: 5_000 });
-
-    // Click Select All to ensure all flows are checked
-    await app.tap("Select all");
-
-    // Click Run button
-    await app.tap("Run");
-
-    // Wait for "Running..." state
-    await expect("Running...").toBeVisible({ timeout: 10_000 });
-
-    // Wait for run to complete — poll for "passed" or "failed" text in results header
-    // This can take several minutes for all platforms
-    await expect("Results").toBeVisible({ timeout: 10_000 });
-
-    // Wait for the run to finish (Running... button should become Run again)
-    // Use a long timeout since all 3 platforms run serially
     await app.evaluate(() => {
-      return new Promise<void>((resolve) => {
-        const check = () => {
-          const btn = Array.from(document.querySelectorAll("button")).find(
-            (b) => b.textContent?.trim() === "Run" || b.textContent?.trim() === "Re-run Failed",
+      sessionStorage.setItem(
+        "spana-studio-runner",
+        JSON.stringify({ runId: null, results: [], platforms: ["web"] }),
+      );
+    });
+    await app.launch({ deepLink: "http://localhost:4400" });
+    await expect({ testID: "studio-nav-runner" }).toBeVisible({ timeout: 10_000 });
+
+    await app.tap({ testID: "studio-nav-runner" });
+    await expect({ testID: "studio-runner-flow-list-title" }).toBeVisible({ timeout: 5_000 });
+    await expect({
+      testID: "studio-runner-flow-framework-app-home-screen-renders-on-every-platform",
+    }).toBeVisible({ timeout: 10_000 });
+    await expect({ testID: "studio-runner-platform-web" }).toBeVisible();
+    await expect({ testID: "studio-runner-platform-android" }).toBeVisible();
+    await expect({ testID: "studio-runner-platform-ios" }).toBeVisible();
+    await expect({ testID: "studio-runner-capture-screenshots-input" }).toBeVisible();
+
+    await app.tap({ testID: "studio-runner-capture-screenshots-input" });
+    await app.tap({ testID: "studio-runner-capture-steps-input" });
+
+    await app.evaluate(() => {
+      return new Promise<void>((resolve, reject) => {
+        const deadline = Date.now() + 15_000;
+        const tick = () => {
+          const runButton = document.querySelector<HTMLButtonElement>(
+            '[data-testid="studio-runner-run"]',
           );
-          if (
-            btn &&
-            !btn.textContent?.includes("Running") &&
-            !btn.textContent?.includes("Starting")
-          ) {
+          if (runButton && !runButton.disabled) {
             resolve();
-          } else {
-            setTimeout(check, 2000);
+            return;
           }
+          if (Date.now() > deadline) {
+            reject(new Error("Studio Run button never became enabled"));
+            return;
+          }
+          setTimeout(tick, 200);
+        };
+        tick();
+      });
+    });
+
+    await app.tap({ testID: "studio-runner-run" });
+
+    await app.evaluate(() => {
+      return new Promise<void>((resolve, reject) => {
+        const deadline = Date.now() + 15_000;
+        const tick = () => {
+          const runButton = document.querySelector('[data-testid="studio-runner-run"]');
+          const runLabel = runButton?.textContent?.trim();
+          const runningMessage = document.querySelector(
+            '[data-testid="studio-runner-results-running-message"]',
+          );
+          if (runLabel === "Starting..." || runLabel === "Running..." || runningMessage) {
+            resolve();
+            return;
+          }
+          if (Date.now() > deadline) {
+            reject(new Error("Studio run never entered a running state"));
+            return;
+          }
+          setTimeout(tick, 200);
+        };
+        tick();
+      });
+    });
+
+    const resultsText = await app.evaluate(() => {
+      return new Promise<string>((resolve, reject) => {
+        const deadline = Date.now() + 600_000;
+        const check = () => {
+          const runButton = document.querySelector<HTMLButtonElement>(
+            '[data-testid="studio-runner-run"]',
+          );
+          const runLabel = runButton?.textContent?.trim();
+          const summary = document
+            .querySelector('[data-testid="studio-runner-results-summary"]')
+            ?.textContent?.replaceAll(/\s+/g, " ")
+            .trim();
+          const hasSummary = /(\d+)\s*(passed|failed|skipped)/.test(summary ?? "");
+          if (runButton && hasSummary && runLabel !== "Starting..." && runLabel !== "Running...") {
+            if (runButton.disabled) {
+              setTimeout(check, 1000);
+              return;
+            }
+            resolve(summary ?? "");
+            return;
+          }
+          if (Date.now() > deadline) {
+            reject(new Error("Studio run did not complete within the timeout"));
+            return;
+          }
+          setTimeout(check, 2000);
         };
         check();
       });
     });
 
-    // Take a screenshot of the final results
     await app.takeScreenshot("studio-runner-results");
+    await expect({ testID: "studio-runner-results-passed" }).toBeVisible({ timeout: 5_000 });
 
-    // Verify the results summary is visible
-    await expect("passed").toBeVisible({ timeout: 5_000 });
-
-    // Check that there are no failures
-    // Read the passed/failed counts from the UI
-    const resultsText = await app.evaluate(() => {
-      const header = document.querySelector("h2");
-      const parent = header?.parentElement;
-      return parent?.textContent ?? "";
-    });
     console.log("[Studio E2E] Results:", resultsText);
 
-    // Verify zero failures
     const failMatch = resultsText.match(/(\d+)\s*failed/);
-    const failCount = failMatch ? parseInt(failMatch[1]!, 10) : -1;
+    const passedMatch = resultsText.match(/(\d+)\s*passed/);
+    const failCount = failMatch ? parseInt(failMatch[1]!, 10) : 0;
+    const passedCount = passedMatch ? parseInt(passedMatch[1]!, 10) : 0;
 
     if (failCount > 0) {
       // Take screenshot showing failures
@@ -87,9 +127,61 @@ export default flow(
       );
     }
 
-    if (failCount === -1) {
-      throw new Error(`Could not parse results from Studio UI. Text: ${resultsText}`);
+    if (passedCount === 0) {
+      throw new Error(`Studio run completed without any passing flows. Results: ${resultsText}`);
     }
+
+    const artifactIds = await app.evaluate(() => {
+      const toggle = document.querySelector<HTMLElement>(
+        '[data-testid^="studio-runner-result-"][data-testid$="-toggle"]',
+      );
+      const toggleTestId = toggle?.dataset.testid;
+      if (!toggleTestId) {
+        throw new Error("Could not find a Studio result row to inspect");
+      }
+      return { toggleTestId };
+    });
+
+    await app.tap({ testID: artifactIds.toggleTestId });
+
+    const thumbnailIds = await app.evaluate(() => {
+      return new Promise<{ thumbnailTestId: string; expandedImageTestId: string }>(
+        (resolve, reject) => {
+          const deadline = Date.now() + 15_000;
+          const check = () => {
+            const thumbnail = Array.from(
+              document.querySelectorAll<HTMLElement>('[data-testid*="-thumbnail-"]'),
+            ).find((candidate) => {
+              const testId = candidate.dataset.testid ?? "";
+              return (
+                candidate.offsetParent !== null &&
+                /-thumbnail-[^-]+(?:-[^-]+)*$/.test(testId) &&
+                !testId.includes("-thumbnail-image-") &&
+                !testId.includes("-thumbnail-name-")
+              );
+            });
+            const thumbnailTestId = thumbnail?.dataset.testid;
+            if (thumbnailTestId) {
+              resolve({
+                thumbnailTestId,
+                expandedImageTestId: thumbnailTestId.replace(/-thumbnail-.+$/, "-expanded-image"),
+              });
+              return;
+            }
+            if (Date.now() > deadline) {
+              reject(new Error("Studio result details never exposed screenshot thumbnails"));
+              return;
+            }
+            setTimeout(check, 200);
+          };
+          check();
+        },
+      );
+    });
+
+    await expect({ testID: thumbnailIds.thumbnailTestId }).toBeVisible({ timeout: 5_000 });
+    await app.tap({ testID: thumbnailIds.thumbnailTestId });
+    await expect({ testID: thumbnailIds.expandedImageTestId }).toBeVisible({ timeout: 5_000 });
 
     console.log("[Studio E2E] All tests passed in Studio!");
   },

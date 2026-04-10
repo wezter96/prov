@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { orpc, client } from "@/lib/client";
 import { elementsAtPoint } from "@/lib/element-tree";
 import { Square, Circle, Trash2, Copy } from "lucide-react";
+import { studioTestId, toStudioTestIdSegment } from "@/lib/test-ids";
 
 type Platform = "web" | "android" | "ios";
 type RecorderState = "idle" | "recording" | "stopped";
@@ -43,7 +44,11 @@ function ActionPicker({ x, y, onPick, onDismiss }: ActionPickerProps) {
 
   return (
     <>
-      <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={onDismiss} />
+      <div
+        style={{ position: "fixed", inset: 0, zIndex: 49 }}
+        onClick={onDismiss}
+        {...studioTestId("studio-recorder-action-picker-backdrop")}
+      />
       <div
         style={{
           position: "fixed",
@@ -60,11 +65,13 @@ function ActionPicker({ x, y, onPick, onDismiss }: ActionPickerProps) {
           minWidth: 160,
           boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
         }}
+        {...studioTestId("studio-recorder-action-picker")}
       >
         {actions.map((a) => (
           <button
             key={a}
             onClick={() => onPick(a)}
+            {...studioTestId(`studio-recorder-action-picker-${toStudioTestIdSegment(a)}`)}
             style={{
               background: "transparent",
               border: "none",
@@ -328,16 +335,28 @@ export function RecorderPage() {
   const screenshotContainerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-64px)]">
+    <div
+      className="flex flex-col gap-4 h-[calc(100vh-64px)]"
+      {...studioTestId("studio-recorder-page")}
+    >
       {/* Top controls */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div
+        className="flex items-center gap-3 flex-wrap"
+        {...studioTestId("studio-recorder-toolbar")}
+      >
         {state === "idle" && (
           <>
-            <label className="text-xs text-zinc-400">Platform:</label>
+            <label
+              className="text-xs text-zinc-400"
+              {...studioTestId("studio-recorder-platform-label")}
+            >
+              Platform:
+            </label>
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value as Platform)}
               className="bg-zinc-800 border border-zinc-700 text-zinc-200 rounded px-2 py-1.5 text-sm"
+              {...studioTestId("studio-recorder-platform-select")}
             >
               <option value="web">web</option>
               <option value="android">android</option>
@@ -346,6 +365,7 @@ export function RecorderPage() {
             <button
               onClick={handleStart}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded text-sm bg-red-600 text-white hover:bg-red-500 transition-colors"
+              {...studioTestId("studio-recorder-start")}
             >
               <Circle className="w-3.5 h-3.5 fill-white" />
               Start Recording
@@ -356,21 +376,34 @@ export function RecorderPage() {
         {state === "recording" && (
           <>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-sm text-red-400 font-medium">Recording</span>
+              <span
+                className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"
+                {...studioTestId("studio-recorder-recording-indicator")}
+              />
+              <span
+                className="text-sm text-red-400 font-medium"
+                {...studioTestId("studio-recorder-recording-status")}
+              >
+                Recording
+              </span>
             </div>
-            <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none ml-2">
+            <label
+              className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none ml-2"
+              {...studioTestId("studio-recorder-watch-mode")}
+            >
               <input
                 type="checkbox"
                 checked={watchMode}
                 onChange={(e) => setWatchMode(e.target.checked)}
                 className="rounded border-zinc-600"
+                {...studioTestId("studio-recorder-watch-mode-input")}
               />
               Watch mode
             </label>
             <button
               onClick={handleStop}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded text-sm bg-zinc-700 text-zinc-200 hover:bg-zinc-600 transition-colors ml-auto"
+              {...studioTestId("studio-recorder-stop")}
             >
               <Square className="w-3.5 h-3.5 fill-zinc-200" />
               Stop
@@ -386,22 +419,26 @@ export function RecorderPage() {
               onChange={(e) => setFlowName(e.target.value)}
               placeholder="Flow name..."
               className="bg-zinc-800 border border-zinc-700 text-zinc-200 rounded px-3 py-1.5 text-sm w-48 placeholder-zinc-500"
+              {...studioTestId("studio-recorder-flow-name")}
             />
             <button
               onClick={handleGenerate}
               className="px-3 py-1.5 rounded text-sm bg-zinc-700 text-zinc-200 hover:bg-zinc-600 transition-colors"
+              {...studioTestId("studio-recorder-generate")}
             >
               Generate
             </button>
             <button
               onClick={handleSave}
               className="px-3 py-1.5 rounded text-sm bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
+              {...studioTestId("studio-recorder-save")}
             >
               Save
             </button>
             <button
               onClick={handleNew}
               className="px-3 py-1.5 rounded text-sm bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-zinc-200 transition-colors ml-auto"
+              {...studioTestId("studio-recorder-new")}
             >
               New
             </button>
@@ -421,14 +458,19 @@ export function RecorderPage() {
             alignItems: "center",
             gap: 12,
           }}
+          {...studioTestId("studio-recorder-watch-prompt")}
         >
-          <span style={{ color: "#e5e5e5", fontSize: 13 }}>
+          <span
+            style={{ color: "#e5e5e5", fontSize: 13 }}
+            {...studioTestId("studio-recorder-watch-prompt-text")}
+          >
             Screen changed — what did you just do?
           </span>
           {(["tap", "inputText", "scroll", "swipe", "back"] as ActionType[]).map((a) => (
             <button
               key={a}
               onClick={() => handleWatchActionPick(a)}
+              {...studioTestId(`studio-recorder-watch-prompt-${toStudioTestIdSegment(a)}`)}
               style={{
                 background: "#262626",
                 border: "1px solid #333",
@@ -444,6 +486,7 @@ export function RecorderPage() {
           ))}
           <button
             onClick={() => setWatchPrompt(false)}
+            {...studioTestId("studio-recorder-watch-prompt-dismiss")}
             style={{
               background: "transparent",
               border: "none",
@@ -469,15 +512,25 @@ export function RecorderPage() {
             fontSize: 13,
             color: "#4ade80",
           }}
+          {...studioTestId("studio-recorder-save-success")}
         >
-          Saved to: <span style={{ fontFamily: "monospace" }}>{savedFilePath}</span>
+          Saved to:{" "}
+          <span style={{ fontFamily: "monospace" }} {...studioTestId("studio-recorder-save-path")}>
+            {savedFilePath}
+          </span>
         </div>
       )}
 
       {/* Main content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+      <div
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0"
+        {...studioTestId("studio-recorder-layout")}
+      >
         {/* Left panel: screenshot (during recording) or action timeline */}
-        <div className="flex flex-col gap-3 min-h-0">
+        <div
+          className="flex flex-col gap-3 min-h-0"
+          {...studioTestId("studio-recorder-left-panel")}
+        >
           {state === "recording" && screenshotData?.image ? (
             <div
               ref={screenshotContainerRef}
@@ -486,6 +539,7 @@ export function RecorderPage() {
               onClick={() => {
                 // DeviceScreenshot handles click internally, so we use onClickPoint override
               }}
+              {...studioTestId("studio-recorder-screenshot-panel")}
             >
               <ScreenshotWithPicker
                 image={screenshotData.image}
@@ -515,6 +569,7 @@ export function RecorderPage() {
             minHeight: 0,
             overflow: "hidden",
           }}
+          {...studioTestId("studio-recorder-code-preview")}
         >
           <div
             style={{
@@ -524,11 +579,18 @@ export function RecorderPage() {
               alignItems: "center",
               justifyContent: "space-between",
             }}
+            {...studioTestId("studio-recorder-code-preview-header")}
           >
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#a1a1aa" }}>Code Preview</span>
+            <span
+              style={{ fontSize: 13, fontWeight: 600, color: "#a1a1aa" }}
+              {...studioTestId("studio-recorder-code-preview-title")}
+            >
+              Code Preview
+            </span>
             {generatedCode && (
               <button
                 onClick={handleCopyCode}
+                {...studioTestId("studio-recorder-copy-code")}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -545,7 +607,10 @@ export function RecorderPage() {
               </button>
             )}
           </div>
-          <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
+          <div
+            style={{ flex: 1, overflow: "auto", padding: 16 }}
+            {...studioTestId("studio-recorder-code-preview-body")}
+          >
             {generatedCode ? (
               <pre
                 style={{
@@ -556,6 +621,7 @@ export function RecorderPage() {
                   wordBreak: "break-word",
                   margin: 0,
                 }}
+                {...studioTestId("studio-recorder-code")}
               >
                 {generatedCode}
               </pre>
@@ -569,6 +635,7 @@ export function RecorderPage() {
                   color: "#52525b",
                   fontSize: 13,
                 }}
+                {...studioTestId("studio-recorder-code-empty")}
               >
                 {state === "idle"
                   ? "Start recording to generate code"
@@ -638,6 +705,7 @@ function ScreenshotWithPicker({
         // Will be set by DeviceScreenshot's click
         setPendingPoint(null); // reset
       }}
+      {...studioTestId("studio-recorder-clickable-screenshot")}
     >
       <ClickableScreenshot
         image={image}
@@ -704,6 +772,7 @@ function ClickableScreenshot({ image, onClickWithCoords }: ClickableScreenshotPr
         }}
         onClick={handleClick}
         draggable={false}
+        {...studioTestId("studio-recorder-clickable-screenshot-image")}
       />
     </div>
   );
@@ -717,6 +786,9 @@ interface ActionTimelineProps {
 }
 
 function ActionTimeline({ actions, onDelete, state, compact }: ActionTimelineProps) {
+  const prefix = compact
+    ? "studio-recorder-action-timeline-compact"
+    : "studio-recorder-action-timeline";
   return (
     <div
       style={{
@@ -730,6 +802,7 @@ function ActionTimeline({ actions, onDelete, state, compact }: ActionTimelinePro
         overflow: "hidden",
         maxHeight: compact ? 180 : undefined,
       }}
+      {...studioTestId(prefix)}
     >
       <div
         style={{
@@ -740,15 +813,22 @@ function ActionTimeline({ actions, onDelete, state, compact }: ActionTimelinePro
           color: "#a1a1aa",
           flexShrink: 0,
         }}
+        {...studioTestId(`${prefix}-header`)}
       >
         Action Timeline
         {actions.length > 0 && (
-          <span style={{ marginLeft: 8, fontSize: 11, color: "#52525b", fontWeight: 400 }}>
+          <span
+            style={{ marginLeft: 8, fontSize: 11, color: "#52525b", fontWeight: 400 }}
+            {...studioTestId(`${prefix}-count`)}
+          >
             {actions.length} action{actions.length !== 1 ? "s" : ""}
           </span>
         )}
       </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "8px 0" }}>
+      <div
+        style={{ flex: 1, overflow: "auto", padding: "8px 0" }}
+        {...studioTestId(`${prefix}-body`)}
+      >
         {actions.length === 0 ? (
           <div
             style={{
@@ -760,6 +840,7 @@ function ActionTimeline({ actions, onDelete, state, compact }: ActionTimelinePro
               color: "#52525b",
               fontSize: 13,
             }}
+            {...studioTestId(`${prefix}-empty`)}
           >
             {state === "recording" ? "Click elements to record actions" : "No actions recorded"}
           </div>
@@ -774,6 +855,7 @@ function ActionTimeline({ actions, onDelete, state, compact }: ActionTimelinePro
                 padding: "6px 14px",
                 borderBottom: "1px solid #1a1a1a",
               }}
+              {...studioTestId(`${prefix}-action-${i + 1}`)}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLDivElement).style.background = "#111";
               }}
@@ -823,6 +905,7 @@ function ActionTimeline({ actions, onDelete, state, compact }: ActionTimelinePro
               </div>
               <button
                 onClick={() => onDelete(action.id)}
+                {...studioTestId(`${prefix}-delete-${i + 1}`)}
                 style={{
                   background: "transparent",
                   border: "none",

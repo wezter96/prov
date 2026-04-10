@@ -1,5 +1,6 @@
 import { Copy, Check } from "lucide-react";
 import { useState, useCallback } from "react";
+import { studioTestId, toStudioTestIdSegment } from "@/lib/test-ids";
 
 interface Bounds {
   x: number;
@@ -45,6 +46,7 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
       title="Copy to clipboard"
+      {...studioTestId(`studio-copy-button-${toStudioTestIdSegment(text)}`)}
     >
       {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
@@ -61,7 +63,10 @@ function PropertyRow({
   if (value === undefined || value === null) return null;
   const display = typeof value === "boolean" ? (value ? "true" : "false") : String(value);
   return (
-    <div className="flex items-start gap-2 py-1">
+    <div
+      className="flex items-start gap-2 py-1"
+      {...studioTestId(`studio-element-detail-${label}`)}
+    >
       <span className="text-zinc-500 text-xs min-w-[120px] font-mono">{label}</span>
       <span className="text-zinc-200 text-xs font-mono break-all">{display}</span>
     </div>
@@ -71,7 +76,10 @@ function PropertyRow({
 export function ElementDetails({ element, selectors }: ElementDetailsProps) {
   if (!element) {
     return (
-      <div className="h-full flex items-center justify-center text-zinc-500 text-sm p-4">
+      <div
+        className="h-full flex items-center justify-center text-zinc-500 text-sm p-4"
+        {...studioTestId("studio-element-details-empty")}
+      >
         <p>Click an element in the screenshot or tree to view its details</p>
       </div>
     );
@@ -80,9 +88,17 @@ export function ElementDetails({ element, selectors }: ElementDetailsProps) {
   const { bounds } = element;
 
   return (
-    <div className="p-4 space-y-4 overflow-y-auto h-full">
+    <div
+      className="p-4 space-y-4 overflow-y-auto h-full"
+      {...studioTestId("studio-element-details")}
+    >
       <div>
-        <h3 className="text-sm font-semibold text-zinc-300 mb-2">Element Properties</h3>
+        <h3
+          className="text-sm font-semibold text-zinc-300 mb-2"
+          {...studioTestId("studio-element-properties-title")}
+        >
+          Element Properties
+        </h3>
         <div className="space-y-0.5">
           <PropertyRow label="elementType" value={element.elementType} />
           <PropertyRow label="resourceId" value={element.resourceId} />
@@ -97,7 +113,12 @@ export function ElementDetails({ element, selectors }: ElementDetailsProps) {
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold text-zinc-300 mb-2">Bounds</h3>
+        <h3
+          className="text-sm font-semibold text-zinc-300 mb-2"
+          {...studioTestId("studio-element-bounds-title")}
+        >
+          Bounds
+        </h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <PropertyRow label="x" value={bounds?.x} />
           <PropertyRow label="y" value={bounds?.y} />
@@ -108,12 +129,20 @@ export function ElementDetails({ element, selectors }: ElementDetailsProps) {
 
       {selectors.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-zinc-300 mb-2">Suggested Selectors</h3>
+          <h3
+            className="text-sm font-semibold text-zinc-300 mb-2"
+            {...studioTestId("studio-element-selectors-title")}
+          >
+            Suggested Selectors
+          </h3>
           <div className="space-y-1.5">
             {selectors.map((sel, i) => (
               <div
                 key={i}
                 className="flex items-center gap-2 bg-zinc-800/50 rounded px-2 py-1.5 group"
+                {...studioTestId(
+                  `studio-element-selector-${toStudioTestIdSegment(`${sel.strategy}-${sel.value}`)}`,
+                )}
               >
                 <span className="text-zinc-500 text-xs min-w-[60px]">{sel.strategy}</span>
                 <code className="text-xs text-emerald-400 font-mono flex-1 break-all">

@@ -496,6 +496,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         mask?: Array<{ x: number; y: number; width: number; height: number }>;
         updateBaselines?: boolean;
         outputDir?: string;
+        baselinesDir?: string;
       },
     ): Effect.Effect<void, ElementNotFoundError | WaitTimeoutError | DriverError> =>
       Effect.gen(function* () {
@@ -519,7 +520,13 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         }
 
         // 3. Resolve baseline path
-        const baselinePath = resolveBaselinePath(flowFilePath, flowName, platform, name);
+        const baselinePath = resolveBaselinePath(
+          flowFilePath,
+          flowName,
+          platform,
+          name,
+          options.baselinesDir,
+        );
 
         // 4. If updateBaselines: write baseline and return
         if (options.updateBaselines) {
@@ -688,6 +695,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
       options: {
         severity?: "critical" | "serious" | "moderate" | "minor";
         rules?: string[];
+        targetSelector?: string;
         excludeSelectors?: string[];
       } = {},
     ): Effect.Effect<void, DriverError> =>
@@ -708,11 +716,15 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
           () => import("../core/accessibility-audit.js"),
         );
 
-        // Build axe context/options for exclude selectors
-        const axeContext =
-          options.excludeSelectors && options.excludeSelectors.length > 0
-            ? { exclude: options.excludeSelectors.map((s) => [s]) }
-            : undefined;
+        const axeContext: Record<string, string[][]> = {};
+        if (options.targetSelector) {
+          axeContext["include"] = [[options.targetSelector]];
+        }
+        if (options.excludeSelectors && options.excludeSelectors.length > 0) {
+          axeContext["exclude"] = options.excludeSelectors.map((s) => [s]);
+        }
+        const serializedContext =
+          Object.keys(axeContext).length > 0 ? JSON.stringify(axeContext) : "document";
 
         const axeOptions: Record<string, unknown> = {};
         if (options.rules && options.rules.length > 0) {
@@ -725,7 +737,7 @@ export function createCoordinator(driver: RawDriverService, config: CoordinatorC
         const script = `
           (function() {
             ${axeSource}
-            return axe.run(${axeContext ? JSON.stringify(axeContext) : "document"}, ${JSON.stringify(axeOptions)});
+            return axe.run(${serializedContext}, ${JSON.stringify(axeOptions)});
           })()
         `;
 

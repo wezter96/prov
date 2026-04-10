@@ -23,6 +23,15 @@ export interface AppConfig {
 
 export type BrowserName = "chromium" | "firefox" | "webkit";
 
+export type StorybookValue = string | number | boolean | null;
+
+export interface StorybookConfig {
+  /** Optional dedicated Storybook URL (falls back to apps.web.url when omitted) */
+  url?: string;
+  /** Preview iframe path used to render isolated stories (default: /iframe.html) */
+  iframePath?: string;
+}
+
 export interface WebExecutionConfig {
   browser?: BrowserName;
   headless?: boolean;
@@ -30,6 +39,8 @@ export interface WebExecutionConfig {
   storageState?: string;
   /** Print verbose Playwright runtime events to stdout for local web debugging */
   verboseLogging?: boolean;
+  /** Optional Storybook config for isolated component/story flows in the browser runtime */
+  storybook?: StorybookConfig;
 }
 
 export interface CloudAppReferenceConfig {
@@ -231,6 +242,13 @@ const sauceLabsHelperSchema = z
   })
   .strict();
 
+const storybookConfigSchema = z
+  .object({
+    url: z.string().url().optional(),
+    iframePath: z.string().min(1).optional(),
+  })
+  .strict();
+
 const appiumExecutionConfigSchema = z
   .object({
     serverUrl: z.string().url().optional(),
@@ -249,6 +267,7 @@ const webExecutionConfigSchema = z
     headless: z.boolean().optional(),
     storageState: z.string().min(1).optional(),
     verboseLogging: z.boolean().optional(),
+    storybook: storybookConfigSchema.optional(),
   })
   .strict();
 

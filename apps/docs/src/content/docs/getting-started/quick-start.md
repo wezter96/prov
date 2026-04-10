@@ -85,7 +85,7 @@ By default, results print to the console. To get structured JSON output:
 spana test --reporter json
 ```
 
-On failure, spana captures a screenshot and UI hierarchy dump under `.spana/artifacts/` (configurable via `artifacts.outputDir`).
+On failure, spana captures screenshots and diagnostics under `spana-output/` by default (configurable via `artifacts.outputDir`).
 
 ## Next steps
 

@@ -1,5 +1,5 @@
 import { flow } from "spana-test";
-import { buildFrameworkHref } from "./support/navigation.js";
+import { navigateToPlaygroundScreen } from "./support/navigation.js";
 
 export default flow(
   "Framework app - interaction playground showcase",
@@ -10,21 +10,9 @@ export default flow(
     timeout: 90_000,
     artifacts: { captureOnSuccess: true, captureSteps: true },
   },
-  async ({ app, expect, platform }) => {
-    if (platform === "ios") {
-      // Navigate via drawer menu — WDA's openUrl breaks session for custom URL schemes
-      await app.launch();
-      await expect({ accessibilityLabel: "Show navigation menu" }).toBeVisible({ timeout: 10_000 });
-      await app.tap({ accessibilityLabel: "Show navigation menu" });
-      await expect({ testID: "drawer-playground-item" }).toBeVisible({ timeout: 5_000 });
-      await app.tap({ testID: "drawer-playground-item" });
-    } else {
-      await app.launch({
-        clearState: platform === "android",
-        deepLink: buildFrameworkHref(platform, "/playground"),
-      });
-    }
-    await expect({ testID: "playground-title" }).toBeVisible({ timeout: 10_000 });
+  async (ctx) => {
+    const { app, expect, platform } = ctx;
+    await navigateToPlaygroundScreen(ctx);
 
     await app.tap({ testID: "playground-input" });
     const inputText = platform === "android" ? "Hello spana" : "Hello 👨‍👩‍👧‍👦 cafe\u0301";
@@ -47,10 +35,17 @@ export default flow(
 
     await expect({ testID: "playground-details-text" }).toBeHidden();
     await app.tap({ testID: "playground-toggle" });
+    await app.scrollUntilVisible(
+      { testID: "playground-details-text" },
+      { timeout: 20_000, maxScrolls: 10 },
+    );
     await expect({ testID: "playground-details-text" }).toBeVisible();
     await app.takeScreenshot("section-expanded");
 
-    await app.scrollUntilVisible({ testID: "playground-sentinel" }, { timeout: 20_000, maxScrolls: 10 });
+    await app.scrollUntilVisible(
+      { testID: "playground-sentinel" },
+      { timeout: 20_000, maxScrolls: 10 },
+    );
     await expect({ testID: "playground-sentinel" }).toBeVisible({ timeout: 10_000 });
     await expect({ testID: "playground-sentinel-text" }).toHaveText("Bottom Reached");
     await app.takeScreenshot("scroll-sentinel");

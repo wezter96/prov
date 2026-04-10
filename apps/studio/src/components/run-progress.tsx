@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Filter,
 } from "lucide-react";
+import { studioTestId, toStudioTestIdSegment } from "@/lib/test-ids";
 
 export interface Attachment {
   name: string;
@@ -40,15 +41,27 @@ type StatusFilter = "passed" | "failed" | "skipped";
 function ProgressBar({ platform, done, total }: { platform: string; done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="text-zinc-400 w-16">{platform}</span>
+    <div
+      className="flex items-center gap-2 text-xs"
+      {...studioTestId(`studio-runner-progress-${platform}`)}
+    >
+      <span
+        className="text-zinc-400 w-16"
+        {...studioTestId(`studio-runner-progress-label-${platform}`)}
+      >
+        {platform}
+      </span>
       <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
         <div
           className="h-full bg-emerald-500 rounded-full transition-all duration-300"
           style={{ width: `${pct}%` }}
+          {...studioTestId(`studio-runner-progress-bar-${platform}`)}
         />
       </div>
-      <span className="text-zinc-500 tabular-nums w-20 text-right">
+      <span
+        className="text-zinc-500 tabular-nums w-20 text-right"
+        {...studioTestId(`studio-runner-progress-value-${platform}`)}
+      >
         {done}/{total} ({pct}%)
       </span>
     </div>
@@ -69,6 +82,7 @@ function FilterToggle({
   return (
     <button
       onClick={onClick}
+      {...studioTestId(`studio-runner-filter-${toStudioTestIdSegment(label)}`)}
       className={`px-2 py-0.5 rounded text-xs transition-colors border ${
         active ? `${color} border-current` : "text-zinc-600 border-zinc-800 hover:text-zinc-400"
       }`}
@@ -106,28 +120,44 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function ScreenshotList({ attachments }: { attachments: Attachment[] }) {
+function ScreenshotList({
+  attachments,
+  testIdPrefix,
+}: {
+  attachments: Attachment[];
+  testIdPrefix: string;
+}) {
   const images = attachments.filter((a) => a.contentType === "image/png");
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (images.length === 0) return null;
 
   return (
-    <div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+    <div {...studioTestId(`${testIdPrefix}-screenshots`)}>
+      <div
+        className="flex gap-2 overflow-x-auto pb-1"
+        {...studioTestId(`${testIdPrefix}-thumbnails`)}
+      >
         {images.map((img, i) => (
           <button
             key={i}
             onClick={() => setExpanded(expanded === img.url ? null : img.url)}
             className="shrink-0 rounded border border-zinc-700 hover:border-zinc-500 transition-colors overflow-hidden"
+            {...studioTestId(`${testIdPrefix}-thumbnail-${toStudioTestIdSegment(img.name)}`)}
           >
             <img
               src={img.url}
               alt={img.name}
               loading="lazy"
               className="h-20 w-auto object-contain bg-zinc-900"
+              {...studioTestId(
+                `${testIdPrefix}-thumbnail-image-${toStudioTestIdSegment(img.name)}`,
+              )}
             />
-            <div className="text-[10px] text-zinc-500 px-1 py-0.5 truncate max-w-[100px]">
+            <div
+              className="text-[10px] text-zinc-500 px-1 py-0.5 truncate max-w-[100px]"
+              {...studioTestId(`${testIdPrefix}-thumbnail-name-${toStudioTestIdSegment(img.name)}`)}
+            >
               {img.name}
             </div>
           </button>
@@ -137,15 +167,21 @@ function ScreenshotList({ attachments }: { attachments: Attachment[] }) {
         <div
           className="mt-2 rounded border border-zinc-700 overflow-hidden cursor-pointer"
           onClick={() => setExpanded(null)}
+          {...studioTestId(`${testIdPrefix}-expanded`)}
         >
-          <img src={expanded} alt="Expanded screenshot" className="w-full h-auto bg-zinc-900" />
+          <img
+            src={expanded}
+            alt="Expanded screenshot"
+            className="w-full h-auto bg-zinc-900"
+            {...studioTestId(`${testIdPrefix}-expanded-image`)}
+          />
         </div>
       )}
     </div>
   );
 }
 
-function ResultDetails({ result }: { result: FlowResult }) {
+function ResultDetails({ result, resultKey }: { result: FlowResult; resultKey: string }) {
   const statusColor =
     result.status === "passed"
       ? "text-emerald-400"
@@ -154,34 +190,62 @@ function ResultDetails({ result }: { result: FlowResult }) {
         : "text-zinc-500";
 
   return (
-    <div className="p-3 space-y-3 border-t border-zinc-800 bg-zinc-800/20">
+    <div
+      className="p-3 space-y-3 border-t border-zinc-800 bg-zinc-800/20"
+      {...studioTestId(`${resultKey}-details`)}
+    >
       <div>
-        <div className="flex items-center gap-3 text-xs">
-          <span className="text-zinc-400">{result.platform}</span>
-          <span className={statusColor}>{result.status}</span>
-          <span className="text-zinc-500">{formatDuration(result.durationMs)}</span>
+        <div className="flex items-center gap-3 text-xs" {...studioTestId(`${resultKey}-summary`)}>
+          <span className="text-zinc-400" {...studioTestId(`${resultKey}-platform`)}>
+            {result.platform}
+          </span>
+          <span className={statusColor} {...studioTestId(`${resultKey}-status`)}>
+            {result.status}
+          </span>
+          <span className="text-zinc-500" {...studioTestId(`${resultKey}-duration`)}>
+            {formatDuration(result.durationMs)}
+          </span>
         </div>
       </div>
 
       {result.error && (
-        <div className="rounded border border-red-900/50 bg-red-950/30 p-2">
-          <p className="text-xs font-medium text-red-400 mb-1">Error</p>
-          <pre className="text-xs text-red-300 whitespace-pre-wrap break-words font-mono">
+        <div
+          className="rounded border border-red-900/50 bg-red-950/30 p-2"
+          {...studioTestId(`${resultKey}-error`)}
+        >
+          <p
+            className="text-xs font-medium text-red-400 mb-1"
+            {...studioTestId(`${resultKey}-error-title`)}
+          >
+            Error
+          </p>
+          <pre
+            className="text-xs text-red-300 whitespace-pre-wrap break-words font-mono"
+            {...studioTestId(`${resultKey}-error-message`)}
+          >
             {result.error.message}
           </pre>
         </div>
       )}
 
       {result.attachments && result.attachments.length > 0 && (
-        <ScreenshotList attachments={result.attachments} />
+        <ScreenshotList
+          attachments={result.attachments}
+          testIdPrefix={`${resultKey}-attachments`}
+        />
       )}
 
       {result.steps && result.steps.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-zinc-400 mb-2">Steps</p>
-          <div className="space-y-1">
+        <div {...studioTestId(`${resultKey}-steps`)}>
+          <p
+            className="text-xs font-medium text-zinc-400 mb-2"
+            {...studioTestId(`${resultKey}-steps-title`)}
+          >
+            Steps
+          </p>
+          <div className="space-y-1" {...studioTestId(`${resultKey}-steps-list`)}>
             {result.steps.map((step, i) => (
-              <div key={i}>
+              <div key={i} {...studioTestId(`${resultKey}-step-${i + 1}`)}>
                 <div className="flex items-start gap-2 px-2 py-1.5 rounded bg-zinc-800/40">
                   {step.status === "passed" ? (
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
@@ -190,22 +254,41 @@ function ResultDetails({ result }: { result: FlowResult }) {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-zinc-300 truncate">{step.command}</span>
+                      <span
+                        className="text-xs text-zinc-300 truncate"
+                        {...studioTestId(`${resultKey}-step-command-${i + 1}`)}
+                      >
+                        {step.command}
+                      </span>
                       {step.attachments && step.attachments.length > 0 && (
                         <ImageIcon className="w-3 h-3 text-zinc-500 shrink-0" />
                       )}
-                      <span className="text-[10px] text-zinc-500 tabular-nums shrink-0">
+                      <span
+                        className="text-[10px] text-zinc-500 tabular-nums shrink-0"
+                        {...studioTestId(`${resultKey}-step-duration-${i + 1}`)}
+                      >
                         {formatDuration(step.durationMs)}
                       </span>
                     </div>
                     {step.error && (
-                      <p className="text-[11px] text-red-400 mt-0.5 break-words">{step.error}</p>
+                      <p
+                        className="text-[11px] text-red-400 mt-0.5 break-words"
+                        {...studioTestId(`${resultKey}-step-error-${i + 1}`)}
+                      >
+                        {step.error}
+                      </p>
                     )}
                   </div>
                 </div>
                 {step.attachments && step.attachments.length > 0 && (
-                  <div className="ml-6 mt-1 mb-2">
-                    <ScreenshotList attachments={step.attachments} />
+                  <div
+                    className="ml-6 mt-1 mb-2"
+                    {...studioTestId(`${resultKey}-step-attachments-${i + 1}`)}
+                  >
+                    <ScreenshotList
+                      attachments={step.attachments}
+                      testIdPrefix={`${resultKey}-step-${i + 1}-attachments`}
+                    />
                   </div>
                 )}
               </div>
@@ -273,20 +356,46 @@ export function RunProgress({
   const resultPlatforms = [...new Set(results.map((r) => r.platform))] as Platform[];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" {...studioTestId("studio-runner-results")}>
       <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 shrink-0">
-        <h2 className="text-sm font-semibold text-zinc-300">Results</h2>
+        <h2
+          className="text-sm font-semibold text-zinc-300"
+          {...studioTestId("studio-runner-results-title")}
+        >
+          Results
+        </h2>
         {(results.length > 0 || isRunning) && (
-          <div className="flex items-center gap-3 text-xs">
-            {isRunning && <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />}
-            {passed > 0 && <span className="text-emerald-400">{passed} passed</span>}
-            {failed > 0 && <span className="text-red-400">{failed} failed</span>}
-            {skipped > 0 && <span className="text-zinc-500">{skipped} skipped</span>}
+          <div
+            className="flex items-center gap-3 text-xs"
+            {...studioTestId("studio-runner-results-summary")}
+          >
+            {isRunning && (
+              <Loader2
+                className="w-3.5 h-3.5 text-blue-400 animate-spin"
+                {...studioTestId("studio-runner-results-running")}
+              />
+            )}
+            {passed > 0 && (
+              <span className="text-emerald-400" {...studioTestId("studio-runner-results-passed")}>
+                {passed} passed
+              </span>
+            )}
+            {failed > 0 && (
+              <span className="text-red-400" {...studioTestId("studio-runner-results-failed")}>
+                {failed} failed
+              </span>
+            )}
+            {skipped > 0 && (
+              <span className="text-zinc-500" {...studioTestId("studio-runner-results-skipped")}>
+                {skipped} skipped
+              </span>
+            )}
             {results.length > 0 && !isRunning && onClearResults && (
               <button
                 onClick={onClearResults}
                 className="text-zinc-500 hover:text-zinc-300 transition-colors ml-1"
                 title="Clear all results"
+                {...studioTestId("studio-runner-clear-results")}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -297,7 +406,10 @@ export function RunProgress({
 
       {/* Per-platform progress bars */}
       {progress && Object.keys(progress).length > 0 && isRunning && (
-        <div className="px-4 py-2 space-y-1.5 border-b border-zinc-800">
+        <div
+          className="px-4 py-2 space-y-1.5 border-b border-zinc-800"
+          {...studioTestId("studio-runner-progress")}
+        >
           {Object.entries(progress).map(([platform, { done, total }]) => (
             <ProgressBar key={platform} platform={platform} done={done} total={total} />
           ))}
@@ -306,8 +418,14 @@ export function RunProgress({
 
       {/* Filter controls */}
       {results.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-zinc-800">
-          <Filter className="w-3 h-3 text-zinc-500" />
+        <div
+          className="flex items-center gap-2 px-4 py-1.5 border-b border-zinc-800"
+          {...studioTestId("studio-runner-filters")}
+        >
+          <Filter
+            className="w-3 h-3 text-zinc-500"
+            {...studioTestId("studio-runner-filters-icon")}
+          />
           {resultPlatforms.map((p) => (
             <FilterToggle
               key={p}
@@ -349,6 +467,7 @@ export function RunProgress({
                 setStatusFilter(new Set());
               }}
               className="text-xs text-zinc-600 hover:text-zinc-400 ml-1"
+              {...studioTestId("studio-runner-filters-clear")}
             >
               clear
             </button>
@@ -356,29 +475,44 @@ export function RunProgress({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" {...studioTestId("studio-runner-results-scroll")}>
         {results.length === 0 && !isRunning && (
-          <p className="text-sm text-zinc-500 px-2 py-4 text-center">No results yet</p>
+          <p
+            className="text-sm text-zinc-500 px-2 py-4 text-center"
+            {...studioTestId("studio-runner-results-empty")}
+          >
+            No results yet
+          </p>
         )}
         {results.length === 0 && isRunning && (
-          <p className="text-sm text-zinc-500 px-2 py-4 text-center flex items-center justify-center gap-2">
+          <p
+            className="text-sm text-zinc-500 px-2 py-4 text-center flex items-center justify-center gap-2"
+            {...studioTestId("studio-runner-results-running-message")}
+          >
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
             Running tests...
           </p>
         )}
-        <div className="divide-y divide-zinc-800/50">
+        <div
+          className="divide-y divide-zinc-800/50"
+          {...studioTestId("studio-runner-results-list")}
+        >
           {filteredResults.map((result) => {
             const originalIndex = results.indexOf(result);
             const key = `${result.name}-${result.platform}-${originalIndex}`;
+            const resultTestId = `studio-runner-result-${toStudioTestIdSegment(
+              `${result.name}-${result.platform}-${originalIndex}`,
+            )}`;
             const isExpanded = expanded.has(key);
             const isSelected =
               selectedResult?.name === result.name && selectedResult?.platform === result.platform;
             return (
-              <div key={key}>
+              <div key={key} {...studioTestId(resultTestId)}>
                 <div
                   className={`group flex items-center gap-0.5 transition-colors ${
                     isSelected ? "bg-zinc-800" : "hover:bg-zinc-800/50"
                   }`}
+                  {...studioTestId(`${resultTestId}-row`)}
                 >
                   <button
                     onClick={() => {
@@ -386,6 +520,7 @@ export function RunProgress({
                       toggleExpand(key);
                     }}
                     className="flex-1 flex items-center gap-2.5 px-2 py-2 text-left min-w-0"
+                    {...studioTestId(`${resultTestId}-toggle`)}
                   >
                     {isExpanded ? (
                       <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0" />
@@ -393,9 +528,22 @@ export function RunProgress({
                       <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
                     )}
                     <StatusIcon status={result.status} />
-                    <span className="text-sm text-zinc-200 truncate flex-1">{result.name}</span>
-                    <span className="text-xs text-zinc-500">{result.platform}</span>
-                    <span className="text-xs text-zinc-500 tabular-nums">
+                    <span
+                      className="text-sm text-zinc-200 truncate flex-1"
+                      {...studioTestId(`${resultTestId}-name`)}
+                    >
+                      {result.name}
+                    </span>
+                    <span
+                      className="text-xs text-zinc-500"
+                      {...studioTestId(`${resultTestId}-platform`)}
+                    >
+                      {result.platform}
+                    </span>
+                    <span
+                      className="text-xs text-zinc-500 tabular-nums"
+                      {...studioTestId(`${resultTestId}-duration`)}
+                    >
                       {formatDuration(result.durationMs)}
                     </span>
                   </button>
@@ -407,6 +555,7 @@ export function RunProgress({
                       }}
                       className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-zinc-600 hover:text-zinc-300 transition-all shrink-0"
                       title="Remove result"
+                      {...studioTestId(`${resultTestId}-remove`)}
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -416,8 +565,9 @@ export function RunProgress({
                   className={`overflow-hidden transition-all duration-300 ease-in-out ${
                     isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
                   }`}
+                  {...studioTestId(`${resultTestId}-details-container`)}
                 >
-                  <ResultDetails result={result} />
+                  <ResultDetails result={result} resultKey={resultTestId} />
                 </div>
               </div>
             );

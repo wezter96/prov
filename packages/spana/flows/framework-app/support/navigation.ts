@@ -54,3 +54,22 @@ export async function navigateToTabsScreen(ctx: NavigationContext): Promise<void
   await ctx.app.tap({ testID: "drawer-tabs-item" });
   await ctx.expect({ testID: "tab-one-title" }).toBeVisible({ timeout: 15_000 });
 }
+
+export async function navigateToPlaygroundScreen(ctx: NavigationContext): Promise<void> {
+  if (ctx.platform === "ios") {
+    await ctx.app.launch();
+    await ctx.expect({ accessibilityLabel: "Show navigation menu" }).toBeVisible({
+      timeout: 10_000,
+    });
+    await ctx.app.tap({ accessibilityLabel: "Show navigation menu" });
+    await ctx.expect({ testID: "drawer-playground-item" }).toBeVisible({ timeout: 5_000 });
+    await ctx.app.tap({ testID: "drawer-playground-item" });
+  } else {
+    await ctx.app.launch({
+      clearState: ctx.platform === "android",
+      deepLink: buildFrameworkHref(ctx.platform, "/playground"),
+    });
+  }
+
+  await ctx.expect({ testID: "playground-title" }).toBeVisible({ timeout: 10_000 });
+}

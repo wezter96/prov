@@ -123,6 +123,7 @@ function buildFlowDefinition(
   return {
     name,
     config,
+    sourcePath: filePath,
     fn: async (flowCtx) => {
       const matcher = createStepMatcher(globalRegistry.getSteps());
       const state = new Map<string, unknown>();

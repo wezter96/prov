@@ -94,24 +94,28 @@ describe("normalizeRole (android)", () => {
 // ---------------------------------------------------------------------------
 
 describe("normalizeRole (ios)", () => {
-  test("maps button trait to button", () => {
+  test("maps button traits and XCUI button types to button", () => {
     expect(normalizeRole("ios", "button")).toBe("button");
+    expect(normalizeRole("ios", "XCUIElementTypeButton")).toBe("button");
   });
 
   test("maps header trait to heading", () => {
     expect(normalizeRole("ios", "header")).toBe("heading");
   });
 
-  test("maps link trait to link", () => {
+  test("maps link traits and XCUI link types to link", () => {
     expect(normalizeRole("ios", "link")).toBe("link");
+    expect(normalizeRole("ios", "XCUIElementTypeLink")).toBe("link");
   });
 
-  test("maps image trait to image", () => {
+  test("maps image traits and XCUI image types to image", () => {
     expect(normalizeRole("ios", "image")).toBe("image");
+    expect(normalizeRole("ios", "XCUIElementTypeImage")).toBe("image");
   });
 
-  test("maps staticText trait to text", () => {
+  test("maps staticText traits and XCUI static text types to text", () => {
     expect(normalizeRole("ios", "staticText")).toBe("text");
+    expect(normalizeRole("ios", "XCUIElementTypeStaticText")).toBe("text");
   });
 
   test("unknown trait returns raw elementType", () => {
@@ -151,6 +155,18 @@ describe("isFocusable (web)", () => {
   test("tag check is case-insensitive", () => {
     expect(isFocusable({ tag: "BUTTON" }, ctx)).toBe(true);
     expect(isFocusable({ tag: "INPUT" }, ctx)).toBe(true);
+  });
+
+  test("parsed web nodes remain focusable via elementType and attributes.tabindex", () => {
+    expect(
+      isFocusable(
+        {
+          elementType: "button",
+          attributes: { tabindex: "0" },
+        },
+        ctx,
+      ),
+    ).toBe(true);
   });
 });
 

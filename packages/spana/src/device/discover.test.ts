@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+const realFs = { ...require("node:fs") } as typeof import("node:fs");
+
 const discoverState = {
   versionCandidates: new Set<string>(),
   androidDevicesOutput: "",
   iosDevicesJson: JSON.stringify({ devices: {} }),
+  iosPhysicalDevicesJson: JSON.stringify({ result: { devices: [] } }),
+  lastDevicectlPath: "",
 };
 
 let moduleCounter = 0;
@@ -12,6 +16,8 @@ function resetDiscoverState(): void {
   discoverState.versionCandidates.clear();
   discoverState.androidDevicesOutput = "";
   discoverState.iosDevicesJson = JSON.stringify({ devices: {} });
+  discoverState.iosPhysicalDevicesJson = JSON.stringify({ result: { devices: [] } });
+  discoverState.lastDevicectlPath = "";
 }
 
 function registerChildProcessMock(): void {
@@ -33,9 +39,27 @@ function registerChildProcessMock(): void {
         return discoverState.iosDevicesJson;
       }
 
+      if (command.startsWith("xcrun devicectl list devices --json-output ")) {
+        discoverState.lastDevicectlPath =
+          command.match(/--json-output\s+(\S+)/)?.[1] ?? "/tmp/spana-devicectl-test.json";
+        return "";
+      }
+
       throw new Error(`unexpected command: ${command}`);
     },
     execFileSync: () => "",
+  }));
+
+  mock.module("node:fs", () => ({
+    ...realFs,
+    readFileSync: (path: string, encoding?: BufferEncoding) => {
+      if (path === discoverState.lastDevicectlPath) {
+        return discoverState.iosPhysicalDevicesJson;
+      }
+
+      return realFs.readFileSync(path, encoding as never);
+    },
+    unlinkSync: () => undefined,
   }));
 }
 
@@ -55,7 +79,7 @@ describe("device discovery", () => {
     mock.restore();
   });
 
-  test("discovers browser, android, and booted ios targets", async () => {
+  test("discovers browser, android, connected ios devices, and available simulators", async () => {
     discoverState.versionCandidates.add("adb");
     discoverState.androidDevicesOutput = [
       "List of devices attached",
@@ -68,6 +92,21 @@ describe("device discovery", () => {
         "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
           { udid: "SIM-1", name: "iPhone 15", state: "Booted", isAvailable: true },
           { udid: "SIM-2", name: "iPhone 14", state: "Shutdown", isAvailable: true },
+        ],
+      },
+    });
+    discoverState.iosPhysicalDevicesJson = JSON.stringify({
+      result: {
+        devices: [
+          {
+            identifier: "PHONE-1",
+            hardwareProperties: { deviceType: "iPhone", udid: "PHONE-1" },
+            deviceProperties: { name: "USB iPhone" },
+            connectionProperties: {
+              transportType: "wired",
+              tunnelState: "connected",
+            },
+          },
         ],
       },
     });
@@ -95,10 +134,24 @@ describe("device discovery", () => {
       },
       {
         platform: "ios",
+        id: "PHONE-1",
+        name: "USB iPhone",
+        type: "device",
+        state: "connected",
+      },
+      {
+        platform: "ios",
         id: "SIM-1",
         name: "iPhone 15 (iOS.18.0)",
         type: "simulator",
         state: "Booted",
+      },
+      {
+        platform: "ios",
+        id: "SIM-2",
+        name: "iPhone 14 (iOS.18.0)",
+        type: "simulator",
+        state: "Shutdown",
       },
     ]);
   });
@@ -139,12 +192,35 @@ describe("device discovery", () => {
         ],
       },
     });
+    discoverState.iosPhysicalDevicesJson = JSON.stringify({
+      result: {
+        devices: [
+          {
+            identifier: "PHONE-1",
+            hardwareProperties: { deviceType: "iPhone", udid: "PHONE-1" },
+            deviceProperties: { name: "USB iPhone" },
+            connectionProperties: {
+              transportType: "wired",
+              tunnelState: "connected",
+            },
+          },
+        ],
+      },
+    });
 
     const androidModule = await importFreshModule<typeof import("./android.js")>("./android.ts");
     const iosModule = await importFreshModule<typeof import("./ios.js")>("./ios.ts");
     mock.module("./android.js", () => androidModule);
     mock.module("./ios.js", () => iosModule);
     const discover = await importFreshModule<typeof import("./discover.js")>("./discover.ts");
+
+    expect(discover.findDeviceById("PHONE-1")).toEqual({
+      platform: "ios",
+      id: "PHONE-1",
+      name: "USB iPhone",
+      type: "device",
+      state: "connected",
+    });
 
     expect(discover.findDeviceById("emulator-5554")).toEqual({
       platform: "android",

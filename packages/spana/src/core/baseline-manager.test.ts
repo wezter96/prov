@@ -54,6 +54,17 @@ describe("resolveBaselinePath", () => {
     const path = resolveBaselinePath("/flows/f.ts", "MyFlow", "web", "screen");
     expect(path).toBe("/flows/__baselines__/myflow-web/screen.png");
   });
+
+  test("uses a custom baselines directory when provided", () => {
+    const path = resolveBaselinePath(
+      "/flows/f.ts",
+      "Checkout Flow",
+      "android",
+      "summary",
+      "/tmp/custom-baselines",
+    );
+    expect(path).toBe("/tmp/custom-baselines/checkout-flow-android/summary.png");
+  });
 });
 
 describe("baselineExists", () => {

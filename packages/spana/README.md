@@ -167,8 +167,10 @@ Feature: Login
 | `spana selectors`              | List actionable elements with suggested selectors |
 | `spana validate [path]`        | Validate flow files without a device connection   |
 | `spana validate-config [path]` | Validate `spana.config.ts` without running flows  |
+| `spana doctor`                 | Check environment readiness before a run          |
 | `spana studio`                 | Launch Spana Studio                               |
 | `spana init`                   | Scaffold a new Spana project                      |
+| `spana init-flow <name>`       | Generate a starter `.flow.ts` file                |
 | `spana devices`                | List connected devices across all platforms       |
 | `spana version`                | Show version                                      |
 
@@ -181,6 +183,10 @@ spana test --device emulator-5554               # target a specific local device
 spana test --tag smoke --grep "log in"          # filter flows
 spana test --reporter html,allure               # choose reporters
 spana test --retries 2 --shard 1/3 --bail 5     # CI-friendly execution
+spana test --last-failed                        # rerun only previous failures
+spana test --watch                              # rerun automatically on changes
+spana test --parallel --workers 2               # parallelize across devices
+spana test --update-baselines                   # refresh screenshot baselines
 spana test --debug-on-failure                   # open REPL on the first failure
 spana test --driver appium --appium-url $BROWSERSTACK_URL --caps ./caps/android.json --platform android
 spana test --config ./spana.config.ts           # explicit config path
@@ -192,6 +198,8 @@ spana test --config ./spana.config.ts           # explicit config path
 spana hierarchy --platform android --pretty
 spana selectors --platform ios
 spana validate-config
+spana doctor --platform android,ios
+spana init-flow "checkout smoke" --preset smoke --platform web,android
 spana studio --no-open
 ```
 
@@ -220,6 +228,9 @@ export default defineConfig({
       browser: "chromium",
       headless: true,
       storageState: "./auth/web-user.json",
+      storybook: {
+        url: "http://localhost:6006",
+      },
     },
     appium: {
       serverUrl: process.env.BROWSERSTACK_URL,
@@ -296,6 +307,38 @@ export default flow("web dashboard", async ({ app, platform }) => {
 ```
 
 `mockNetwork`, `blockNetwork`, `clearNetworkMocks`, `setNetworkConditions`, `saveCookies`, `loadCookies`, `saveAuthState`, `loadAuthState`, `getConsoleLogs`, and `getJSErrors` are web-only helpers backed by local Playwright runs. Latency and throughput throttling require Chromium. When artifact capture is enabled, web failures also include captured console logs and JavaScript errors in `spana-output/` and the HTML report.
+
+### Storybook component flows (web)
+
+```ts
+import { defineConfig, flow } from "spana-test";
+
+// spana.config.ts
+export default defineConfig({
+  apps: {
+    web: { url: "http://localhost:3000" },
+  },
+  execution: {
+    web: {
+      storybook: { url: "http://localhost:6006" },
+    },
+  },
+});
+
+// flows/button.flow.ts
+export default flow("primary button story", async ({ app, expect, platform }) => {
+  if (platform !== "web") return;
+
+  await app.openStory("components-button--primary", {
+    args: { disabled: false, size: "lg" },
+    globals: { theme: "dark" },
+  });
+
+  await expect({ text: "Continue" }).toBeVisible();
+});
+```
+
+`app.openStory()` opens Storybook's isolated `iframe.html` entry inside Spana's existing browser runtime. That makes Storybook a good component surface for Spana web flows, screenshots, and accessibility checks. `execution.web.storybook.url` is optional; when omitted, `openStory()` falls back to `apps.web.url`. `args` and `globals` support simple scalar values (`string`, `number`, `boolean`, `null`).
 
 ### Hybrid / WebView helpers
 

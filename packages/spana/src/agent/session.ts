@@ -28,9 +28,15 @@ import { setupUiAutomator2 } from "../drivers/uiautomator2/installer.js";
 import { setupWDA } from "../drivers/wda/installer.js";
 import { allocatePort } from "../core/port-allocator.js";
 import { firstAndroidDevice } from "../device/android.js";
-import { firstIOSSimulatorWithApp, bootSimulator } from "../device/ios.js";
+import {
+  bootSimulator,
+  connectPhysicalDevice,
+  firstIOSPhysicalDevice,
+  firstIOSSimulatorWithApp,
+} from "../device/ios.js";
 import { findDeviceById } from "../device/discover.js";
-import type { BrowserName } from "../schemas/config.js";
+import type { BrowserName, StorybookConfig } from "../schemas/config.js";
+import { buildStorybookUrl, type StorybookOpenOptions } from "../api/storybook.js";
 
 export type Direction = "up" | "down" | "left" | "right";
 
@@ -44,6 +50,7 @@ export interface ConnectOptions {
   browser?: BrowserName; // for web (default chromium)
   storageState?: string; // for web
   verboseLogging?: boolean; // for web
+  storybook?: StorybookConfig; // for web
 }
 
 export interface SuggestedSelector {
@@ -61,6 +68,7 @@ export class Session {
   readonly platform: Platform;
   private parse: (raw: string) => Element;
   private cleanups: (() => void)[];
+  private storybook?: StorybookConfig;
   private coordinatorPromise?: Promise<ReturnType<typeof createCoordinator>>;
 
   constructor(
@@ -69,12 +77,14 @@ export class Session {
     parse: (raw: string) => Element,
     appId = "",
     cleanups: (() => void)[] = [],
+    storybook?: StorybookConfig,
   ) {
     this.driver = driver;
     this.platform = platform;
     this.parse = parse;
     this.appId = appId;
     this.cleanups = cleanups;
+    this.storybook = storybook;
   }
 
   private async coordinator() {
@@ -238,6 +248,18 @@ export class Session {
     await Effect.runPromise(this.driver.openLink(url));
   }
 
+  async openStory(storyId: string, opts?: StorybookOpenOptions): Promise<void> {
+    if (this.platform !== "web") {
+      throw new DriverError({ message: "openStory() is only supported on the web platform" });
+    }
+
+    const url = buildStorybookUrl(storyId, opts, {
+      appBaseUrl: this.appId,
+      storybook: this.storybook,
+    });
+    await Effect.runPromise(this.driver.openLink(url));
+  }
+
   async back(): Promise<void> {
     await Effect.runPromise(this.driver.back());
   }
@@ -376,10 +398,11 @@ export async function connect(opts: ConnectOptions): Promise<Session> {
         headless: opts.headless ?? true,
         baseUrl,
         storageState: opts.storageState,
+        verboseLogging: opts.verboseLogging,
       }),
     );
     await Effect.runPromise(driver.launchApp(baseUrl));
-    return new Session(driver, "web", parseWebHierarchy, baseUrl);
+    return new Session(driver, "web", parseWebHierarchy, baseUrl, [], opts.storybook);
   }
 
   if (opts.platform === "android") {
@@ -407,28 +430,46 @@ export async function connect(opts: ConnectOptions): Promise<Session> {
 
   if (opts.platform === "ios") {
     const bundleId = opts.bundleId ?? "";
-    const sim = opts.device
-      ? (() => {
-          const found = findDeviceById(opts.device!);
-          if (!found || found.platform !== "ios")
-            throw new Error(`iOS device not found: ${opts.device}`);
-          return {
-            udid: found.id,
-            name: found.name,
-            state: found.state as "Booted" | "Shutdown",
+    const target = opts.device ? findDeviceById(opts.device) : null;
+    if (opts.device && (!target || target.platform !== "ios")) {
+      throw new Error(`iOS device not found: ${opts.device}`);
+    }
+
+    if (target?.type === "device") {
+      const conn = connectPhysicalDevice(target.id);
+      const driver = await Effect.runPromise(createWDADriver(conn.host, conn.port, bundleId));
+      return new Session(driver, "ios", parseIOSHierarchy, bundleId, [conn.cleanup]);
+    }
+
+    const sim =
+      target?.type === "simulator"
+        ? {
+            udid: target.id,
+            name: target.name,
+            state: target.state as "Booted" | "Shutdown",
             runtime: "",
             isAvailable: true,
-          };
-        })()
-      : firstIOSSimulatorWithApp(bundleId);
-    if (!sim) throw new Error("No iOS simulator available");
-    if (sim.state !== "Booted") bootSimulator(sim.udid);
-    const wdaPort = allocatePort(8100);
-    const conn = await setupWDA(sim.udid, wdaPort);
-    const driver = await Effect.runPromise(
-      createWDADriver(conn.host, conn.port, bundleId, sim.udid),
-    );
-    return new Session(driver, "ios", parseIOSHierarchy, bundleId, [conn.cleanup]);
+          }
+        : firstIOSSimulatorWithApp(bundleId);
+
+    if (sim) {
+      if (sim.state !== "Booted") bootSimulator(sim.udid);
+      const wdaPort = allocatePort(8100);
+      const conn = await setupWDA(sim.udid, wdaPort);
+      const driver = await Effect.runPromise(
+        createWDADriver(conn.host, conn.port, bundleId, sim.udid),
+      );
+      return new Session(driver, "ios", parseIOSHierarchy, bundleId, [conn.cleanup]);
+    }
+
+    const physicalDevice = firstIOSPhysicalDevice();
+    if (physicalDevice) {
+      const conn = connectPhysicalDevice(physicalDevice.udid);
+      const driver = await Effect.runPromise(createWDADriver(conn.host, conn.port, bundleId));
+      return new Session(driver, "ios", parseIOSHierarchy, bundleId, [conn.cleanup]);
+    }
+
+    throw new Error("No iOS simulator or physical device available");
   }
 
   throw new Error(`Unsupported platform: ${opts.platform}`);

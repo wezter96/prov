@@ -45,6 +45,7 @@ export interface FlowDefinition {
   name: string;
   fn: FlowFn;
   config: FlowConfig;
+  sourcePath?: string;
 }
 
 // Overloads: flow(name, fn) and flow(name, config, fn)

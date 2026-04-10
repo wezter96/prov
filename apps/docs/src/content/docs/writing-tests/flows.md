@@ -73,6 +73,8 @@ interface FlowConfig {
   platforms?: Platform[];
   timeout?: number;
   autoLaunch?: boolean;
+  artifacts?: ArtifactConfig;
+  defaults?: FlowDefaults;
   when?: WhenCondition;
 }
 
@@ -82,13 +84,15 @@ interface WhenCondition {
 }
 ```
 
-| Option       | Type            | Default        | Description                                           |
-| ------------ | --------------- | -------------- | ----------------------------------------------------- |
-| `tags`       | `string[]`      | —              | Tag strings for `--tag` filtering at the CLI          |
-| `platforms`  | `Platform[]`    | all configured | Restrict this flow to specific platforms only         |
-| `timeout`    | `number`        | config default | Flow-level timeout in milliseconds                    |
-| `autoLaunch` | `boolean`       | `true`         | Automatically launch the app before the flow starts   |
-| `when`       | `WhenCondition` | —              | Runtime conditions that control whether the flow runs |
+| Option       | Type             | Default        | Description                                           |
+| ------------ | ---------------- | -------------- | ----------------------------------------------------- |
+| `tags`       | `string[]`       | —              | Tag strings for `--tag` filtering at the CLI          |
+| `platforms`  | `Platform[]`     | all configured | Restrict this flow to specific platforms only         |
+| `timeout`    | `number`         | config default | Flow-level timeout in milliseconds                    |
+| `autoLaunch` | `boolean`        | `true`         | Automatically launch the app before the flow starts   |
+| `artifacts`  | `ArtifactConfig` | config default | Override capture behavior for this single flow        |
+| `defaults`   | `FlowDefaults`   | config default | Override wait / typing / stability defaults per flow  |
+| `when`       | `WhenCondition`  | —              | Runtime conditions that control whether the flow runs |
 
 ### Conditional execution with `when`
 
@@ -137,7 +141,7 @@ export default flow(
 
 All methods return `Promise<void>` unless noted.
 
-### Interaction
+### Core interaction
 
 | Method               | Signature                             | Description                                      |
 | -------------------- | ------------------------------------- | ------------------------------------------------ |
@@ -155,44 +159,70 @@ All methods return `Promise<void>` unless noted.
 | `scrollUntilVisible` | `(selector, opts?) => Promise<void>`  | Scroll until a target becomes visible            |
 | `backUntilVisible`   | `(selector, opts?) => Promise<void>`  | Use system back until a target becomes visible   |
 
-Direction values: `"up" | "down" | "left" | "right"`
+Direction values are `"up" | "down" | "left" | "right"`.
 
 `dismissKeyboard()` defaults to an auto strategy that uses the driver-specific keyboard dismissal path and falls back to Android system back when needed. `scrollUntilVisible()` and `backUntilVisible()` are useful for replacing ad hoc retry loops in mobile-heavy flows.
 
-### App lifecycle
+### Advanced gestures
 
-| Method       | Signature                  | Description                                  |
-| ------------ | -------------------------- | -------------------------------------------- |
-| `launch`     | `(opts?) => Promise<void>` | Launch the app (optionally with a deep link) |
-| `stop`       | `() => Promise<void>`      | Stop the app                                 |
-| `kill`       | `() => Promise<void>`      | Force-kill the app                           |
-| `clearState` | `() => Promise<void>`      | Clear app data/state                         |
-| `openLink`   | `(url) => Promise<void>`   | Open a URL or deep link                      |
-| `back`       | `() => Promise<void>`      | Press the back button (Android)              |
+| Method       | Signature                                             | Description                           |
+| ------------ | ----------------------------------------------------- | ------------------------------------- |
+| `pinch`      | `(selector, { scale?, duration? }?) => Promise<void>` | Perform a pinch gesture on an element |
+| `zoom`       | `(selector, { scale?, duration? }?) => Promise<void>` | Perform a zoom gesture on an element  |
+| `multiTouch` | `(sequences) => Promise<void>`                        | Run multiple touch sequences together |
 
-### Utilities
+These gestures are only available on mobile runtimes. Use them for map canvases, image viewers, and multi-finger interactions that are awkward to model with repeated taps.
 
-| Method           | Signature                                  | Description                                      |
-| ---------------- | ------------------------------------------ | ------------------------------------------------ |
-| `takeScreenshot` | `() => Promise<Uint8Array>`                | Capture a screenshot and return the bytes        |
-| `evaluate`       | `<T>(fn \| string, ...args) => Promise<T>` | Run JavaScript in the browser context (web only) |
+### App lifecycle and navigation
 
-### Browser runtime helpers (web platform)
+| Method       | Signature                              | Description                                           |
+| ------------ | -------------------------------------- | ----------------------------------------------------- |
+| `launch`     | `(opts?) => Promise<void>`             | Launch the app, optionally with a deep link           |
+| `stop`       | `() => Promise<void>`                  | Stop the app                                          |
+| `kill`       | `() => Promise<void>`                  | Force-kill the app                                    |
+| `clearState` | `() => Promise<void>`                  | Clear app data/state                                  |
+| `openLink`   | `(url) => Promise<void>`               | Open a URL or deep link                               |
+| `openStory`  | `(storyId, options?) => Promise<void>` | Open a Storybook story inside the web runtime         |
+| `back`       | `() => Promise<void>`                  | Press the Android back button or browser history back |
 
-| Method                 | Signature                                                                                     | Description                                         |
-| ---------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `mockNetwork`          | `(matcher, response) => Promise<void>`                                                        | Fulfill matching requests with a mocked response    |
-| `blockNetwork`         | `(matcher) => Promise<void>`                                                                  | Abort matching requests                             |
-| `clearNetworkMocks`    | `() => Promise<void>`                                                                         | Remove active route mocks/blocks                    |
-| `setNetworkConditions` | `({ offline?, latencyMs?, downloadThroughputKbps?, uploadThroughputKbps? }) => Promise<void>` | Toggle offline mode and Chromium network throttling |
-| `saveCookies`          | `(path) => Promise<void>`                                                                     | Save Playwright cookies to a JSON file              |
-| `loadCookies`          | `(path) => Promise<void>`                                                                     | Load cookies from a JSON file                       |
-| `saveAuthState`        | `(path) => Promise<void>`                                                                     | Save Playwright storage state to disk               |
-| `loadAuthState`        | `(path) => Promise<void>`                                                                     | Replace the browser context with saved auth state   |
-| `getConsoleLogs`       | `() => Promise<Array<{ type, text, location? }>>`                                             | Read captured browser console messages              |
-| `getJSErrors`          | `() => Promise<Array<{ name?, message, stack? }>>`                                            | Read captured uncaught JavaScript errors            |
+`openStory()` is web-only. It uses `execution.web.storybook` when configured and falls back to `apps.web.url` plus Storybook's `iframe.html`.
 
-These helpers are only available on local Playwright web runs. `setNetworkConditions()` supports offline mode on every browser, but latency/throughput throttling requires the Chromium browser runtime. When artifact capture is enabled, web failures also include console logs and JavaScript errors in `spana-output/` and the HTML report.
+### Element queries and utilities
+
+| Method           | Signature                                            | Description                                      |
+| ---------------- | ---------------------------------------------------- | ------------------------------------------------ |
+| `takeScreenshot` | `() => Promise<Uint8Array>`                          | Capture a screenshot and return the bytes        |
+| `getText`        | `(selector, opts?) => Promise<string>`               | Read the current element text                    |
+| `getAttribute`   | `(selector, name, opts?) => Promise<string \| null>` | Read an element attribute                        |
+| `isVisible`      | `(selector, opts?) => Promise<boolean>`              | Check visibility without failing the flow        |
+| `isEnabled`      | `(selector, opts?) => Promise<boolean>`              | Check whether an element is enabled              |
+| `evaluate`       | `<T>(fn \| string, ...args) => Promise<T>`           | Run JavaScript in the browser context (web only) |
+
+`getText()`, `getAttribute()`, `isVisible()`, and `isEnabled()` are useful when you need branching logic instead of a hard assertion.
+
+### Browser runtime helpers
+
+| Method                 | Signature                                                                                     | Description                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `mockNetwork`          | `(matcher, response) => Promise<void>`                                                        | Fulfill matching requests with a mocked response   |
+| `blockNetwork`         | `(matcher) => Promise<void>`                                                                  | Abort matching requests                            |
+| `clearNetworkMocks`    | `() => Promise<void>`                                                                         | Remove active route mocks or blocks                |
+| `setNetworkConditions` | `({ offline?, latencyMs?, downloadThroughputKbps?, uploadThroughputKbps? }) => Promise<void>` | Toggle offline mode and Chromium throttling        |
+| `saveCookies`          | `(path) => Promise<void>`                                                                     | Save Playwright cookies to a JSON file             |
+| `loadCookies`          | `(path) => Promise<void>`                                                                     | Load cookies from a JSON file                      |
+| `saveAuthState`        | `(path) => Promise<void>`                                                                     | Save Playwright storage state to disk              |
+| `loadAuthState`        | `(path) => Promise<void>`                                                                     | Replace the browser context with saved auth state  |
+| `downloadFile`         | `(path) => Promise<void>`                                                                     | Save the next browser download to disk             |
+| `uploadFile`           | `(selector, path) => Promise<void>`                                                           | Upload a local file through a file input           |
+| `newTab`               | `(url?) => Promise<void>`                                                                     | Open a new browser tab                             |
+| `switchToTab`          | `(index) => Promise<void>`                                                                    | Switch to a tab by index                           |
+| `closeTab`             | `() => Promise<void>`                                                                         | Close the current tab                              |
+| `getTabIds`            | `() => Promise<string[]>`                                                                     | List known browser tab IDs                         |
+| `getConsoleLogs`       | `() => Promise<Array<{ type, text, location? }>>`                                             | Read captured browser console messages             |
+| `getJSErrors`          | `() => Promise<Array<{ name?, message, stack? }>>`                                            | Read captured uncaught JavaScript errors           |
+| `getHAR`               | `() => Promise<Record<string, unknown>>`                                                      | Read the recorded HTTP Archive for the current run |
+
+These helpers are available on local Playwright web runs. `setNetworkConditions()` supports offline mode on every browser, but latency and throughput throttling require Chromium. When artifact capture is enabled, failures can also write console logs, JavaScript errors, and HAR files into `spana-output/`.
 
 ```ts
 flow("web app can run with mocked APIs", async ({ app, platform }) => {
@@ -205,8 +235,10 @@ flow("web app can run with mocked APIs", async ({ app, platform }) => {
   await app.blockNetwork("**/analytics/**");
   await app.setNetworkConditions({ offline: false, latencyMs: 120 });
   await app.evaluate(() => console.info("profile hydrated"));
+
   const logs = await app.getConsoleLogs();
   const jsErrors = await app.getJSErrors();
+  const har = await app.getHAR();
 
   if (!logs.some((entry) => entry.text.includes("profile hydrated"))) {
     throw new Error("Expected the profile hydration log to be captured.");
@@ -216,35 +248,99 @@ flow("web app can run with mocked APIs", async ({ app, platform }) => {
     throw new Error(`Unexpected JS errors: ${jsErrors.map((entry) => entry.message).join(", ")}`);
   }
 
+  if (!Array.isArray((har as { log?: { entries?: unknown[] } }).log?.entries)) {
+    throw new Error("Expected HAR output to contain request entries.");
+  }
+
   await app.saveCookies("./tmp/cookies.json");
 });
 ```
 
-### JavaScript execution (web platform)
+### Storybook-backed component flows
 
-`app.evaluate()` runs JavaScript inside the browser page context. This is useful for reading DOM state, manipulating localStorage, or interacting with the app's JavaScript runtime.
+Storybook is a good isolated surface for Spana's web runtime when you want component-level checks without giving up real-browser automation.
+
+```ts
+flow("primary button story passes smoke checks", async ({ app, expect, platform }) => {
+  if (platform !== "web") return;
+
+  await app.openStory("components-button--primary", {
+    args: { label: "Save", disabled: false },
+    globals: { theme: "dark" },
+  });
+
+  await expect({ role: "button", text: "Save" }).toBeVisible();
+  await expect({ role: "button", text: "Save" }).toMatchScreenshot("storybook-button");
+});
+```
+
+Set `execution.web.storybook.url` when Storybook runs on a different origin from your main app. `args` and `globals` support scalar values (`string`, `number`, `boolean`, `null`).
+
+### Hybrid / WebView helpers
+
+| Method              | Signature                      | Description                                |
+| ------------------- | ------------------------------ | ------------------------------------------ |
+| `getContexts`       | `() => Promise<string[]>`      | List available native and WebView contexts |
+| `getCurrentContext` | `() => Promise<string>`        | Read the currently active context          |
+| `switchToContext`   | `(contextId) => Promise<void>` | Switch to a specific context ID            |
+| `switchToWebView`   | `() => Promise<void>`          | Switch to the first available WebView      |
+| `switchToNativeApp` | `() => Promise<void>`          | Switch back to the native app context      |
+
+These helpers are useful for hybrid apps where you need to move between native chrome and embedded web content.
+
+### JavaScript execution
+
+`app.evaluate()` runs JavaScript inside the browser page context. Use it to read DOM state, manipulate local storage, or access browser-only globals.
 
 ```ts
 flow("read page state", async ({ app, platform }) => {
   if (platform !== "web") return;
 
-  // Read a value from the page
   const title = await app.evaluate(() => document.title);
-
-  // Pass arguments
   const count = await app.evaluate(
     (selector: string) => document.querySelectorAll(selector).length,
     "button",
   );
 
-  // Manipulate state
   await app.evaluate(() => {
     localStorage.setItem("feature-flag", "true");
   });
+
+  if (!title || count === 0) {
+    throw new Error("Expected page state to be readable from evaluate().");
+  }
 });
 ```
 
-`evaluate()` is only supported on the web platform (Playwright). On Android and iOS, it throws an error — native apps don't expose a JavaScript engine. Since flows are TypeScript, you have full access to Node.js/Bun APIs for any test logic that doesn't need to run inside the browser.
+`evaluate()` is only supported on the web platform. Native apps do not expose a JavaScript execution context.
+
+## Per-flow artifact overrides
+
+Use `artifacts` in `FlowConfig` when one flow needs different capture behavior from the global defaults.
+
+```ts
+export default flow(
+  "checkout keeps extra diagnostics on success",
+  {
+    artifacts: {
+      captureSteps: true,
+      captureOnSuccess: true,
+      consoleLogs: true,
+      jsErrors: true,
+      har: true,
+    },
+  },
+  async ({ app, expect, platform }) => {
+    if (platform === "web") {
+      await app.openLink("/checkout");
+    }
+
+    await expect({ text: "Checkout" }).toBeVisible();
+  },
+);
+```
+
+Use the global config in [Configuration](/spana/getting-started/configuration/) for your default policy, then tighten or loosen capture per flow only where it helps debugging.
 
 ## Settings export
 

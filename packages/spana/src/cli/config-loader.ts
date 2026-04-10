@@ -54,6 +54,13 @@ function resolveConfigPaths(config: ProvConfig, configPath: string): ProvConfig 
     );
   }
 
+  if (config.execution?.appium?.cloudProvider) {
+    config.execution.appium.cloudProvider = resolveIfRelative(
+      configDir,
+      config.execution.appium.cloudProvider,
+    );
+  }
+
   if (config.execution?.web?.storageState) {
     config.execution.web.storageState = resolveIfRelative(
       configDir,
@@ -86,6 +93,13 @@ function resolveConfigPaths(config: ProvConfig, configPath: string): ProvConfig 
     config.execution.appium.saucelabs.connect.binary = resolveIfRelative(
       configDir,
       config.execution.appium.saucelabs.connect.binary,
+    );
+  }
+
+  if (config.visualRegression?.baselinesDir) {
+    config.visualRegression.baselinesDir = resolveIfRelative(
+      configDir,
+      config.visualRegression.baselinesDir,
     );
   }
 

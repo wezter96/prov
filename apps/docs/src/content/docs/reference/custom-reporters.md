@@ -1,138 +1,183 @@
 ---
 title: Custom Reporters
-description: Write your own reporter to extend spana's output pipeline.
+description: Extend Spana's output pipeline with your own reporter modules.
 ---
 
-spana's reporter API lets you hook into the test lifecycle and process results however you need — post to Slack, push metrics to Datadog, write custom file formats, or integrate with internal dashboards.
+Custom reporters let you push results into Slack, internal dashboards, CSV files, metrics systems, or any other destination.
 
-## The Reporter interface
+## Reporter shape
 
-A reporter is an object with optional lifecycle hooks:
+Import reporter types from `spana-test`:
 
 ```ts
-import type { Reporter, FlowResult, RunSummary } from "spana";
+import type { Reporter, FlowResult, RunSummary } from "spana-test";
 
-const myReporter: Reporter = {
+const reporter: Reporter = {
   onFlowStart(name, platform, workerName) {
-    // Called when a flow begins execution
-  },
-
-  onFlowPass(result: FlowResult) {
-    // Called when a flow passes
+    console.log(`START ${platform}:${workerName ?? "default"} ${name}`);
   },
 
   onFlowFail(result: FlowResult) {
-    // Called when a flow fails (after all retries)
+    console.log(`FAIL ${result.name}: ${result.error?.message}`);
   },
 
   onRunComplete(summary: RunSummary) {
-    // Called once after all flows finish
+    console.log(`${summary.passed}/${summary.total} passed`);
   },
 };
 
-export default myReporter;
+export default reporter;
 ```
 
 All hooks except `onRunComplete` are optional.
 
-## Registering a custom reporter
-
-Add the module path to your `reporters` array in `spana.config.ts`:
+## Registering a reporter
 
 ```ts
-import { defineConfig } from "spana";
+import { defineConfig } from "spana-test";
 
 export default defineConfig({
-  reporters: [
-    "console", // built-in
-    "./reporters/slack.ts", // your custom reporter
-  ],
+  reporters: ["console", "./reporters/slack.ts"],
 });
 ```
 
-Paths are resolved relative to your config file. Absolute paths also work.
+Reporter module paths are resolved relative to `spana.config.ts`.
 
-## Factory pattern
+## Factory reporters
 
-If your reporter needs configuration, export a factory function instead of a plain object:
+If your reporter needs options, export a factory function:
 
 ```ts
-import type { Reporter } from "spana";
+import type { Reporter } from "spana-test";
 
-export default function createSlackReporter(options: { outputDir: string }): Reporter {
+export default function createCsvReporter(options: { outputDir: string }): Reporter {
   return {
-    onFlowFail(result) {
-      // Post to Slack webhook
-    },
     onRunComplete(summary) {
-      console.log(`Results saved to ${options.outputDir}`);
+      console.log(`Write results into ${options.outputDir}`);
     },
   };
 }
 ```
 
-spana calls factory functions with `{ outputDir }` automatically.
+Spana calls factory reporters with `{ outputDir }`.
 
-## Available types
+## Exported types
 
-Import these from `"spana"` for full type safety:
-
-| Type              | Description                                                                           |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `Reporter`        | The reporter interface                                                                |
-| `FlowResult`      | Result of a single flow (name, platform, status, duration, error, steps, attachments) |
-| `RunSummary`      | Aggregate summary (total, passed, failed, skipped, flaky, duration, all results)      |
-| `StepResult`      | Individual step within a flow (command, selector, status, duration)                   |
-| `FlowError`       | Error details with category and suggestion                                            |
-| `FailureCategory` | Error classification (element-not-found, timeout, etc.)                               |
-| `Attachment`      | Screenshot or artifact reference (name, contentType, path)                            |
-| `Platform`        | `"web" \| "android" \| "ios"`                                                         |
-
-## Example: Webhook reporter
-
-A minimal reporter that posts failures to an HTTP webhook:
+### `Reporter`
 
 ```ts
-import type { Reporter, FlowResult } from "spana";
+interface Reporter {
+  onFlowStart?(name: string, platform: Platform, workerName?: string): void;
+  onFlowPass?(result: FlowResult): void;
+  onFlowFail?(result: FlowResult): void;
+  onRunComplete(summary: RunSummary): void;
+  flowCount?: number;
+  platformFlowCounts?: Partial<Record<Platform, number>>;
+}
+```
 
-const webhookReporter: Reporter = {
-  async onFlowFail(result: FlowResult) {
+`flowCount` and `platformFlowCounts` are populated by Spana so console-style reporters can render progress.
+
+### `FlowResult`
+
+| Field           | Description                                                 |
+| --------------- | ----------------------------------------------------------- |
+| `name`          | Flow name                                                   |
+| `platform`      | `web`, `android`, or `ios`                                  |
+| `status`        | `passed`, `failed`, or `skipped`                            |
+| `flaky`         | `true` when the flow failed first and later passed on retry |
+| `attempts`      | Number of attempts made                                     |
+| `durationMs`    | Total runtime in milliseconds                               |
+| `error`         | Structured `FlowError` for failed flows                     |
+| `attachments`   | Captured artifacts such as screenshots, HAR, or logs        |
+| `steps`         | Low-level driver steps recorded for the flow                |
+| `scenarioSteps` | Gherkin step results for scenario-style flows               |
+| `workerName`    | Worker or device name when parallel mode is enabled         |
+
+### `RunSummary`
+
+| Field                           | Description                                        |
+| ------------------------------- | -------------------------------------------------- |
+| `total`                         | Total flow executions across all platforms         |
+| `passed` / `failed` / `skipped` | Final result counts                                |
+| `flaky`                         | Number of flaky flows                              |
+| `durationMs`                    | Total run duration                                 |
+| `results`                       | All `FlowResult` entries                           |
+| `platforms`                     | Platforms included in the run                      |
+| `bailedOut`                     | `true` when `--bail` stopped the run early         |
+| `bailLimit`                     | Bail threshold that triggered the stop             |
+| `workerStats`                   | Per-worker timing and flow counts in parallel mode |
+
+### `StepResult` and `ScenarioStepResult`
+
+`StepResult` represents low-level driver actions such as taps, assertions, typing, or network setup.
+
+`ScenarioStepResult` represents higher-level Gherkin steps such as `Given`, `When`, `Then`, `And`, `Before`, and `After`. Each scenario step can include nested `steps` for the underlying driver actions.
+
+### `Attachment`
+
+```ts
+interface Attachment {
+  name: string;
+  contentType: string;
+  path: string;
+}
+```
+
+Attachments point at files on disk, for example screenshots, hierarchy dumps, console logs, JavaScript errors, or HAR captures.
+
+### `FlowError` and `FailureCategory`
+
+```ts
+interface FlowError {
+  message: string;
+  stack?: string;
+  category: FailureCategory;
+  suggestion?: string;
+  errorCode?: string;
+}
+```
+
+`FailureCategory` values include:
+
+- `element-not-found`
+- `element-not-visible`
+- `element-off-screen`
+- `element-not-interactive`
+- `text-mismatch`
+- `timeout`
+- `device-disconnected`
+- `app-crashed`
+- `app-not-installed`
+- `driver-error`
+- `config-error`
+- `unknown`
+
+## Example: failure webhook
+
+```ts
+import type { Reporter } from "spana-test";
+
+const reporter: Reporter = {
+  async onFlowFail(result) {
     await fetch("https://hooks.example.com/test-failures", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: result.name,
         platform: result.platform,
-        error: result.error?.message,
-        duration: result.durationMs,
+        category: result.error?.category,
+        message: result.error?.message,
+        worker: result.workerName,
+        attachments: result.attachments?.map((attachment) => attachment.name),
       }),
     });
   },
 
   onRunComplete(summary) {
-    // Optional: post summary
+    console.log(`${summary.failed} failed flow(s)`);
   },
 };
 
-export default webhookReporter;
-```
-
-## Example: CSV reporter
-
-```ts
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { Reporter } from "spana";
-
-export default function createCsvReporter(options: { outputDir: string }): Reporter {
-  return {
-    onRunComplete(summary) {
-      const header = "name,platform,status,durationMs,error\n";
-      const rows = summary.results
-        .map((r) => `${r.name},${r.platform},${r.status},${r.durationMs},${r.error?.message ?? ""}`)
-        .join("\n");
-      writeFileSync(join(options.outputDir, "results.csv"), header + rows);
-    },
-  };
-}
+export default reporter;
 ```

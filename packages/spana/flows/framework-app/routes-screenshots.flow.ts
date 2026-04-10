@@ -1,5 +1,6 @@
 import { flow } from "spana-test";
 import type { Platform } from "spana-test";
+import { navigateToHomeScreen } from "./support/navigation.js";
 
 interface RouteSpec {
   name: string;
@@ -9,6 +10,11 @@ interface RouteSpec {
   drawerItem?: string;
   /** Extra steps after drawer navigation (e.g. tapping a tab). */
   afterDrawer?: (app: any, expect: any) => Promise<void>;
+  /**
+   * Expo Router's grouped tabs index collapses to "/" on native, so the internal
+   * file-system path is not a stable Android deep link target.
+   */
+  androidNavigation?: "deepLink" | "drawer";
 }
 
 const WEB_BASE_URL = "http://127.0.0.1:8081";
@@ -20,6 +26,7 @@ const routeSpecs: RouteSpec[] = [
     path: "/(drawer)/(tabs)",
     selector: { testID: "tab-one-title" },
     drawerItem: "drawer-tabs-item",
+    androidNavigation: "drawer",
   },
   {
     name: "tabs-explore",
@@ -76,8 +83,21 @@ export default flow(
     for (const route of routeSpecs) {
       try {
         if (platform === "android") {
-          // Force clear state to reset scroll position and navigation stack
-          await app.launch({ deepLink: routeHref(platform, route), clearState: true });
+          if (route.androidNavigation === "drawer" && route.drawerItem) {
+            await navigateToHomeScreen({ app, expect, platform });
+            await expect({ accessibilityLabel: "Show navigation menu" }).toBeVisible({
+              timeout: 10_000,
+            });
+            await app.tap({ accessibilityLabel: "Show navigation menu" });
+            await expect({ testID: route.drawerItem }).toBeVisible({ timeout: 5_000 });
+            await app.tap({ testID: route.drawerItem });
+            if (route.afterDrawer) {
+              await route.afterDrawer(app, expect);
+            }
+          } else {
+            // Force clear state to reset scroll position and navigation stack.
+            await app.launch({ deepLink: routeHref(platform, route), clearState: true });
+          }
         } else if (platform === "ios") {
           // Navigate via drawer menu — WDA's openUrl breaks session for custom URL schemes
           await app.launch();

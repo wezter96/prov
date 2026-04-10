@@ -959,7 +959,8 @@ async function runTestCommandOnce(opts: TestCommandOptions): Promise<RunTestComm
       retries,
       retryDelay,
       bail: opts.bail,
-      parallelPlatforms: opts.parallel || !!opts.workers || !!opts.devices,
+      parallelPlatforms:
+        opts.parallel || config.parallelPlatforms || !!opts.workers || !!opts.devices,
       onFlowStart(name, platform, workerName) {
         for (const reporter of reporters) {
           reporter.onFlowStart?.(name, platform, workerName);

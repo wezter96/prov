@@ -73,8 +73,6 @@ export function buildWDA(simulatorUDID: string): string {
   return derivedDataPath;
 }
 
-let wdaProcess: ChildProcess | null = null;
-
 /** Start WDA on a simulator using xcodebuild test-without-building */
 export function startWDA(
   simulatorUDID: string,
@@ -111,16 +109,17 @@ export function startWDA(
   );
 
   child.unref();
-  wdaProcess = child;
-
   return child;
 }
 
-/** Stop the currently running WDA process */
-export function stopWDA(): void {
-  if (wdaProcess) {
-    wdaProcess.kill();
-    wdaProcess = null;
+/** Stop a specific WDA process spawned by startWDA/startWDAOnDevice. */
+export function stopWDA(process: ChildProcess | null | undefined): void {
+  if (process) {
+    try {
+      process.kill();
+    } catch {
+      // already exited
+    }
   }
 }
 
@@ -195,7 +194,6 @@ export function startWDAOnDevice(
   );
 
   child.unref();
-  wdaProcess = child;
   return child;
 }
 
@@ -206,48 +204,60 @@ export async function setupWDAForDevice(
   teamId: string,
   signingIdentity?: string,
 ): Promise<{ host: string; port: number; cleanup: () => void }> {
-  const wdaPath = findWDAProject();
-  if (!wdaPath) throw new Error("WebDriverAgent project not found");
+  let wdaProcess: ChildProcess | null = null;
+  let tunnel: { host: string; port: number; cleanup: () => void } | null = null;
 
-  const derivedDataPath = resolve(wdaPath, "../../.wda-builds", deviceUDID);
-  const buildProductsDir = resolve(derivedDataPath, "Build", "Products");
+  try {
+    const wdaPath = findWDAProject();
+    if (!wdaPath) throw new Error("WebDriverAgent project not found");
 
-  // Build if no previous build exists
-  if (!existsSync(buildProductsDir)) {
-    buildWDAForDevice(deviceUDID, teamId, signingIdentity);
-  }
+    const derivedDataPath = resolve(wdaPath, "../../.wda-builds", deviceUDID);
+    const buildProductsDir = resolve(derivedDataPath, "Build", "Products");
 
-  // Start WDA on device
-  startWDAOnDevice(deviceUDID, 8100, derivedDataPath);
-
-  // Set up iproxy tunnel
-  const { startIproxy } = await import("../../device/ios.js");
-  const tunnel = startIproxy(deviceUDID, port, 8100);
-
-  // Poll until WDA is ready
-  const maxRetries = 45; // physical devices can be slower
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const res = await fetch(`http://localhost:${tunnel.port}/status`);
-      if (res.ok) {
-        console.log(`WebDriverAgent ready on physical device (port ${tunnel.port})`);
-        return {
-          host: tunnel.host,
-          port: tunnel.port,
-          cleanup: () => {
-            tunnel.cleanup();
-            releasePort(port);
-          },
-        };
-      }
-    } catch {
-      // Not ready yet
+    // Build if no previous build exists
+    if (!existsSync(buildProductsDir)) {
+      buildWDAForDevice(deviceUDID, teamId, signingIdentity);
     }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
 
-  tunnel.cleanup();
-  throw new Error(`WebDriverAgent did not start on device within ${maxRetries} seconds`);
+    // Start WDA on device
+    wdaProcess = startWDAOnDevice(deviceUDID, 8100, derivedDataPath);
+
+    // Set up iproxy tunnel
+    const { startIproxy } = await import("../../device/ios.js");
+    tunnel = startIproxy(deviceUDID, port, 8100);
+
+    // Poll until WDA is ready
+    const maxRetries = 45; // physical devices can be slower
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const res = await fetch(`http://localhost:${tunnel.port}/status`);
+        if (res.ok) {
+          console.log(`WebDriverAgent ready on physical device (port ${tunnel.port})`);
+          const activeProcess = wdaProcess;
+          const activeTunnel = tunnel;
+          return {
+            host: activeTunnel.host,
+            port: activeTunnel.port,
+            cleanup: () => {
+              stopWDA(activeProcess);
+              activeTunnel.cleanup();
+              releasePort(port);
+            },
+          };
+        }
+      } catch {
+        // Not ready yet
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    throw new Error(`WebDriverAgent did not start on device within ${maxRetries} seconds`);
+  } catch (error) {
+    stopWDA(wdaProcess);
+    tunnel?.cleanup();
+    releasePort(port);
+    throw error;
+  }
 }
 
 /** Full setup: build if needed, start WDA, wait for it to be ready */
@@ -270,16 +280,23 @@ export async function setupWDA(
   }
 
   // Start WDA
-  startWDA(simulatorUDID, actualPort, derivedDataPath);
+  const wdaProcess = startWDA(simulatorUDID, actualPort, derivedDataPath);
 
-  // Poll until WDA is ready — it can take up to ~30 s on cold start
-  const maxRetries = 30;
+  // Poll until WDA is ready — cold simulator starts can exceed 30 seconds.
+  const maxRetries = 60;
   for (let i = 0; i < maxRetries; i++) {
     try {
       const res = await fetch(`http://localhost:${actualPort}/status`);
       if (res.ok) {
         console.log(`WebDriverAgent ready on port ${actualPort}`);
-        return { host: "localhost", port: actualPort, cleanup: () => releasePort(actualPort) };
+        return {
+          host: "localhost",
+          port: actualPort,
+          cleanup: () => {
+            stopWDA(wdaProcess);
+            releasePort(actualPort);
+          },
+        };
       }
     } catch {
       // Not ready yet
@@ -287,6 +304,7 @@ export async function setupWDA(
     await new Promise((r) => setTimeout(r, 1000));
   }
 
+  stopWDA(wdaProcess);
   releasePort(actualPort);
   throw new Error(`WebDriverAgent did not start within ${maxRetries} seconds`);
 }

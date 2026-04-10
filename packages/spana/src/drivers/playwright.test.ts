@@ -666,6 +666,54 @@ describe("Playwright driver adapter", () => {
     });
   });
 
+  test("dumpHierarchy script treats offscreen elements as not visible", async () => {
+    const { makePlaywrightDriver } = await importFreshDriver();
+    const driver = await Effect.runPromise(makePlaywrightDriver({}));
+
+    await Effect.runPromise(driver.dumpHierarchy());
+
+    const dumpScript = playwrightState.events.find(
+      ([type, script]) =>
+        type === "evaluate" &&
+        typeof script === "string" &&
+        script.includes("return walk(document.body)"),
+    )?.[1];
+
+    expect(dumpScript).toEqual(expect.any(String));
+    expect(dumpScript).toContain(
+      "var viewportWidth = window.innerWidth || document.documentElement.clientWidth;",
+    );
+    expect(dumpScript).toContain(
+      "var viewportHeight = window.innerHeight || document.documentElement.clientHeight;",
+    );
+    expect(dumpScript).toContain(
+      "var intersectsViewport = rect.bottom > 0 && rect.right > 0 && rect.top < viewportHeight && rect.left < viewportWidth;",
+    );
+    expect(dumpScript).toContain(
+      "visible: isVisible && rect.width > 0 && rect.height > 0 && intersectsViewport,",
+    );
+  });
+
+  test("swipe scrolls the nearest scrollable container on web", async () => {
+    const { makePlaywrightDriver } = await importFreshDriver();
+    const driver = await Effect.runPromise(makePlaywrightDriver({}));
+
+    await Effect.runPromise(driver.swipe(10, 20, 40, 70, 25));
+
+    const swipeScript = playwrightState.events.find(
+      ([type, script]) =>
+        type === "evaluate" &&
+        typeof script === "string" &&
+        script.includes("function findScrollable(el)") &&
+        script.includes("document.elementFromPoint(10, 20)"),
+    )?.[1];
+
+    expect(swipeScript).toEqual(expect.any(String));
+    expect(swipeScript).toContain('scroller.scrollBy({ left: left, top: top, behavior: "auto" });');
+    expect(swipeScript).toContain("var left = -30;");
+    expect(swipeScript).toContain("var top = -50;");
+  });
+
   test("supports browser selection and initial storage state", async () => {
     const { makePlaywrightDriver } = await importFreshDriver();
     const driver = await Effect.runPromise(

@@ -299,6 +299,26 @@ describe("Session", () => {
     expect(olFn).toHaveBeenCalledWith("https://example.com");
   });
 
+  test("openStory resolves Storybook URLs for web sessions", async () => {
+    const olFn = mock(() => Effect.void);
+    const session = new Session(
+      mockDriver({ openLink: olFn as any }),
+      "web",
+      parseHierarchy,
+      "http://localhost:3000",
+      [],
+      { url: "http://localhost:6006" },
+    );
+
+    await session.openStory("components-button--primary", {
+      globals: { theme: "dark" },
+    });
+
+    expect(olFn).toHaveBeenCalledWith(
+      "http://localhost:6006/iframe.html?id=components-button--primary&viewMode=story&globals=theme%3Adark",
+    );
+  });
+
   test("back calls driver", async () => {
     const backFn = mock(() => Effect.void);
     const session = new Session(mockDriver({ back: backFn as any }), "web", parseHierarchy);
@@ -383,6 +403,14 @@ describe("Session", () => {
     );
     await expect(session.getConsoleLogs()).rejects.toThrow(
       "getConsoleLogs() is only supported on the web platform",
+    );
+  });
+
+  test("openStory throws on non-web sessions", async () => {
+    const session = new Session(mockDriver(), "android", parseHierarchy, "com.example.app");
+
+    await expect(session.openStory("components-button--primary")).rejects.toThrow(
+      "openStory() is only supported on the web platform",
     );
   });
 

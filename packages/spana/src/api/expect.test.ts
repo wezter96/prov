@@ -1,5 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PNG } from "pngjs";
 import type { RawDriverService } from "../drivers/raw-driver.js";
 import type { DeviceInfo } from "../schemas/device.js";
 import type { Element } from "../schemas/element.js";
@@ -16,8 +20,9 @@ function createElement(overrides: Partial<Element> = {}): Element {
   };
 }
 
-function createDriver(hierarchies: Element[]) {
+function createDriver(hierarchies: Element[], screenshots?: Uint8Array[]) {
   let dumpCount = 0;
+  let screenshotCount = 0;
   const deviceInfo: DeviceInfo = {
     platform: "web",
     deviceId: "playwright",
@@ -41,7 +46,14 @@ function createDriver(hierarchies: Element[]) {
     inputText: () => Effect.void,
     pressKey: () => Effect.void,
     hideKeyboard: () => Effect.void,
-    takeScreenshot: () => Effect.succeed(new Uint8Array([1, 2, 3])),
+    takeScreenshot: () => {
+      if (!screenshots || screenshots.length === 0) {
+        return Effect.succeed(new Uint8Array([1, 2, 3]));
+      }
+      const index = Math.min(screenshotCount, screenshots.length - 1);
+      screenshotCount += 1;
+      return Effect.succeed(screenshots[index]!);
+    },
     getDeviceInfo: () => Effect.succeed(deviceInfo),
     launchApp: () => Effect.void,
     stopApp: () => Effect.void,
@@ -82,6 +94,36 @@ function createRecorder() {
 }
 
 const parse = (raw: string): Element => JSON.parse(raw) as Element;
+
+let tempDir = "";
+
+afterEach(() => {
+  if (tempDir) {
+    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = "";
+  }
+});
+
+function makeTempDir(): string {
+  tempDir = mkdtempSync(join(tmpdir(), "spana-expect-"));
+  return tempDir;
+}
+
+function makePng(
+  width: number,
+  height: number,
+  fillColor: { r: number; g: number; b: number },
+): Uint8Array {
+  const png = new PNG({ width, height });
+  const { r, g, b } = fillColor;
+  for (let i = 0; i < width * height; i++) {
+    png.data[i * 4] = r;
+    png.data[i * 4 + 1] = g;
+    png.data[i * 4 + 2] = b;
+    png.data[i * 4 + 3] = 255;
+  }
+  return new Uint8Array(PNG.sync.write(png));
+}
 
 describe("promise expect", () => {
   test("records expectation commands without enabling screenshots", async () => {
@@ -188,6 +230,59 @@ describe("promise expect", () => {
     await expect(
       expectFor({ text: "No numbers here" }).toMatchText(/\d+/, { timeout: 50, pollInterval: 10 }),
     ).rejects.toThrow("Expected text to match");
+  });
+
+  test("toMatchScreenshot uses flow metadata and visual regression defaults", async () => {
+    const dir = makeTempDir();
+    const red = makePng(20, 20, { r: 255, g: 0, b: 0 });
+    const blue = makePng(20, 20, { r: 0, g: 0, b: 255 });
+    const target = createElement({ text: "Target", bounds: { x: 0, y: 0, width: 10, height: 10 } });
+    const root = createElement({
+      bounds: { x: 0, y: 0, width: 20, height: 20 },
+      children: [target],
+    });
+    const { driver } = createDriver([root, root], [red, blue]);
+    const expectFor = createPromiseExpect(
+      driver,
+      { parse },
+      undefined,
+      {
+        flowFilePath: join(dir, "flows", "sample.flow.ts"),
+        flowName: "Sample Flow",
+        platform: "web",
+      },
+      {
+        baselinesDir: join(dir, "baselines"),
+        threshold: 0,
+        maxDiffPixelRatio: 1,
+      },
+    );
+
+    await expectFor({ text: "Target" }).toMatchScreenshot("card");
+    await expectFor({ text: "Target" }).toMatchScreenshot("card");
+  });
+
+  test("toPassAccessibilityAudit scopes axe to the target selector and excludes", async () => {
+    const { driver: baseDriver } = createDriver([createElement()]);
+    let evaluateScript = "";
+    const driver: RawDriverService = {
+      ...baseDriver,
+      evaluate: ((script: string) => {
+        evaluateScript = script;
+        return Effect.succeed({ violations: [] });
+      }) as RawDriverService["evaluate"],
+    };
+
+    const expectFor = createPromiseExpect(driver, { parse });
+
+    await expectFor({ testID: "playground-content" }).toPassAccessibilityAudit({
+      exclude: [{ testID: "playground-details-hidden" }],
+    });
+
+    expect(evaluateScript).toContain('"include":[["[data-testid=\\"playground-content\\"]"]]');
+    expect(evaluateScript).toContain(
+      '"exclude":[["[data-testid=\\"playground-details-hidden\\"]"]]',
+    );
   });
 
   test("works without a recorder", async () => {

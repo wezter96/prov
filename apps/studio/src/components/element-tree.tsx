@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { ChevronRight, ChevronDown, Search } from "lucide-react";
+import { studioTestId, toStudioTestIdSegment } from "@/lib/test-ids";
 
 interface Bounds {
   x: number;
@@ -58,6 +59,16 @@ function getNodeLabel(el: ElementData): string {
   return parts.join(" ");
 }
 
+function getNodeTestId(path: number[], element: ElementData): string {
+  const base =
+    element.resourceId ??
+    element.id ??
+    element.accessibilityLabel ??
+    element.text ??
+    `${element.elementType ?? "element"}-${pathToKey(path) || "root"}`;
+  return `studio-element-tree-node-${toStudioTestIdSegment(base)}`;
+}
+
 function TreeNode({
   element,
   path,
@@ -104,6 +115,7 @@ function TreeNode({
     <div>
       <div
         onClick={handleSelect}
+        {...studioTestId(getNodeTestId(path, element))}
         className={`flex items-center gap-1 py-0.5 px-1 rounded cursor-pointer text-xs font-mono hover:bg-zinc-800 ${
           isSelected ? "bg-zinc-700 text-blue-400" : "text-zinc-300"
         } ${isSearchMatch ? "ring-1 ring-amber-500/50" : ""}`}
@@ -171,15 +183,21 @@ export function ElementTree({ root, selectedPath, onSelect }: ElementTreeProps) 
 
   if (!root) {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-500 text-sm p-4">
+      <div
+        className="flex items-center justify-center h-full text-zinc-500 text-sm p-4"
+        {...studioTestId("studio-element-tree-empty")}
+      >
         No element hierarchy available
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-zinc-800">
+    <div className="flex flex-col h-full" {...studioTestId("studio-element-tree")}>
+      <div
+        className="px-3 py-2 border-b border-zinc-800"
+        {...studioTestId("studio-element-tree-toolbar")}
+      >
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
           <input
@@ -187,11 +205,12 @@ export function ElementTree({ root, selectedPath, onSelect }: ElementTreeProps) 
             placeholder="Search elements..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            {...studioTestId("studio-element-tree-search")}
             className="w-full bg-zinc-800 border border-zinc-700 rounded pl-7 pr-2 py-1 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-1">
+      <div className="flex-1 overflow-y-auto p-1" {...studioTestId("studio-element-tree-scroll")}>
         <TreeNode
           element={root}
           path={[]}

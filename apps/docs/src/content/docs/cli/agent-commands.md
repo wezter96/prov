@@ -10,10 +10,10 @@ spana includes three commands designed specifically for AI agent-driven test aut
 List all actionable elements on screen with suggested selectors.
 
 ```bash
-spana selectors --platform <platform> [--pretty]
+spana selectors --platform <platform> [--config path] [--json] [--pretty]
 ```
 
-Output is a JSON array. Each entry describes a visible, interactable element and includes the best-priority selector to use in a flow file.
+Plain output is a JSON array. With `--json`, Spana wraps that array in a versioned machine-readable envelope.
 
 ```bash
 spana selectors --platform android
@@ -55,10 +55,10 @@ spana selectors --platform ios | jq '[.[].suggestedSelector]'
 Dump the full UI element tree as structured JSON.
 
 ```bash
-spana hierarchy --platform <platform> [--pretty]
+spana hierarchy --platform <platform> [--config path] [--json] [--pretty]
 ```
 
-Returns the complete accessibility tree for the current screen state — every element, including non-interactable ones.
+Plain output is the raw hierarchy JSON. With `--json`, Spana wraps it in a versioned machine-readable envelope.
 
 ```bash
 spana hierarchy --platform web --pretty
@@ -90,7 +90,7 @@ Use `spana hierarchy` when `spana selectors` does not include the element you ne
 Validate flow files without a device connection. Catches common mistakes before running tests.
 
 ```bash
-spana validate [path]
+spana validate [path] [--json]
 ```
 
 `path` defaults to `flowDir`. Exits `0` if all flows are valid, non-zero if any errors found. Does not execute the flows.

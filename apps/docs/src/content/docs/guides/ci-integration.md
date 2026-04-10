@@ -7,11 +7,10 @@ spana is designed for CI from the ground up. It ships as a single npm package (`
 
 ## Exit codes
 
-| Code | Meaning                      |
-| ---- | ---------------------------- |
-| `0`  | All flows passed             |
-| `1`  | One or more flows failed     |
-| `2`  | Configuration or setup error |
+| Code | Meaning           |
+| ---- | ----------------- |
+| `0`  | Command succeeded |
+| `1`  | Command failed    |
 
 ## Reporters for CI
 

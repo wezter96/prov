@@ -45,10 +45,15 @@ describe("config loader", () => {
         apps: { android: { packageName: "com.example.app", appPath: "./builds/app.apk" } },
         execution: {
           web: {
-            storageState: "./auth/storage-state.json"
+            storageState: "./auth/storage-state.json",
+            storybook: {
+              url: "http://localhost:6006",
+              iframePath: "/iframe.html"
+            }
           },
           appium: {
             capabilitiesFile: "./caps.json",
+            cloudProvider: "./providers/custom.ts",
             browserstack: {
               app: { path: "./uploads/browserstack.apk" },
               local: { binary: "./bin/BrowserStackLocal" }
@@ -58,6 +63,9 @@ describe("config loader", () => {
               connect: { binary: "./bin/sc" }
             }
           }
+        },
+        visualRegression: {
+          baselinesDir: "./visual-baselines"
         }
       };`,
       "utf8",
@@ -77,7 +85,14 @@ describe("config loader", () => {
     expect(result.config.execution?.web?.storageState).toBe(
       join(tempDir, "auth", "storage-state.json"),
     );
+    expect(result.config.execution?.web?.storybook).toEqual({
+      url: "http://localhost:6006",
+      iframePath: "/iframe.html",
+    });
     expect(result.config.execution?.appium?.capabilitiesFile).toBe(join(tempDir, "caps.json"));
+    expect(result.config.execution?.appium?.cloudProvider).toBe(
+      join(tempDir, "providers", "custom.ts"),
+    );
     expect(result.config.execution?.appium?.browserstack?.app?.path).toBe(
       join(tempDir, "uploads", "browserstack.apk"),
     );
@@ -90,6 +105,7 @@ describe("config loader", () => {
     expect(result.config.execution?.appium?.saucelabs?.connect?.binary).toBe(
       join(tempDir, "bin", "sc"),
     );
+    expect(result.config.visualRegression?.baselinesDir).toBe(join(tempDir, "visual-baselines"));
   });
 
   test("returns an empty config when missing configs are allowed", async () => {

@@ -630,7 +630,10 @@ export function makePlaywrightDriver(
                 function walk(el) {
                   var rect = el.getBoundingClientRect();
                   var style = window.getComputedStyle(el);
+                  var viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+                  var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
                   var isVisible = style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+                  var intersectsViewport = rect.bottom > 0 && rect.right > 0 && rect.top < viewportHeight && rect.left < viewportWidth;
                   return {
                     tag: el.tagName.toLowerCase(),
                     id: el.getAttribute("data-testid") || el.getAttribute("testID") || undefined,
@@ -642,7 +645,7 @@ export function makePlaywrightDriver(
                     role: el.getAttribute("role") || undefined,
                     bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                     enabled: !el.hasAttribute("disabled"),
-                    visible: isVisible && rect.width > 0 && rect.height > 0,
+                    visible: isVisible && rect.width > 0 && rect.height > 0 && intersectsViewport,
                     clickable: el.tagName === "BUTTON" || el.tagName === "A" || el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA" || el.getAttribute("role") === "button" || el.onclick !== null,
                     attributes: (function() { var a = {}; for (var i = 0; i < el.attributes.length; i++) { var attr = el.attributes[i]; a[attr.name] = attr.value; } return Object.keys(a).length > 0 ? a : undefined; })(),
                     children: Array.from(el.children).map(walk),
@@ -701,14 +704,38 @@ export function makePlaywrightDriver(
       swipe: (startX, startY, endX, endY, duration) =>
         Effect.tryPromise({
           try: async () => {
-            await page.mouse.move(startX, startY);
-            await page.mouse.down();
-            const steps = Math.max(Math.round(duration / 16), 5);
-            for (let i = 1; i <= steps; i++) {
-              const t = i / steps;
-              await page.mouse.move(startX + (endX - startX) * t, startY + (endY - startY) * t);
-            }
-            await page.mouse.up();
+            await page.evaluate(`
+              (function() {
+                function isScrollable(el) {
+                  if (!el) return false;
+                  var style = window.getComputedStyle(el);
+                  var canScrollY = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight;
+                  var canScrollX = /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth;
+                  return canScrollY || canScrollX;
+                }
+                function findScrollable(el) {
+                  var current = el;
+                  while (current && current !== document.body) {
+                    if (isScrollable(current)) return current;
+                    current = current.parentElement;
+                  }
+                  return document.scrollingElement || document.documentElement || document.body;
+                }
+                var target = document.elementFromPoint(${startX}, ${startY});
+                var scroller = findScrollable(target);
+                var left = ${startX - endX};
+                var top = ${startY - endY};
+                if (scroller && typeof scroller.scrollBy === "function") {
+                  scroller.scrollBy({ left: left, top: top, behavior: "auto" });
+                  return;
+                }
+                if (scroller) {
+                  scroller.scrollLeft += left;
+                  scroller.scrollTop += top;
+                }
+              })()
+            `);
+            await new Promise<void>((resolve) => setTimeout(resolve, duration));
           },
           catch: (e) => new DriverError({ message: `Failed to swipe: ${e}` }),
         }),

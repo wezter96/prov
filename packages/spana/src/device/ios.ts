@@ -1,5 +1,6 @@
 import { execFileSync, execSync } from "node:child_process";
 import { readFileSync, unlinkSync } from "node:fs";
+import { allocatePort, releasePort } from "../core/port-allocator.js";
 
 export interface IOSSimulator {
   udid: string;
@@ -319,8 +320,21 @@ export function connectPhysicalDevice(
   udid: string,
   wdaPort = 8100,
 ): { host: string; port: number; cleanup: () => void } {
-  const localPort = 8100 + Math.floor(Math.random() * 100);
-  return startIproxy(udid, localPort, wdaPort);
+  const localPort = allocatePort(8100);
+
+  try {
+    const tunnel = startIproxy(udid, localPort, wdaPort);
+    return {
+      ...tunnel,
+      cleanup: () => {
+        tunnel.cleanup();
+        releasePort(localPort);
+      },
+    };
+  } catch (error) {
+    releasePort(localPort);
+    throw error;
+  }
 }
 
 /**

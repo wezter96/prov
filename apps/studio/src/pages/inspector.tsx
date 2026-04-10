@@ -7,6 +7,7 @@ import { ElementDetails } from "@/components/element-details";
 import { ElementTree } from "@/components/element-tree";
 import { RefreshCw, Radio } from "lucide-react";
 import { elementsAtPoint, getElementByPath } from "@/lib/element-tree";
+import { studioTestId } from "@/lib/test-ids";
 
 type Platform = "web" | "android" | "ios";
 
@@ -115,14 +116,29 @@ export function InspectorPage() {
   }, [refetchScreenshot, refetchHierarchy]);
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-64px)]">
+    <div
+      className="flex flex-col gap-4 h-[calc(100vh-64px)]"
+      {...studioTestId("studio-inspector-page")}
+    >
       {/* Toolbar */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <DeviceSelector platform={platform} deviceId={deviceId} onSelect={handleDeviceSelect} />
+      <div
+        className="flex items-center gap-4 flex-wrap"
+        {...studioTestId("studio-inspector-toolbar")}
+      >
+        <DeviceSelector
+          platform={platform}
+          deviceId={deviceId}
+          onSelect={handleDeviceSelect}
+          testIdPrefix="studio-inspector-device"
+        />
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div
+          className="flex items-center gap-2 ml-auto"
+          {...studioTestId("studio-inspector-actions")}
+        >
           <button
             onClick={() => setLiveMode(!liveMode)}
+            {...studioTestId("studio-inspector-live")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
               liveMode
                 ? "bg-emerald-600/20 text-emerald-400 border border-emerald-600/40"
@@ -135,6 +151,7 @@ export function InspectorPage() {
 
           <button
             onClick={handleRefresh}
+            {...studioTestId("studio-inspector-refresh")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-zinc-200 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -144,9 +161,15 @@ export function InspectorPage() {
       </div>
 
       {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4 flex-1 min-h-0">
+      <div
+        className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4 flex-1 min-h-0"
+        {...studioTestId("studio-inspector-layout")}
+      >
         {/* Screenshot */}
-        <div className="min-h-0 overflow-auto">
+        <div
+          className="min-h-0 overflow-auto"
+          {...studioTestId("studio-inspector-screenshot-panel")}
+        >
           <DeviceScreenshot
             image={screenshotData?.image}
             selectedBounds={selectedElement?.bounds}
@@ -154,20 +177,35 @@ export function InspectorPage() {
             onClickPoint={handleClickPoint}
             onHoverPoint={handleHoverPoint}
             onHoverEnd={handleHoverEnd}
+            testIdPrefix="studio-inspector-screenshot"
           />
         </div>
 
         {/* Element Details */}
-        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden">
-          <div className="px-4 py-2 border-b border-zinc-800">
-            <h2 className="text-sm font-semibold text-zinc-300">Element Details</h2>
+        <div
+          className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden"
+          {...studioTestId("studio-inspector-details-panel")}
+        >
+          <div
+            className="px-4 py-2 border-b border-zinc-800"
+            {...studioTestId("studio-inspector-details-header")}
+          >
+            <h2
+              className="text-sm font-semibold text-zinc-300"
+              {...studioTestId("studio-inspector-details-title")}
+            >
+              Element Details
+            </h2>
           </div>
           <ElementDetails element={selectedElement} selectors={elementSelectors} />
         </div>
       </div>
 
       {/* Element Tree */}
-      <div className="bg-zinc-900 rounded-lg border border-zinc-800 h-[250px] min-h-0 overflow-hidden">
+      <div
+        className="bg-zinc-900 rounded-lg border border-zinc-800 h-[250px] min-h-0 overflow-hidden"
+        {...studioTestId("studio-inspector-tree-panel")}
+      >
         <ElementTree root={root} selectedPath={selectedPath} onSelect={handleTreeSelect} />
       </div>
     </div>

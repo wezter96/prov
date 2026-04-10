@@ -1,5 +1,6 @@
 import { useRef, useCallback } from "react";
 import { MonitorOff } from "lucide-react";
+import { studioTestId } from "@/lib/test-ids";
 
 interface Bounds {
   x: number;
@@ -15,6 +16,7 @@ interface DeviceScreenshotProps {
   onClickPoint: (x: number, y: number) => void;
   onHoverPoint: (x: number, y: number) => void;
   onHoverEnd: () => void;
+  testIdPrefix?: string;
 }
 
 const boundsEqual = (a?: Bounds, b?: Bounds) =>
@@ -27,6 +29,7 @@ export function DeviceScreenshot({
   onClickPoint,
   onHoverPoint,
   onHoverEnd,
+  testIdPrefix = "studio-device-screenshot",
 }: DeviceScreenshotProps) {
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -75,16 +78,26 @@ export function DeviceScreenshot({
 
   if (!image) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-zinc-900 rounded-lg border border-zinc-800 text-zinc-500">
+      <div
+        className="flex flex-col items-center justify-center h-full min-h-[400px] bg-zinc-900 rounded-lg border border-zinc-800 text-zinc-500"
+        {...studioTestId(`${testIdPrefix}-empty`)}
+      >
         <MonitorOff className="w-12 h-12 mb-3" />
-        <p className="text-sm">No screenshot available</p>
-        <p className="text-xs mt-1">Select a device and connect to start inspecting</p>
+        <p className="text-sm" {...studioTestId(`${testIdPrefix}-empty-title`)}>
+          No screenshot available
+        </p>
+        <p className="text-xs mt-1" {...studioTestId(`${testIdPrefix}-empty-subtitle`)}>
+          Select a device and connect to start inspecting
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="relative inline-block bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+    <div
+      className="relative inline-block bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
+      {...studioTestId(`${testIdPrefix}-container`)}
+    >
       <img
         ref={imgRef}
         src={`data:image/png;base64,${image}`}
@@ -94,12 +107,17 @@ export function DeviceScreenshot({
         onMouseMove={handleMouseMove}
         onMouseLeave={onHoverEnd}
         draggable={false}
+        {...studioTestId(`${testIdPrefix}-image`)}
       />
       {selectedBounds &&
         (() => {
           const style = boundsToStyle(selectedBounds);
           return style ? (
-            <div style={style} className="border-2 border-blue-500 bg-blue-500/15 rounded-sm" />
+            <div
+              style={style}
+              className="border-2 border-blue-500 bg-blue-500/15 rounded-sm"
+              {...studioTestId(`${testIdPrefix}-selected-bounds`)}
+            />
           ) : null;
         })()}
       {hoveredBounds &&
@@ -107,7 +125,11 @@ export function DeviceScreenshot({
         (() => {
           const style = boundsToStyle(hoveredBounds);
           return style ? (
-            <div style={style} className="border border-orange-400 bg-orange-400/10 rounded-sm" />
+            <div
+              style={style}
+              className="border border-orange-400 bg-orange-400/10 rounded-sm"
+              {...studioTestId(`${testIdPrefix}-hovered-bounds`)}
+            />
           ) : null;
         })()}
     </div>

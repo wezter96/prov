@@ -200,6 +200,80 @@ Capabilities merge from three sources, with later sources overriding earlier one
 
 This lets you keep shared capabilities in config, environment-specific ones in a file, and override individual values from the CLI.
 
+## Custom cloud providers
+
+If you use an Appium grid other than BrowserStack or Sauce Labs, point `execution.appium.cloudProvider` at a module that default-exports a `CloudProvider`.
+
+```ts title="spana.config.ts"
+export default defineConfig({
+  execution: {
+    mode: "appium",
+    appium: {
+      serverUrl: "https://grid.example.com/wd/hub",
+      cloudProvider: "./providers/acme-grid.ts",
+    },
+  },
+});
+```
+
+The module path is resolved relative to `spana.config.ts`.
+
+### `CloudProvider`
+
+```ts
+import type { CloudProvider, CloudProviderHelper } from "spana-test";
+
+const provider: CloudProvider = {
+  name() {
+    return "Acme Grid";
+  },
+
+  createHelper(appiumUrl, config): CloudProviderHelper {
+    return {
+      async prepareCapabilities(platform, caps, appConfig) {
+        return {
+          ...caps,
+          "acme:options": {
+            platform,
+            appIdentifier: appConfig?.packageName ?? appConfig?.bundleId,
+          },
+        };
+      },
+
+      async cleanup() {
+        // stop tunnels, delete temporary uploads, etc.
+      },
+    };
+  },
+
+  extractMeta(sessionId, caps, meta) {
+    meta.sessionId = sessionId;
+    meta.build = String(caps["build"] ?? "");
+  },
+
+  async reportResult(appiumUrl, meta, result) {
+    await fetch(`${appiumUrl}/custom-results/${meta.sessionId}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(result),
+    });
+  },
+};
+
+export default provider;
+```
+
+### Interface responsibilities
+
+| API                     | Responsibility                                                     |
+| ----------------------- | ------------------------------------------------------------------ |
+| `name()`                | Human-readable provider name                                       |
+| `createHelper()`        | Build a helper for capability mutation and lifecycle cleanup       |
+| `prepareCapabilities()` | Add provider-specific desired capabilities before session creation |
+| `cleanup()`             | Tear down uploads, tunnels, or temporary state after the run       |
+| `extractMeta()`         | Pull provider metadata from the created session for reporting      |
+| `reportResult()`        | Mark the remote session passed or failed                           |
+
 ## CI example
 
 ```yaml title=".github/workflows/test.yml"

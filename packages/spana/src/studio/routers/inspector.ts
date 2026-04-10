@@ -44,6 +44,33 @@ export async function getOrCreateSession(
   return session;
 }
 
+export async function disconnectSession(platform: Platform, deviceId?: string): Promise<void> {
+  const key = sessionKey(platform, deviceId);
+  const session = sessions.get(key);
+  sessions.delete(key);
+  if (session) {
+    await session.disconnect();
+  }
+}
+
+export async function runWithRecoveredSession<T>(
+  action: () => Promise<T>,
+  resetSession: () => Promise<void>,
+): Promise<T> {
+  try {
+    return await action();
+  } catch {
+    await resetSession();
+  }
+
+  try {
+    return await action();
+  } catch (error) {
+    await resetSession();
+    throw error;
+  }
+}
+
 const inspectorInput = z.object({
   platform: z.enum(["web", "android", "ios"]),
   deviceId: z.string().optional(),
@@ -51,29 +78,38 @@ const inspectorInput = z.object({
 
 export const inspectorRouter = {
   screenshot: publicProcedure.input(inspectorInput).handler(async ({ input, context }) => {
-    const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
-    const data = await session.screenshot();
-    const base64 = Buffer.from(data).toString("base64");
-    return { image: base64 };
+    const data = await runWithRecoveredSession(
+      async () => {
+        const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
+        return session.screenshot();
+      },
+      () => disconnectSession(input.platform, input.deviceId),
+    );
+    return { image: Buffer.from(data).toString("base64") };
   }),
 
   hierarchy: publicProcedure.input(inspectorInput).handler(async ({ input, context }) => {
-    const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
-    return session.hierarchy();
+    return runWithRecoveredSession(
+      async () => {
+        const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
+        return session.hierarchy();
+      },
+      () => disconnectSession(input.platform, input.deviceId),
+    );
   }),
 
   selectors: publicProcedure.input(inspectorInput).handler(async ({ input, context }) => {
-    const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
-    return session.selectors();
+    return runWithRecoveredSession(
+      async () => {
+        const session = await getOrCreateSession(input.platform, context.config, input.deviceId);
+        return session.selectors();
+      },
+      () => disconnectSession(input.platform, input.deviceId),
+    );
   }),
 
   disconnect: publicProcedure.input(inspectorInput).handler(async ({ input }) => {
-    const key = sessionKey(input.platform, input.deviceId);
-    const session = sessions.get(key);
-    if (session) {
-      await session.disconnect();
-      sessions.delete(key);
-    }
+    await disconnectSession(input.platform, input.deviceId);
     return { disconnected: true };
   }),
 };

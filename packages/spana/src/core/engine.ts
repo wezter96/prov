@@ -6,7 +6,7 @@ import { createPromiseApp } from "../api/app.js";
 import { createPromiseExpect } from "../api/expect.js";
 import type { CoordinatorConfig } from "../smart/coordinator.js";
 import type { Attachment, StepResult, ScenarioStepResult, FlowError } from "../report/types.js";
-import type { ArtifactConfig, ProvConfig } from "../schemas/config.js";
+import type { ArtifactConfig, ProvConfig, StorybookConfig } from "../schemas/config.js";
 import { captureArtifacts, resolveArtifactConfig } from "./artifacts.js";
 import { runDebugReplOnce } from "./debug-repl.js";
 import { createStepRecorder } from "./step-recorder.js";
@@ -38,6 +38,8 @@ export interface EngineConfig {
   hooks?: ProvConfig["hooks"];
   debugOnFailure?: boolean;
   updateBaselines?: boolean;
+  storybook?: StorybookConfig;
+  visualRegression?: ProvConfig["visualRegression"];
 }
 
 export async function executeFlow(
@@ -71,10 +73,25 @@ export async function executeFlow(
       }
     : coordinatorConfig;
 
-  const app = createPromiseApp(driver, appId, mergedCoordinatorConfig, stepRecorder);
-  const expect = createPromiseExpect(driver, mergedCoordinatorConfig, stepRecorder);
+  const app = createPromiseApp(driver, appId, mergedCoordinatorConfig, stepRecorder, {
+    platform,
+    storybook: config.storybook,
+  });
+  const flowMeta = {
+    flowFilePath: flow.sourcePath ?? "",
+    flowName: flow.name,
+    platform,
+    updateBaselines: config.updateBaselines ?? false,
+  };
+  const expect = createPromiseExpect(
+    driver,
+    mergedCoordinatorConfig,
+    stepRecorder,
+    flowMeta,
+    config.visualRegression,
+  );
   // Mutable context so compiled Gherkin flows can attach scenarioSteps via __scenarioSteps
-  const flowCtx: any = { app, expect, platform, updateBaselines: config.updateBaselines ?? false };
+  const flowCtx: any = { app, expect, platform, updateBaselines: flowMeta.updateBaselines };
   const buildFailureResult = async (error: unknown): Promise<TestResult> => {
     const attachments = await captureArtifacts(
       driver,

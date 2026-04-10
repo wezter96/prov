@@ -1,6 +1,6 @@
 import type { Platform } from "../schemas/selector.js";
 import { listAndroidDevices } from "./android.js";
-import { listBootedSimulators } from "./ios.js";
+import { listIOSPhysicalDevices, listIOSSimulators } from "./ios.js";
 
 export interface DiscoveredDevice {
   platform: Platform;
@@ -39,7 +39,18 @@ export function discoverDevices(platforms: Platform[]): DiscoveredDevice[] {
   }
 
   if (platforms.includes("ios")) {
-    for (const s of listBootedSimulators()) {
+    for (const device of listIOSPhysicalDevices()) {
+      devices.push({
+        platform: "ios",
+        id: device.udid,
+        name: device.name,
+        type: "device",
+        state: "connected",
+      });
+    }
+
+    for (const s of listIOSSimulators()) {
+      if (!s.isAvailable) continue;
       devices.push({
         platform: "ios",
         id: s.udid,

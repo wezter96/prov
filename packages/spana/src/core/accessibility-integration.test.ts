@@ -43,14 +43,15 @@ describe("normalizeRole: 'button' normalizes consistently", () => {
     expect(normalizeRole("android", "android.widget.Button", {})).toBe("button");
   });
 
-  test("ios: button trait maps to 'button'", () => {
+  test("ios: button traits and XCUI types map to 'button'", () => {
     expect(normalizeRole("ios", "button", {})).toBe("button");
+    expect(normalizeRole("ios", "XCUIElementTypeButton", {})).toBe("button");
   });
 
   test("all platforms return 'button' for their respective button element types", () => {
     const web = normalizeRole("web", "button", {});
     const android = normalizeRole("android", "android.widget.Button", {});
-    const ios = normalizeRole("ios", "button", {});
+    const ios = normalizeRole("ios", "XCUIElementTypeButton", {});
     expect(web).toBe("button");
     expect(android).toBe("button");
     expect(ios).toBe("button");

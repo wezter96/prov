@@ -18,8 +18,12 @@ export function resolveBaselinePath(
   flowName: string,
   platform: string,
   screenshotName: string,
+  baselinesDir?: string,
 ): string {
   const safeName = toSafeName(flowName);
+  if (baselinesDir) {
+    return join(baselinesDir, `${safeName}-${platform}`, `${screenshotName}.png`);
+  }
   return join(
     dirname(flowFilePath),
     "__baselines__",

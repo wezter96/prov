@@ -5,6 +5,7 @@ import { FlowList } from "@/components/flow-list";
 import { RunProgress, type FlowResult } from "@/components/run-progress";
 import { DeviceSelector } from "../components/device-selector.js";
 import { Play, RotateCcw } from "lucide-react";
+import { studioTestId } from "@/lib/test-ids";
 
 type Platform = "web" | "android" | "ios";
 
@@ -269,15 +270,24 @@ export function RunnerPage() {
   }, [clearSession]);
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-64px)]">
+    <div
+      className="flex flex-col gap-4 h-[calc(100vh-64px)]"
+      {...studioTestId("studio-runner-page")}
+    >
       {/* Toolbar */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-400">Platforms:</span>
+      <div className="flex items-center gap-4 flex-wrap" {...studioTestId("studio-runner-toolbar")}>
+        <div className="flex items-center gap-2" {...studioTestId("studio-runner-platforms")}>
+          <span
+            className="text-xs text-zinc-400"
+            {...studioTestId("studio-runner-platforms-label")}
+          >
+            Platforms:
+          </span>
           {ALL_PLATFORMS.map((p) => (
             <button
               key={p}
               onClick={() => togglePlatform(p)}
+              {...studioTestId(`studio-runner-platform-${p}`)}
               className={`px-3 py-1.5 rounded text-sm transition-colors ${
                 platforms.has(p)
                   ? "bg-zinc-800 text-zinc-100 border border-zinc-600"
@@ -289,43 +299,59 @@ export function RunnerPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-3 border-l border-zinc-800 pl-4 ml-2">
+        <div
+          className="flex items-center gap-3 border-l border-zinc-800 pl-4 ml-2"
+          {...studioTestId("studio-runner-device-selectors")}
+        >
           {[...platforms].map((p) => (
             <DeviceSelector
               key={p}
               platform={p}
               deviceId={deviceIds[p]}
               onSelect={handleDeviceSelect}
+              testIdPrefix="studio-runner-device"
             />
           ))}
         </div>
 
-        <div className="flex items-center gap-3 border-l border-zinc-800 pl-4 ml-2">
-          <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+        <div
+          className="flex items-center gap-3 border-l border-zinc-800 pl-4 ml-2"
+          {...studioTestId("studio-runner-capture-options")}
+        >
+          <label
+            className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none"
+            {...studioTestId("studio-runner-capture-screenshots")}
+          >
             <input
               type="checkbox"
               checked={captureScreenshots}
               onChange={(e) => setCaptureScreenshots(e.target.checked)}
               className="rounded border-zinc-600"
+              {...studioTestId("studio-runner-capture-screenshots-input")}
             />
             Screenshots
           </label>
-          <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+          <label
+            className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none"
+            {...studioTestId("studio-runner-capture-steps")}
+          >
             <input
               type="checkbox"
               checked={captureSteps}
               onChange={(e) => setCaptureSteps(e.target.checked)}
               className="rounded border-zinc-600"
+              {...studioTestId("studio-runner-capture-steps-input")}
             />
             Step captures
           </label>
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto" {...studioTestId("studio-runner-actions")}>
           {hasFailed && runCompleted && (
             <button
               onClick={handleRerunFailed}
               disabled={isStarting || isRunning}
+              {...studioTestId("studio-runner-rerun-failed")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -335,6 +361,7 @@ export function RunnerPage() {
           <button
             onClick={handleRun}
             disabled={isStarting || isRunning || selectedFlows.size === 0 || platforms.size === 0}
+            {...studioTestId("studio-runner-run")}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded text-sm bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-40 disabled:cursor-default"
           >
             <Play className="w-3.5 h-3.5" />
@@ -344,9 +371,15 @@ export function RunnerPage() {
       </div>
 
       {/* 2-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0">
+      <div
+        className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0"
+        {...studioTestId("studio-runner-layout")}
+      >
         {/* Left: Flow list */}
-        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden lg:col-span-1">
+        <div
+          className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden lg:col-span-1"
+          {...studioTestId("studio-runner-flows-panel")}
+        >
           <FlowList
             flows={flows}
             selectedFlows={selectedFlows}
@@ -357,7 +390,10 @@ export function RunnerPage() {
         </div>
 
         {/* Right: Results with expandable details */}
-        <div className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden lg:col-span-3">
+        <div
+          className="bg-zinc-900 rounded-lg border border-zinc-800 min-h-0 overflow-hidden lg:col-span-3"
+          {...studioTestId("studio-runner-results-panel")}
+        >
           <RunProgress
             results={results}
             isRunning={isRunning || isStarting}

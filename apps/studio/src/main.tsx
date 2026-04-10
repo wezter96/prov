@@ -6,6 +6,7 @@ import { InspectorPage } from "./pages/inspector";
 import { RunnerPage } from "./pages/runner";
 import { RecorderPage } from "./pages/recorder";
 import { Toaster } from "sonner";
+import { studioTestId } from "./lib/test-ids";
 import "./index.css";
 
 type Page = "inspector" | "runner" | "recorder";
@@ -19,12 +20,18 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+      <div
+        className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col"
+        {...studioTestId("studio-app")}
+      >
         <header className="border-b border-zinc-800 px-6 py-3 flex items-center gap-6">
-          <h1 className="text-lg font-bold">Spana Studio</h1>
-          <nav className="flex gap-1">
+          <h1 className="text-lg font-bold" {...studioTestId("studio-title")}>
+            Spana Studio
+          </h1>
+          <nav className="flex gap-1" {...studioTestId("studio-nav")}>
             <button
               onClick={() => setPage("inspector")}
+              {...studioTestId("studio-nav-inspector")}
               className={`px-3 py-1.5 rounded text-sm ${
                 page === "inspector"
                   ? "bg-zinc-800 text-zinc-100"
@@ -35,6 +42,7 @@ function App() {
             </button>
             <button
               onClick={() => setPage("runner")}
+              {...studioTestId("studio-nav-runner")}
               className={`px-3 py-1.5 rounded text-sm ${
                 page === "runner"
                   ? "bg-zinc-800 text-zinc-100"
@@ -45,6 +53,7 @@ function App() {
             </button>
             <button
               onClick={() => setPage("recorder")}
+              {...studioTestId("studio-nav-recorder")}
               className={`px-3 py-1.5 rounded text-sm ${
                 page === "recorder"
                   ? "bg-zinc-800 text-zinc-100"
@@ -55,7 +64,7 @@ function App() {
             </button>
           </nav>
         </header>
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6" {...studioTestId("studio-main")}>
           <div className={page === "inspector" ? "" : "hidden"}>
             <InspectorPage />
           </div>

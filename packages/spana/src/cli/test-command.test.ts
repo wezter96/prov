@@ -873,8 +873,8 @@ describe("wda installer", () => {
     wdaInstallerState.existingPaths.add(projectXcodeproj);
     const installer = await importFreshWDAInstaller();
 
-    installer.startWDA("SIM-456", 8127, "/tmp/wda-builds");
-    installer.stopWDA();
+    const process = installer.startWDA("SIM-456", 8127, "/tmp/wda-builds");
+    installer.stopWDA(process);
 
     expect(wdaInstallerState.spawnCalls).toHaveLength(1);
     expect(wdaInstallerState.spawnCalls[0]).toEqual({
@@ -916,6 +916,9 @@ describe("wda installer", () => {
       "http://localhost:8115/status",
       "http://localhost:8115/status",
     ]);
+
+    result.cleanup();
+    expect(wdaInstallerState.killCount).toBe(1);
   });
 
   test("reuses an existing build when products are already present", async () => {
