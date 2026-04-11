@@ -354,27 +354,27 @@ execution?: {
 
 Use `execution.web` to configure the local Playwright runtime for web flows.
 
-| Field | Description |
-| ----- | ----------- |
-| `browser` | Browser engine for local web runs: `chromium`, `firefox`, or `webkit` |
-| `headless` | Run Playwright without opening a visible browser window |
-| `storageState` | Preload Playwright cookies and storage state from a JSON file |
-| `verboseLogging` | Print verbose Playwright browser/page diagnostics to stdout |
-| `storybook.url` | Dedicated Storybook origin for `app.openStory()` / `Session.openStory()` |
-| `storybook.iframePath` | Override Storybook's preview iframe path, default `/iframe.html` |
+| Field                  | Description                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `browser`              | Browser engine for local web runs: `chromium`, `firefox`, or `webkit`    |
+| `headless`             | Run Playwright without opening a visible browser window                  |
+| `storageState`         | Preload Playwright cookies and storage state from a JSON file            |
+| `verboseLogging`       | Print verbose Playwright browser/page diagnostics to stdout              |
+| `storybook.url`        | Dedicated Storybook origin for `app.openStory()` / `Session.openStory()` |
+| `storybook.iframePath` | Override Storybook's preview iframe path, default `/iframe.html`         |
 
 `storageState` is resolved relative to `spana.config.ts`. Storybook uses URLs instead of filesystem paths, so it stays portable by pointing at the right origin for each environment.
 
 Use `mode: "appium"` when running against BrowserStack, Sauce Labs, or another Appium-compatible grid.
 
-| Field | Description |
-| ----- | ----------- |
-| `serverUrl` | Remote Appium server URL |
+| Field                               | Description                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
+| `serverUrl`                         | Remote Appium server URL                                                       |
 | `capabilities` / `capabilitiesFile` | Raw desired capabilities, with file paths resolved relative to the config file |
-| `reportToProvider` | Mark the remote session passed/failed when the provider supports it |
-| `cloudProvider` | Path to a custom cloud provider module that default-exports a `CloudProvider` |
-| `browserstack` | BrowserStack upload, local tunnel, and capability helper settings |
-| `saucelabs` | Sauce Labs upload, Sauce Connect, and capability helper settings |
+| `reportToProvider`                  | Mark the remote session passed/failed when the provider supports it            |
+| `cloudProvider`                     | Path to a custom cloud provider module that default-exports a `CloudProvider`  |
+| `browserstack`                      | BrowserStack upload, local tunnel, and capability helper settings              |
+| `saucelabs`                         | Sauce Labs upload, Sauce Connect, and capability helper settings               |
 
 Raw capabilities from `execution.appium.capabilities`, `capabilitiesFile`, and `--caps-json` remain the strongest override surface. Provider helper sections fill in missing provider-specific fields and can manage BrowserStack Local / Sauce Connect lifecycle when enabled. For a custom provider implementation, see [Cloud Providers](/spana/guides/cloud-providers/).
 
@@ -382,20 +382,20 @@ Raw capabilities from `execution.appium.capabilities`, `capabilitiesFile`, and `
 
 For `spana test`, CLI flags win over config values.
 
-| CLI flag             | Config field                 |
-| -------------------- | ---------------------------- |
-| `--platform`         | `platforms`                  |
-| `--reporter`         | `reporters`                  |
-| `--retries`          | `defaults.retries`           |
-| `--workers`          | `defaults.workers`           |
-| `--driver`           | `execution.mode`             |
-| `--appium-url`       | `execution.appium.serverUrl` |
-| `--validate-config`  | Validates config and exits   |
-| `--device` / `--devices` | CLI-only device selection |
-| `--parallel`         | Enables concurrent execution |
-| `--watch` / `--changed` / `--last-failed` | CLI-only iteration controls |
-| `--update-baselines` | CLI-only visual regression control |
-| `--shard` / `--bail` | CLI-only execution controls  |
+| CLI flag                                                  | Config field                           |
+| --------------------------------------------------------- | -------------------------------------- |
+| `--platform`                                              | `platforms`                            |
+| `--reporter`                                              | `reporters`                            |
+| `--retries`                                               | `defaults.retries`                     |
+| `--workers`                                               | `defaults.workers`                     |
+| `--driver`                                                | `execution.mode`                       |
+| `--appium-url`                                            | `execution.appium.serverUrl`           |
+| `--validate-config`                                       | Validates config and exits             |
+| `--device` / `--devices`                                  | CLI-only device selection              |
+| `--parallel`                                              | Enables concurrent execution           |
+| `--watch` / `--changed` / `--last-failed`                 | CLI-only iteration controls            |
+| `--update-baselines`                                      | CLI-only visual regression control     |
+| `--shard` / `--bail`                                      | CLI-only execution controls            |
 | `--debug-on-failure` / `--verbose` / `--quiet` / `--json` | CLI-only output and debugging controls |
 
 Sharding happens after tag/name/platform filtering so each shard gets a deterministic slice of the already-selected flows.
@@ -419,18 +419,18 @@ defaults?: {
 }
 ```
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `waitTimeout` | `5000` | Maximum ms to wait for an assertion or element lookup |
-| `pollInterval` | `200` | Maximum ms between assertion polls |
-| `settleTimeout` | `0` | Stable time required before an assertion passes |
-| `retries` | `0` | Retry count for failed flow executions |
-| `waitForIdleTimeout` | `0` | Pause after mutating actions such as tap or scroll |
-| `typingDelay` | `0` | Delay between typed characters |
-| `initialPollInterval` | `50` | First poll interval before adaptive backoff ramps up |
-| `hierarchyCacheTtl` | `100` | Hierarchy cache freshness window in ms; set `0` to disable |
-| `retryDelay` | `0` | Delay between failed flow retry attempts |
-| `workers` | — | Default max workers per platform when `--parallel` is enabled |
+| Option                | Default | Description                                                   |
+| --------------------- | ------- | ------------------------------------------------------------- |
+| `waitTimeout`         | `5000`  | Maximum ms to wait for an assertion or element lookup         |
+| `pollInterval`        | `200`   | Maximum ms between assertion polls                            |
+| `settleTimeout`       | `0`     | Stable time required before an assertion passes               |
+| `retries`             | `0`     | Retry count for failed flow executions                        |
+| `waitForIdleTimeout`  | `0`     | Pause after mutating actions such as tap or scroll            |
+| `typingDelay`         | `0`     | Delay between typed characters                                |
+| `initialPollInterval` | `50`    | First poll interval before adaptive backoff ramps up          |
+| `hierarchyCacheTtl`   | `100`   | Hierarchy cache freshness window in ms; set `0` to disable    |
+| `retryDelay`          | `0`     | Delay between failed flow retry attempts                      |
+| `workers`             | —       | Default max workers per platform when `--parallel` is enabled |
 
 ## `artifacts`
 
@@ -450,17 +450,17 @@ artifacts?: {
 }
 ```
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `outputDir` | `"./spana-output"` | Directory to write captured artifacts |
-| `captureOnFailure` | `true` | Capture artifacts for failed flows |
-| `captureOnSuccess` | `false` | Capture final artifacts for passed flows |
-| `captureSteps` | `false` | Capture screenshots after each recorded step |
-| `screenshot` | `true` | Include screenshots in captures |
-| `uiHierarchy` | `true` | Include UI hierarchy dumps |
-| `consoleLogs` | `true` | Include captured browser console logs on web |
-| `jsErrors` | `true` | Include uncaught browser JavaScript errors on web |
-| `har` | `true` | Include HAR network traces on web |
+| Option             | Default            | Description                                       |
+| ------------------ | ------------------ | ------------------------------------------------- |
+| `outputDir`        | `"./spana-output"` | Directory to write captured artifacts             |
+| `captureOnFailure` | `true`             | Capture artifacts for failed flows                |
+| `captureOnSuccess` | `false`            | Capture final artifacts for passed flows          |
+| `captureSteps`     | `false`            | Capture screenshots after each recorded step      |
+| `screenshot`       | `true`             | Include screenshots in captures                   |
+| `uiHierarchy`      | `true`             | Include UI hierarchy dumps                        |
+| `consoleLogs`      | `true`             | Include captured browser console logs on web      |
+| `jsErrors`         | `true`             | Include uncaught browser JavaScript errors on web |
+| `har`              | `true`             | Include HAR network traces on web                 |
 
 ## `hooks`
 
@@ -519,7 +519,12 @@ import { flow } from "spana-test";
 
 flow(
   "checkout",
-  { timeout: 30000, tags: ["smoke"], artifacts: { captureSteps: true } },
+  {
+    timeout: 30000,
+    tags: ["smoke"],
+    artifacts: { captureSteps: true },
+    launchOptions: { deepLink: "myapp://checkout" },
+  },
   async ({ app }) => {
     // ...
   },
@@ -532,21 +537,23 @@ interface FlowConfig {
   platforms?: Array<"web" | "android" | "ios">;
   timeout?: number;
   autoLaunch?: boolean;
+  launchOptions?: LaunchOptions;
   artifacts?: ArtifactConfig;
   defaults?: FlowDefaults;
   when?: WhenCondition;
 }
 ```
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `tags` | `[]` | Tags for CLI filtering with `--tag` |
-| `platforms` | — | Restrict a flow to specific platforms |
-| `timeout` | — | Overall flow timeout in ms |
-| `autoLaunch` | `true` | Automatically launch the app before the flow starts |
-| `artifacts` | — | Per-flow artifact overrides |
-| `defaults` | — | Per-flow wait, typing, cache, and idle timing overrides |
-| `when` | — | Runtime conditions such as `platform` or environment-variable gates |
+| Option          | Default | Description                                                         |
+| --------------- | ------- | ------------------------------------------------------------------- |
+| `tags`          | `[]`    | Tags for CLI filtering with `--tag`                                 |
+| `platforms`     | —       | Restrict a flow to specific platforms                               |
+| `timeout`       | —       | Overall flow timeout in ms                                          |
+| `autoLaunch`    | `true`  | Automatically launch the app before the flow starts                 |
+| `launchOptions` | —       | Per-flow launch defaults merged on top of project `launchOptions`   |
+| `artifacts`     | —       | Per-flow artifact overrides                                         |
+| `defaults`      | —       | Per-flow wait, typing, cache, and idle timing overrides             |
+| `when`          | —       | Runtime conditions such as `platform` or environment-variable gates |
 
 The per-flow `artifacts` object is merged with the global `artifacts` config, so you only need to specify the fields you want to override. For example, enabling `captureSteps` on a single flow:
 
@@ -562,7 +569,7 @@ flow(
 
 ## `launchOptions`
 
-Default launch options applied to every flow. Individual flows can override these via `app.launch()`.
+Default launch options applied to each flow launch. `FlowConfig.launchOptions` overrides these defaults for one flow, and explicit `app.launch(opts)` calls are merged on top of both.
 
 ```ts
 launchOptions?: LaunchOptions
@@ -584,24 +591,33 @@ interface LaunchOptions {
   clearKeychain?: boolean;
   deepLink?: string;
   launchArguments?: Record<string, unknown>;
+  deviceState?: DeviceStateConfig;
+}
+
+interface DeviceStateConfig {
+  language?: string;
+  locale?: string;
+  timeZone?: string;
 }
 ```
 
-| Option            | Default | Description                                           |
-| ----------------- | ------- | ----------------------------------------------------- |
-| `clearState`      | `false` | Clear app data/storage before launch                  |
-| `clearKeychain`   | `false` | Clear the iOS keychain before launch (simulator only) |
-| `deepLink`        | —       | Open the app via a deep link URL                      |
-| `launchArguments` | —       | Key-value pairs passed as launch arguments to the app |
+| Option            | Default | Description                                                                       |
+| ----------------- | ------- | --------------------------------------------------------------------------------- |
+| `clearState`      | `false` | Clear app data/storage before launch                                              |
+| `clearKeychain`   | `false` | Clear the iOS keychain before launch (simulator only)                             |
+| `deepLink`        | —       | Open the app via a deep link URL                                                  |
+| `launchArguments` | —       | Key-value pairs passed as launch arguments to the app                             |
+| `deviceState`     | —       | Launch-time language / locale / time-zone overrides where the runtime can honor them |
 
 #### Platform behavior
 
-| Option            | Web                          | Android                                | iOS                           |
-| ----------------- | ---------------------------- | -------------------------------------- | ----------------------------- |
-| `clearState`      | Clears cookies, localStorage | `adb shell pm clear`                   | Resets app permissions        |
-| `clearKeychain`   | No-op                        | No-op (warns)                          | `xcrun simctl keychain reset` |
-| `launchArguments` | No-op                        | Passed as `--es` extras via `am start` | Not yet supported (planned)   |
-| `deepLink`        | Navigates to URL             | `adb shell am start -d <url>`          | `xcrun simctl openurl` / WDA  |
+| Option            | Web                                 | Android                                                      | iOS                                                                      |
+| ----------------- | ----------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `clearState`      | Clears cookies, localStorage        | `adb shell pm clear`                                         | Resets app permissions                                                   |
+| `clearKeychain`   | No-op                               | No-op (warns)                                                | `xcrun simctl keychain reset`                                            |
+| `launchArguments` | No-op                               | Passed as `--es` extras via `am start`                       | Appium iOS: process args via `mobile: launchApp`; local WDA: warns + ignores |
+| `deviceState`     | Warns + ignores                     | Appium: session-start caps; local Android: warns + ignores   | Appium: session caps + launch-time process config; local WDA: warns + ignores |
+| `deepLink`        | Navigates to URL                    | `adb shell am start -d <url>`                                | `xcrun simctl openurl` / WDA                                             |
 
 Android `launchArguments` are string extras. For example:
 
@@ -614,15 +630,38 @@ await app.launch({
 });
 ```
 
-On web, `launchArguments` are ignored because Playwright launches a browser page rather than an installed app process. On iOS, launch arguments are not wired yet, so prefer deep links, app state setup, or environment-specific builds.
+`deviceState` is for launch-time localization and time-zone setup. It does **not** mutate the device clock mid-run. In Appium mode, suite-level `launchOptions.deviceState` is also mapped into session capabilities so defaults apply even when Appium keeps `autoLaunch` off. Common locale forms such as `fr_CA` / `fr-CA` are normalized for Appium, but Android still needs both language and region information available.
 
 #### Per-flow usage
 
-When `autoLaunch` is `false`, call `app.launch()` manually with options:
+Use `FlowConfig.launchOptions` when one flow needs a different launch profile than the project defaults:
+
+```ts
+flow(
+  "checkout in French",
+  {
+    autoLaunch: true,
+    launchOptions: {
+      clearState: true,
+      deepLink: "myapp://checkout",
+      deviceState: {
+        language: "fr",
+        locale: "fr_CA",
+        timeZone: "America/Toronto",
+      },
+    },
+  },
+  async ({ app }) => {
+    // ...
+  },
+);
+```
+
+When `autoLaunch` is `false`, you can still call `app.launch()` manually. The project and per-flow defaults are merged first, then the manual call wins:
 
 ```ts
 flow("onboarding", { autoLaunch: false }, async ({ app }) => {
-  await app.launch({ clearState: true, deepLink: "myapp://welcome" });
+  await app.launch({ deepLink: "myapp://welcome" });
   // ...
 });
 ```
@@ -639,11 +678,11 @@ visualRegression?: {
 }
 ```
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `threshold` | `0.2` | Pixel comparison sensitivity |
-| `maxDiffPixelRatio` | `0.01` | Maximum differing pixels before the assertion fails |
-| `baselinesDir` | `__baselines__` next to each flow file | Centralize baseline screenshots in one directory |
+| Option              | Default                                | Description                                         |
+| ------------------- | -------------------------------------- | --------------------------------------------------- |
+| `threshold`         | `0.2`                                  | Pixel comparison sensitivity                        |
+| `maxDiffPixelRatio` | `0.01`                                 | Maximum differing pixels before the assertion fails |
+| `baselinesDir`      | `__baselines__` next to each flow file | Centralize baseline screenshots in one directory    |
 
 These values become defaults for `expect(selector).toMatchScreenshot(name, options?)`. Per-assertion options still win, and baseline rewrites are still controlled by `spana test --update-baselines`.
 
@@ -688,6 +727,9 @@ export default flow(
     platforms: ["android", "ios"],
     timeout: 60000,
     autoLaunch: true,
+    launchOptions: {
+      deepLink: "myapp://checkout",
+    },
   },
   async ({ app, expect, platform }) => {
     // ...
@@ -721,8 +763,9 @@ interface FlowConfig {
   platforms?: Platform[];
   timeout?: number;
   autoLaunch?: boolean;
-   artifacts?: ArtifactConfig;
-   defaults?: FlowDefaults;
+  launchOptions?: LaunchOptions;
+  artifacts?: ArtifactConfig;
+  defaults?: FlowDefaults;
   when?: WhenCondition;
 }
 
@@ -732,15 +775,39 @@ interface WhenCondition {
 }
 ```
 
-| Option       | Type            | Default        | Description                                           |
-| ------------ | --------------- | -------------- | ----------------------------------------------------- |
-| `tags`       | `string[]`      | —              | Tag strings for `--tag` filtering at the CLI          |
-| `platforms`  | `Platform[]`    | all configured | Restrict this flow to specific platforms only         |
-| `timeout`    | `number`        | config default | Flow-level timeout in milliseconds                    |
-| `autoLaunch` | `boolean`       | `true`         | Automatically launch the app before the flow starts   |
-| `artifacts`  | `ArtifactConfig` | config default | Override capture behavior for this single flow        |
-| `defaults`   | `FlowDefaults`  | config default | Override wait / typing / stability defaults per flow  |
-| `when`       | `WhenCondition` | —              | Runtime conditions that control whether the flow runs |
+| Option          | Type             | Default        | Description                                                      |
+| --------------- | ---------------- | -------------- | ---------------------------------------------------------------- |
+| `tags`          | `string[]`       | —              | Tag strings for `--tag` filtering at the CLI                     |
+| `platforms`     | `Platform[]`     | all configured | Restrict this flow to specific platforms only                    |
+| `timeout`       | `number`         | config default | Flow-level timeout in milliseconds                               |
+| `autoLaunch`    | `boolean`        | `true`         | Automatically launch the app before the flow starts              |
+| `launchOptions` | `LaunchOptions`  | config default | Override launch defaults for this flow and for manual app.launch |
+| `artifacts`     | `ArtifactConfig` | config default | Override capture behavior for this single flow                   |
+| `defaults`      | `FlowDefaults`   | config default | Override wait / typing / stability defaults per flow             |
+| `when`          | `WhenCondition`  | —              | Runtime conditions that control whether the flow runs            |
+
+### Per-flow launch overrides
+
+`FlowConfig.launchOptions` is merged on top of the project `launchOptions`, and explicit `app.launch(opts)` calls are merged last.
+
+```ts
+export default flow(
+  "launch in French",
+  {
+    autoLaunch: true,
+    launchOptions: {
+      deepLink: "myapp://checkout",
+      deviceState: {
+        language: "fr",
+        locale: "fr_CA",
+      },
+    },
+  },
+  async ({ expect }) => {
+    await expect({ testID: "checkout-screen" }).toBeVisible();
+  },
+);
+```
 
 ### Conditional execution with `when`
 
@@ -813,62 +880,62 @@ Direction values are `"up" | "down" | "left" | "right"`.
 
 ### Advanced gestures
 
-| Method       | Signature                                           | Description                           |
-| ------------ | --------------------------------------------------- | ------------------------------------- |
+| Method       | Signature                                             | Description                           |
+| ------------ | ----------------------------------------------------- | ------------------------------------- |
 | `pinch`      | `(selector, { scale?, duration? }?) => Promise<void>` | Perform a pinch gesture on an element |
 | `zoom`       | `(selector, { scale?, duration? }?) => Promise<void>` | Perform a zoom gesture on an element  |
-| `multiTouch` | `(sequences) => Promise<void>`                      | Run multiple touch sequences together |
+| `multiTouch` | `(sequences) => Promise<void>`                        | Run multiple touch sequences together |
 
 These gestures are only available on mobile runtimes. Use them for map canvases, image viewers, and multi-finger interactions that are awkward to model with repeated taps.
 
 ### App lifecycle and navigation
 
-| Method       | Signature                              | Description                                             |
-| ------------ | -------------------------------------- | ------------------------------------------------------- |
-| `launch`     | `(opts?) => Promise<void>`             | Launch the app, optionally with a deep link             |
-| `stop`       | `() => Promise<void>`                  | Stop the app                                            |
-| `kill`       | `() => Promise<void>`                  | Force-kill the app                                      |
-| `clearState` | `() => Promise<void>`                  | Clear app data/state                                    |
-| `openLink`   | `(url) => Promise<void>`               | Open a URL or deep link                                 |
-| `openStory`  | `(storyId, options?) => Promise<void>` | Open a Storybook story inside the web runtime           |
-| `back`       | `() => Promise<void>`                  | Press the Android back button or browser history back   |
+| Method       | Signature                              | Description                                           |
+| ------------ | -------------------------------------- | ----------------------------------------------------- |
+| `launch`     | `(opts?) => Promise<void>`             | Launch the app, optionally with a deep link           |
+| `stop`       | `() => Promise<void>`                  | Stop the app                                          |
+| `kill`       | `() => Promise<void>`                  | Force-kill the app                                    |
+| `clearState` | `() => Promise<void>`                  | Clear app data/state                                  |
+| `openLink`   | `(url) => Promise<void>`               | Open a URL or deep link                               |
+| `openStory`  | `(storyId, options?) => Promise<void>` | Open a Storybook story inside the web runtime         |
+| `back`       | `() => Promise<void>`                  | Press the Android back button or browser history back |
 
 `openStory()` is web-only. It uses `execution.web.storybook` when configured and falls back to `apps.web.url` plus Storybook's `iframe.html`.
 
 ### Element queries and utilities
 
-| Method           | Signature                                              | Description                                      |
-| ---------------- | ------------------------------------------------------ | ------------------------------------------------ |
-| `takeScreenshot` | `() => Promise<Uint8Array>`                            | Capture a screenshot and return the bytes        |
-| `getText`        | `(selector, opts?) => Promise<string>`                 | Read the current element text                    |
-| `getAttribute`   | `(selector, name, opts?) => Promise<string \| null>`   | Read an element attribute                        |
-| `isVisible`      | `(selector, opts?) => Promise<boolean>`                | Check visibility without failing the flow        |
-| `isEnabled`      | `(selector, opts?) => Promise<boolean>`                | Check whether an element is enabled              |
-| `evaluate`       | `<T>(fn \| string, ...args) => Promise<T>`             | Run JavaScript in the browser context (web only) |
+| Method           | Signature                                            | Description                                      |
+| ---------------- | ---------------------------------------------------- | ------------------------------------------------ |
+| `takeScreenshot` | `() => Promise<Uint8Array>`                          | Capture a screenshot and return the bytes        |
+| `getText`        | `(selector, opts?) => Promise<string>`               | Read the current element text                    |
+| `getAttribute`   | `(selector, name, opts?) => Promise<string \| null>` | Read an element attribute                        |
+| `isVisible`      | `(selector, opts?) => Promise<boolean>`              | Check visibility without failing the flow        |
+| `isEnabled`      | `(selector, opts?) => Promise<boolean>`              | Check whether an element is enabled              |
+| `evaluate`       | `<T>(fn \| string, ...args) => Promise<T>`           | Run JavaScript in the browser context (web only) |
 
 `getText()`, `getAttribute()`, `isVisible()`, and `isEnabled()` are useful when you need branching logic instead of a hard assertion.
 
 ### Browser runtime helpers
 
-| Method                 | Signature                                                                                     | Description                                         |
-| ---------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `mockNetwork`          | `(matcher, response) => Promise<void>`                                                        | Fulfill matching requests with a mocked response    |
-| `blockNetwork`         | `(matcher) => Promise<void>`                                                                  | Abort matching requests                             |
-| `clearNetworkMocks`    | `() => Promise<void>`                                                                         | Remove active route mocks or blocks                 |
-| `setNetworkConditions` | `({ offline?, latencyMs?, downloadThroughputKbps?, uploadThroughputKbps? }) => Promise<void>` | Toggle offline mode and Chromium throttling         |
-| `saveCookies`          | `(path) => Promise<void>`                                                                     | Save Playwright cookies to a JSON file              |
-| `loadCookies`          | `(path) => Promise<void>`                                                                     | Load cookies from a JSON file                       |
-| `saveAuthState`        | `(path) => Promise<void>`                                                                     | Save Playwright storage state to disk               |
-| `loadAuthState`        | `(path) => Promise<void>`                                                                     | Replace the browser context with saved auth state   |
-| `downloadFile`         | `(path) => Promise<void>`                                                                     | Save the next browser download to disk              |
-| `uploadFile`           | `(selector, path) => Promise<void>`                                                           | Upload a local file through a file input            |
-| `newTab`               | `(url?) => Promise<void>`                                                                     | Open a new browser tab                              |
-| `switchToTab`          | `(index) => Promise<void>`                                                                    | Switch to a tab by index                            |
-| `closeTab`             | `() => Promise<void>`                                                                         | Close the current tab                               |
-| `getTabIds`            | `() => Promise<string[]>`                                                                     | List known browser tab IDs                          |
-| `getConsoleLogs`       | `() => Promise<Array<{ type, text, location? }>>`                                             | Read captured browser console messages              |
-| `getJSErrors`          | `() => Promise<Array<{ name?, message, stack? }>>`                                            | Read captured uncaught JavaScript errors            |
-| `getHAR`               | `() => Promise<Record<string, unknown>>`                                                      | Read the recorded HTTP Archive for the current run  |
+| Method                 | Signature                                                                                     | Description                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `mockNetwork`          | `(matcher, response) => Promise<void>`                                                        | Fulfill matching requests with a mocked response   |
+| `blockNetwork`         | `(matcher) => Promise<void>`                                                                  | Abort matching requests                            |
+| `clearNetworkMocks`    | `() => Promise<void>`                                                                         | Remove active route mocks or blocks                |
+| `setNetworkConditions` | `({ offline?, latencyMs?, downloadThroughputKbps?, uploadThroughputKbps? }) => Promise<void>` | Toggle offline mode and Chromium throttling        |
+| `saveCookies`          | `(path) => Promise<void>`                                                                     | Save Playwright cookies to a JSON file             |
+| `loadCookies`          | `(path) => Promise<void>`                                                                     | Load cookies from a JSON file                      |
+| `saveAuthState`        | `(path) => Promise<void>`                                                                     | Save Playwright storage state to disk              |
+| `loadAuthState`        | `(path) => Promise<void>`                                                                     | Replace the browser context with saved auth state  |
+| `downloadFile`         | `(path) => Promise<void>`                                                                     | Save the next browser download to disk             |
+| `uploadFile`           | `(selector, path) => Promise<void>`                                                           | Upload a local file through a file input           |
+| `newTab`               | `(url?) => Promise<void>`                                                                     | Open a new browser tab                             |
+| `switchToTab`          | `(index) => Promise<void>`                                                                    | Switch to a tab by index                           |
+| `closeTab`             | `() => Promise<void>`                                                                         | Close the current tab                              |
+| `getTabIds`            | `() => Promise<string[]>`                                                                     | List known browser tab IDs                         |
+| `getConsoleLogs`       | `() => Promise<Array<{ type, text, location? }>>`                                             | Read captured browser console messages             |
+| `getJSErrors`          | `() => Promise<Array<{ name?, message, stack? }>>`                                            | Read captured uncaught JavaScript errors           |
+| `getHAR`               | `() => Promise<Record<string, unknown>>`                                                      | Read the recorded HTTP Archive for the current run |
 
 These helpers are available on local Playwright web runs. `setNetworkConditions()` supports offline mode on every browser, but latency and throughput throttling require Chromium. When artifact capture is enabled, failures can also write console logs, JavaScript errors, and HAR files into `spana-output/`.
 
@@ -926,13 +993,13 @@ Set `execution.web.storybook.url` when Storybook runs on a different origin from
 
 ### Hybrid / WebView helpers
 
-| Method              | Signature                            | Description                                  |
-| ------------------- | ------------------------------------ | -------------------------------------------- |
-| `getContexts`       | `() => Promise<string[]>`            | List available native and WebView contexts   |
-| `getCurrentContext` | `() => Promise<string>`              | Read the currently active context            |
-| `switchToContext`   | `(contextId) => Promise<void>`       | Switch to a specific context ID              |
-| `switchToWebView`   | `() => Promise<void>`                | Switch to the first available WebView        |
-| `switchToNativeApp` | `() => Promise<void>`                | Switch back to the native app context        |
+| Method              | Signature                      | Description                                |
+| ------------------- | ------------------------------ | ------------------------------------------ |
+| `getContexts`       | `() => Promise<string[]>`      | List available native and WebView contexts |
+| `getCurrentContext` | `() => Promise<string>`        | Read the currently active context          |
+| `switchToContext`   | `(contextId) => Promise<void>` | Switch to a specific context ID            |
+| `switchToWebView`   | `() => Promise<void>`          | Switch to the first available WebView      |
+| `switchToNativeApp` | `() => Promise<void>`          | Switch back to the native app context      |
 
 These helpers are useful for hybrid apps where you need to move between native chrome and embedded web content.
 
@@ -1156,24 +1223,24 @@ await expect({ testID: "welcome-banner" }).toBeVisible();
 ### `expect(selector)`
 
 ```ts
-expect: (selector: Selector) => PromiseExpectation
+expect: (selector: Selector) => PromiseExpectation;
 ```
 
 Returns a `PromiseExpectation` bound to the given selector.
 
 ### Core visibility, text, and state assertions
 
-| Method             | Signature                                                   | Description                                         |
-| ------------------ | ----------------------------------------------------------- | --------------------------------------------------- |
-| `toBeVisible`      | `(opts?: WaitOptions) => Promise<void>`                     | Assert that the element exists and is visible       |
-| `toBeHidden`       | `(opts?: WaitOptions) => Promise<void>`                     | Assert that the element is missing or hidden        |
-| `toHaveText`       | `(expected: string, opts?: WaitOptions) => Promise<void>`   | Assert an exact text match                          |
-| `toContainText`    | `(expected: string, opts?: WaitOptions) => Promise<void>`   | Assert a case-insensitive substring match           |
-| `toMatchText`      | `(pattern: RegExp, opts?: WaitOptions) => Promise<void>`    | Assert a regular-expression text match              |
-| `toHaveValue`      | `(expected: string \| number, opts?: WaitOptions) => Promise<void>` | Assert an exact form value match                    |
-| `toHaveAttribute`  | `(name: string, value?: string, opts?: WaitOptions) => Promise<void>` | Assert that an attribute exists or matches a value  |
-| `toBeEnabled`      | `(opts?: WaitOptions) => Promise<void>`                     | Assert that the element is enabled                  |
-| `toBeDisabled`     | `(opts?: WaitOptions) => Promise<void>`                     | Assert that the element is disabled                 |
+| Method            | Signature                                                             | Description                                        |
+| ----------------- | --------------------------------------------------------------------- | -------------------------------------------------- |
+| `toBeVisible`     | `(opts?: WaitOptions) => Promise<void>`                               | Assert that the element exists and is visible      |
+| `toBeHidden`      | `(opts?: WaitOptions) => Promise<void>`                               | Assert that the element is missing or hidden       |
+| `toHaveText`      | `(expected: string, opts?: WaitOptions) => Promise<void>`             | Assert an exact text match                         |
+| `toContainText`   | `(expected: string, opts?: WaitOptions) => Promise<void>`             | Assert a case-insensitive substring match          |
+| `toMatchText`     | `(pattern: RegExp, opts?: WaitOptions) => Promise<void>`              | Assert a regular-expression text match             |
+| `toHaveValue`     | `(expected: string \| number, opts?: WaitOptions) => Promise<void>`   | Assert an exact form value match                   |
+| `toHaveAttribute` | `(name: string, value?: string, opts?: WaitOptions) => Promise<void>` | Assert that an attribute exists or matches a value |
+| `toBeEnabled`     | `(opts?: WaitOptions) => Promise<void>`                               | Assert that the element is enabled                 |
+| `toBeDisabled`    | `(opts?: WaitOptions) => Promise<void>`                               | Assert that the element is disabled                |
 
 ```ts
 await expect({ testID: "success-message" }).toBeVisible();
@@ -1214,13 +1281,13 @@ Create or refresh baselines with `spana test --update-baselines`. For suite-wide
 
 ### Accessibility assertions
 
-| Method                     | Signature | Description |
-| -------------------------- | --------- | ----------- |
-| `toPassAccessibilityAudit` | `(options?: { severity?: "critical" \| "serious" \| "moderate" \| "minor"; rules?: string[]; exclude?: Selector[] }) => Promise<void>` | Run an axe-core audit of the current web page |
-| `toHaveAccessibilityLabel` | `(expected?: string) => Promise<void>` | Assert that an element has an accessibility label, optionally with an exact value |
-| `toBeFocusable`            | `() => Promise<void>` | Assert that the element can receive focus |
-| `toHaveRole`               | `(expected: string) => Promise<void>` | Assert a semantic role such as `button` or `link` |
-| `toHaveMinTouchTarget`     | `(size?: number) => Promise<void>` | Assert a minimum touch target size, default `44` |
+| Method                     | Signature                                                                                                                              | Description                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `toPassAccessibilityAudit` | `(options?: { severity?: "critical" \| "serious" \| "moderate" \| "minor"; rules?: string[]; exclude?: Selector[] }) => Promise<void>` | Run an axe-core audit of the current web page                                     |
+| `toHaveAccessibilityLabel` | `(expected?: string) => Promise<void>`                                                                                                 | Assert that an element has an accessibility label, optionally with an exact value |
+| `toBeFocusable`            | `() => Promise<void>`                                                                                                                  | Assert that the element can receive focus                                         |
+| `toHaveRole`               | `(expected: string) => Promise<void>`                                                                                                  | Assert a semantic role such as `button` or `link`                                 |
+| `toHaveMinTouchTarget`     | `(size?: number) => Promise<void>`                                                                                                     | Assert a minimum touch target size, default `44`                                  |
 
 ```ts
 await expect("body").toPassAccessibilityAudit({
@@ -1292,7 +1359,7 @@ export default flow(
   async ({ expect }) => {
     // Per-assertion override
     await expect({ testID: "result" }).toBeVisible({ timeout: 15000 });
-  }
+  },
 );
 ```
 
@@ -1642,54 +1709,54 @@ spana test [path] [options]
 
 ### Filtering and targeting
 
-| Flag | Description |
-| ---- | ----------- |
-| `--platform <web,android,ios>` | Restrict the run to one or more platforms |
-| `--tag <tag1,tag2>` | Run only flows with matching tags |
-| `--grep <pattern>` | Run only flows whose names match the pattern |
-| `--device <id>` | Run on one specific local device |
-| `--devices <id1>,<id2>` | Run on specific devices in parallel mode |
+| Flag                           | Description                                  |
+| ------------------------------ | -------------------------------------------- |
+| `--platform <web,android,ios>` | Restrict the run to one or more platforms    |
+| `--tag <tag1,tag2>`            | Run only flows with matching tags            |
+| `--grep <pattern>`             | Run only flows whose names match the pattern |
+| `--device <id>`                | Run on one specific local device             |
+| `--devices <id1>,<id2>`        | Run on specific devices in parallel mode     |
 
 ### Parallelism and execution control
 
-| Flag | Description |
-| ---- | ----------- |
-| `--parallel` | Auto-discover devices and run flows in parallel |
-| `--workers <n>` | Max workers per platform in parallel mode |
-| `--retries <n>` | Retry failed flows `n` times |
-| `--bail <n>` | Stop scheduling new flows after `n` final failures |
-| `--shard <current>/<total>` | Run one deterministic CI shard |
-| `--debug-on-failure` | Open an interactive REPL on the first failure |
+| Flag                        | Description                                        |
+| --------------------------- | -------------------------------------------------- |
+| `--parallel`                | Auto-discover devices and run flows in parallel    |
+| `--workers <n>`             | Max workers per platform in parallel mode          |
+| `--retries <n>`             | Retry failed flows `n` times                       |
+| `--bail <n>`                | Stop scheduling new flows after `n` final failures |
+| `--shard <current>/<total>` | Run one deterministic CI shard                     |
+| `--debug-on-failure`        | Open an interactive REPL on the first failure      |
 
 ### Iteration helpers
 
-| Flag | Description |
-| ---- | ----------- |
-| `--watch` | Re-run when flows or config change |
-| `--changed` | Run only changed flow files from git |
-| `--last-failed` | Re-run only flows that failed in the last run |
+| Flag                 | Description                                        |
+| -------------------- | -------------------------------------------------- |
+| `--watch`            | Re-run when flows or config change                 |
+| `--changed`          | Run only changed flow files from git               |
+| `--last-failed`      | Re-run only flows that failed in the last run      |
 | `--update-baselines` | Rewrite screenshot baselines for visual regression |
 
 ### Output and configuration
 
-| Flag | Description |
-| ---- | ----------- |
+| Flag                | Description                                                                     |
+| ------------------- | ------------------------------------------------------------------------------- |
 | `--reporter <name>` | Reporter: `console`, `json`, `junit`, `html`, `allure`, or a custom module path |
-| `--config <path>` | Use a non-default config file |
-| `--validate-config` | Validate config and exit before discovery |
-| `--quiet`, `-q` | Suppress pass output and show failures plus summary |
-| `--verbose` | Print detailed failure diagnostics and hierarchy |
-| `--json` | Emit machine-readable output where supported |
+| `--config <path>`   | Use a non-default config file                                                   |
+| `--validate-config` | Validate config and exit before discovery                                       |
+| `--quiet`, `-q`     | Suppress pass output and show failures plus summary                             |
+| `--verbose`         | Print detailed failure diagnostics and hierarchy                                |
+| `--json`            | Emit machine-readable output where supported                                    |
 
 ### Appium and cloud overrides
 
-| Flag | Description |
-| ---- | ----------- |
-| `--driver <local\|appium>` | Override `execution.mode` |
-| `--appium-url <url>` | Override `execution.appium.serverUrl` |
-| `--caps <path>` | Load Appium capabilities from JSON |
-| `--caps-json <json>` | Inline Appium capabilities JSON |
-| `--no-provider-reporting` | Skip BrowserStack/Sauce Labs session result reporting |
+| Flag                       | Description                                           |
+| -------------------------- | ----------------------------------------------------- |
+| `--driver <local\|appium>` | Override `execution.mode`                             |
+| `--appium-url <url>`       | Override `execution.appium.serverUrl`                 |
+| `--caps <path>`            | Load Appium capabilities from JSON                    |
+| `--caps-json <json>`       | Inline Appium capabilities JSON                       |
+| `--no-provider-reporting`  | Skip BrowserStack/Sauce Labs session result reporting |
 
 ### Examples
 
@@ -1793,16 +1860,16 @@ Check environment readiness before running tests.
 spana doctor [options]
 ```
 
-| Flag | Description |
-| ---- | ----------- |
+| Flag                           | Description                             |
+| ------------------------------ | --------------------------------------- |
 | `--platform <web,android,ios>` | Limit diagnostics to selected platforms |
-| `--config <path>` | Load a specific config file |
-| `--driver <local\|appium>` | Force local or Appium diagnostics |
-| `--appium-url <url>` | Override the Appium endpoint under test |
-| `--caps <path>` | Load Appium capabilities from a file |
-| `--caps-json <json>` | Inline Appium capabilities JSON |
-| `--json` | Emit machine-readable doctor results |
-| `--pretty` | Pretty-print JSON output |
+| `--config <path>`              | Load a specific config file             |
+| `--driver <local\|appium>`     | Force local or Appium diagnostics       |
+| `--appium-url <url>`           | Override the Appium endpoint under test |
+| `--caps <path>`                | Load Appium capabilities from a file    |
+| `--caps-json <json>`           | Inline Appium capabilities JSON         |
+| `--json`                       | Emit machine-readable doctor results    |
+| `--pretty`                     | Pretty-print JSON output                |
 
 Use `doctor` before a new CI environment, after simulator/device setup changes, or when a session fails to start and you want a quick readiness report.
 
@@ -1834,13 +1901,13 @@ Generate a starter `.flow.ts` file.
 spana init-flow <name> [options]
 ```
 
-| Flag | Description |
-| ---- | ----------- |
+| Flag                           | Description                             |
+| ------------------------------ | --------------------------------------- | ------ | ----------------------------------- |
 | `--platform <web,android,ios>` | Add platform tags to the generated flow |
-| `--tag <tag1,tag2>` | Add custom tags |
-| `--preset <blank|smoke|auth>` | Start from a built-in flow template |
-| `--output <path>` | Write to a custom file path |
-| `--force` | Overwrite an existing file |
+| `--tag <tag1,tag2>`            | Add custom tags                         |
+| `--preset <blank               | smoke                                   | auth>` | Start from a built-in flow template |
+| `--output <path>`              | Write to a custom file path             |
+| `--force`                      | Overwrite an existing file              |
 
 ### Examples
 
@@ -1869,10 +1936,10 @@ spana version
 
 ## Exit codes
 
-| Code | Meaning |
-| ---- | ------- |
-| `0` | Command succeeded |
-| `1` | Command failed |
+| Code | Meaning           |
+| ---- | ----------------- |
+| `0`  | Command succeeded |
+| `1`  | Command failed    |
 
 ---
 
@@ -2425,10 +2492,7 @@ All hooks except `onRunComplete` are optional.
 import { defineConfig } from "spana-test";
 
 export default defineConfig({
-  reporters: [
-    "console",
-    "./reporters/slack.ts",
-  ],
+  reporters: ["console", "./reporters/slack.ts"],
 });
 ```
 
@@ -2471,33 +2535,33 @@ interface Reporter {
 
 ### `FlowResult`
 
-| Field | Description |
-| ----- | ----------- |
-| `name` | Flow name |
-| `platform` | `web`, `android`, or `ios` |
-| `status` | `passed`, `failed`, or `skipped` |
-| `flaky` | `true` when the flow failed first and later passed on retry |
-| `attempts` | Number of attempts made |
-| `durationMs` | Total runtime in milliseconds |
-| `error` | Structured `FlowError` for failed flows |
-| `attachments` | Captured artifacts such as screenshots, HAR, or logs |
-| `steps` | Low-level driver steps recorded for the flow |
-| `scenarioSteps` | Gherkin step results for scenario-style flows |
-| `workerName` | Worker or device name when parallel mode is enabled |
+| Field           | Description                                                 |
+| --------------- | ----------------------------------------------------------- |
+| `name`          | Flow name                                                   |
+| `platform`      | `web`, `android`, or `ios`                                  |
+| `status`        | `passed`, `failed`, or `skipped`                            |
+| `flaky`         | `true` when the flow failed first and later passed on retry |
+| `attempts`      | Number of attempts made                                     |
+| `durationMs`    | Total runtime in milliseconds                               |
+| `error`         | Structured `FlowError` for failed flows                     |
+| `attachments`   | Captured artifacts such as screenshots, HAR, or logs        |
+| `steps`         | Low-level driver steps recorded for the flow                |
+| `scenarioSteps` | Gherkin step results for scenario-style flows               |
+| `workerName`    | Worker or device name when parallel mode is enabled         |
 
 ### `RunSummary`
 
-| Field | Description |
-| ----- | ----------- |
-| `total` | Total flow executions across all platforms |
-| `passed` / `failed` / `skipped` | Final result counts |
-| `flaky` | Number of flaky flows |
-| `durationMs` | Total run duration |
-| `results` | All `FlowResult` entries |
-| `platforms` | Platforms included in the run |
-| `bailedOut` | `true` when `--bail` stopped the run early |
-| `bailLimit` | Bail threshold that triggered the stop |
-| `workerStats` | Per-worker timing and flow counts in parallel mode |
+| Field                           | Description                                        |
+| ------------------------------- | -------------------------------------------------- |
+| `total`                         | Total flow executions across all platforms         |
+| `passed` / `failed` / `skipped` | Final result counts                                |
+| `flaky`                         | Number of flaky flows                              |
+| `durationMs`                    | Total run duration                                 |
+| `results`                       | All `FlowResult` entries                           |
+| `platforms`                     | Platforms included in the run                      |
+| `bailedOut`                     | `true` when `--bail` stopped the run early         |
+| `bailLimit`                     | Bail threshold that triggered the stop             |
+| `workerStats`                   | Per-worker timing and flow counts in parallel mode |
 
 ### `StepResult` and `ScenarioStepResult`
 
@@ -2622,112 +2686,112 @@ interface ConnectOptions {
 }
 ```
 
-| Option | Platform | Description |
-| ------ | -------- | ----------- |
-| `platform` | all | Target platform |
-| `device` | android, ios | Explicit device ID from `spana devices` |
-| `baseUrl` | web | Base URL to open when the browser session starts |
-| `browser` | web | Browser engine: `chromium`, `firefox`, or `webkit` |
-| `headless` | web | Run the browser headless, default `true` |
-| `storageState` | web | Preload Playwright cookies and storage state |
-| `verboseLogging` | web | Print verbose Playwright runtime logs |
-| `storybook` | web | Storybook URL and iframe config for `openStory()` |
-| `packageName` | android | Android application ID |
-| `bundleId` | ios | iOS bundle identifier |
+| Option           | Platform     | Description                                        |
+| ---------------- | ------------ | -------------------------------------------------- |
+| `platform`       | all          | Target platform                                    |
+| `device`         | android, ios | Explicit device ID from `spana devices`            |
+| `baseUrl`        | web          | Base URL to open when the browser session starts   |
+| `browser`        | web          | Browser engine: `chromium`, `firefox`, or `webkit` |
+| `headless`       | web          | Run the browser headless, default `true`           |
+| `storageState`   | web          | Preload Playwright cookies and storage state       |
+| `verboseLogging` | web          | Print verbose Playwright runtime logs              |
+| `storybook`      | web          | Storybook URL and iframe config for `openStory()`  |
+| `packageName`    | android      | Android application ID                             |
+| `bundleId`       | ios          | iOS bundle identifier                              |
 
 ## Session methods
 
 ### Touch and input
 
-| Method | Signature | Description |
-| ------ | --------- | ----------- |
-| `tap` | `(selector) => Promise<void>` | Tap an element |
-| `tapXY` | `(x, y) => Promise<void>` | Tap at absolute coordinates |
-| `doubleTap` | `(selector, opts?) => Promise<void>` | Double-tap an element |
-| `longPress` | `(selector, opts?) => Promise<void>` | Long-press an element |
-| `longPressXY` | `(x, y, opts?) => Promise<void>` | Long-press at coordinates |
-| `inputText` | `(text) => Promise<void>` | Type into the focused control |
-| `pressKey` | `(key) => Promise<void>` | Send a named key |
-| `hideKeyboard` | `() => Promise<void>` | Dismiss the software keyboard |
-| `dismissKeyboard` | `(opts?) => Promise<void>` | Use the platform-aware keyboard dismissal strategy |
+| Method            | Signature                            | Description                                        |
+| ----------------- | ------------------------------------ | -------------------------------------------------- |
+| `tap`             | `(selector) => Promise<void>`        | Tap an element                                     |
+| `tapXY`           | `(x, y) => Promise<void>`            | Tap at absolute coordinates                        |
+| `doubleTap`       | `(selector, opts?) => Promise<void>` | Double-tap an element                              |
+| `longPress`       | `(selector, opts?) => Promise<void>` | Long-press an element                              |
+| `longPressXY`     | `(x, y, opts?) => Promise<void>`     | Long-press at coordinates                          |
+| `inputText`       | `(text) => Promise<void>`            | Type into the focused control                      |
+| `pressKey`        | `(key) => Promise<void>`             | Send a named key                                   |
+| `hideKeyboard`    | `() => Promise<void>`                | Dismiss the software keyboard                      |
+| `dismissKeyboard` | `(opts?) => Promise<void>`           | Use the platform-aware keyboard dismissal strategy |
 
 ### Navigation and gestures
 
-| Method | Signature | Description |
-| ------ | --------- | ----------- |
-| `swipe` | `(direction, opts?) => Promise<void>` | Swipe up, down, left, or right |
-| `scroll` | `(direction) => Promise<void>` | Scroll in one direction |
-| `scrollUntilVisible` | `(selector, opts?) => Promise<void>` | Scroll until a target appears |
-| `backUntilVisible` | `(selector, opts?) => Promise<void>` | Repeatedly go back until a target appears |
-| `pinch` | `(selector, { scale?, duration? }?) => Promise<void>` | Pinch on a mobile element |
-| `zoom` | `(selector, { scale?, duration? }?) => Promise<void>` | Zoom on a mobile element |
-| `multiTouch` | `(sequences) => Promise<void>` | Run multiple touch sequences at once |
+| Method               | Signature                                             | Description                               |
+| -------------------- | ----------------------------------------------------- | ----------------------------------------- |
+| `swipe`              | `(direction, opts?) => Promise<void>`                 | Swipe up, down, left, or right            |
+| `scroll`             | `(direction) => Promise<void>`                        | Scroll in one direction                   |
+| `scrollUntilVisible` | `(selector, opts?) => Promise<void>`                  | Scroll until a target appears             |
+| `backUntilVisible`   | `(selector, opts?) => Promise<void>`                  | Repeatedly go back until a target appears |
+| `pinch`              | `(selector, { scale?, duration? }?) => Promise<void>` | Pinch on a mobile element                 |
+| `zoom`               | `(selector, { scale?, duration? }?) => Promise<void>` | Zoom on a mobile element                  |
+| `multiTouch`         | `(sequences) => Promise<void>`                        | Run multiple touch sequences at once      |
 
 ### App lifecycle
 
-| Method | Signature | Description |
-| ------ | --------- | ----------- |
-| `launch` | `(opts?) => Promise<void>` | Launch the app or page |
-| `stop` | `() => Promise<void>` | Stop the app |
-| `kill` | `() => Promise<void>` | Force-kill the app |
-| `clearState` | `() => Promise<void>` | Clear app/browser state |
-| `openLink` | `(url) => Promise<void>` | Open a URL or deep link |
-| `openStory` | `(storyId, options?) => Promise<void>` | Open a Storybook story in the browser runtime |
-| `back` | `() => Promise<void>` | Trigger browser back or Android back |
+| Method       | Signature                              | Description                                   |
+| ------------ | -------------------------------------- | --------------------------------------------- |
+| `launch`     | `(opts?) => Promise<void>`             | Launch the app or page                        |
+| `stop`       | `() => Promise<void>`                  | Stop the app                                  |
+| `kill`       | `() => Promise<void>`                  | Force-kill the app                            |
+| `clearState` | `() => Promise<void>`                  | Clear app/browser state                       |
+| `openLink`   | `(url) => Promise<void>`               | Open a URL or deep link                       |
+| `openStory`  | `(storyId, options?) => Promise<void>` | Open a Storybook story in the browser runtime |
+| `back`       | `() => Promise<void>`                  | Trigger browser back or Android back          |
 
 `openStory()` is web-only and uses the `storybook` connection settings when provided.
 
 ### Queries and inspection
 
-| Method | Signature | Description |
-| ------ | --------- | ----------- |
-| `hierarchy` | `() => Promise<Element>` | Read the full current hierarchy |
-| `selectors` | `() => Promise<SuggestedSelector[]>` | Get suggested selectors for visible elements |
-| `screenshot` | `() => Promise<Uint8Array>` | Capture a screenshot |
-| `getText` | `(selector, opts?) => Promise<string>` | Read an element's text |
-| `getAttribute` | `(selector, name, opts?) => Promise<string \| null>` | Read an attribute |
-| `isVisible` | `(selector, opts?) => Promise<boolean>` | Check visibility without throwing |
-| `isEnabled` | `(selector, opts?) => Promise<boolean>` | Check enabled state without throwing |
-| `evaluate` | `<T>(fn \| string, ...args) => Promise<T>` | Run JavaScript in the web page |
+| Method         | Signature                                            | Description                                  |
+| -------------- | ---------------------------------------------------- | -------------------------------------------- |
+| `hierarchy`    | `() => Promise<Element>`                             | Read the full current hierarchy              |
+| `selectors`    | `() => Promise<SuggestedSelector[]>`                 | Get suggested selectors for visible elements |
+| `screenshot`   | `() => Promise<Uint8Array>`                          | Capture a screenshot                         |
+| `getText`      | `(selector, opts?) => Promise<string>`               | Read an element's text                       |
+| `getAttribute` | `(selector, name, opts?) => Promise<string \| null>` | Read an attribute                            |
+| `isVisible`    | `(selector, opts?) => Promise<boolean>`              | Check visibility without throwing            |
+| `isEnabled`    | `(selector, opts?) => Promise<boolean>`              | Check enabled state without throwing         |
+| `evaluate`     | `<T>(fn \| string, ...args) => Promise<T>`           | Run JavaScript in the web page               |
 
 ### Browser helpers
 
-| Method | Signature | Description |
-| ------ | --------- | ----------- |
-| `mockNetwork` | `(matcher, response) => Promise<void>` | Fulfill matching requests with mocked data |
-| `blockNetwork` | `(matcher) => Promise<void>` | Abort matching requests |
-| `clearNetworkMocks` | `() => Promise<void>` | Remove active network mocks |
-| `setNetworkConditions` | `(conditions) => Promise<void>` | Toggle offline mode and Chromium throttling |
-| `saveCookies` | `(path) => Promise<void>` | Persist cookies to disk |
-| `loadCookies` | `(path) => Promise<void>` | Load cookies from disk |
-| `saveAuthState` | `(path) => Promise<void>` | Save Playwright storage state |
-| `loadAuthState` | `(path) => Promise<void>` | Replace the browser context with saved auth state |
-| `downloadFile` | `(path) => Promise<void>` | Save the next browser download |
-| `uploadFile` | `(selector, path) => Promise<void>` | Upload a local file through a file input |
-| `newTab` | `(url?) => Promise<void>` | Open a new browser tab |
-| `switchToTab` | `(index) => Promise<void>` | Switch to a tab by index |
-| `closeTab` | `() => Promise<void>` | Close the current tab |
-| `getTabIds` | `() => Promise<string[]>` | List known tab IDs |
-| `getConsoleLogs` | `() => Promise<Array<{ type, text, location? }>>` | Read captured console messages |
-| `getJSErrors` | `() => Promise<Array<{ name?, message, stack? }>>` | Read uncaught JavaScript errors |
-| `getHAR` | `() => Promise<Record<string, unknown>>` | Read the current HAR network capture |
+| Method                 | Signature                                          | Description                                       |
+| ---------------------- | -------------------------------------------------- | ------------------------------------------------- |
+| `mockNetwork`          | `(matcher, response) => Promise<void>`             | Fulfill matching requests with mocked data        |
+| `blockNetwork`         | `(matcher) => Promise<void>`                       | Abort matching requests                           |
+| `clearNetworkMocks`    | `() => Promise<void>`                              | Remove active network mocks                       |
+| `setNetworkConditions` | `(conditions) => Promise<void>`                    | Toggle offline mode and Chromium throttling       |
+| `saveCookies`          | `(path) => Promise<void>`                          | Persist cookies to disk                           |
+| `loadCookies`          | `(path) => Promise<void>`                          | Load cookies from disk                            |
+| `saveAuthState`        | `(path) => Promise<void>`                          | Save Playwright storage state                     |
+| `loadAuthState`        | `(path) => Promise<void>`                          | Replace the browser context with saved auth state |
+| `downloadFile`         | `(path) => Promise<void>`                          | Save the next browser download                    |
+| `uploadFile`           | `(selector, path) => Promise<void>`                | Upload a local file through a file input          |
+| `newTab`               | `(url?) => Promise<void>`                          | Open a new browser tab                            |
+| `switchToTab`          | `(index) => Promise<void>`                         | Switch to a tab by index                          |
+| `closeTab`             | `() => Promise<void>`                              | Close the current tab                             |
+| `getTabIds`            | `() => Promise<string[]>`                          | List known tab IDs                                |
+| `getConsoleLogs`       | `() => Promise<Array<{ type, text, location? }>>`  | Read captured console messages                    |
+| `getJSErrors`          | `() => Promise<Array<{ name?, message, stack? }>>` | Read uncaught JavaScript errors                   |
+| `getHAR`               | `() => Promise<Record<string, unknown>>`           | Read the current HAR network capture              |
 
 These helpers are available on local Playwright web sessions.
 
 ### Hybrid / WebView helpers
 
-| Method | Signature | Description |
-| ------ | --------- | ----------- |
-| `getContexts` | `() => Promise<string[]>` | List native and WebView contexts |
-| `getCurrentContext` | `() => Promise<string>` | Read the active context ID |
-| `switchToContext` | `(contextId) => Promise<void>` | Switch to a specific context |
-| `switchToWebView` | `() => Promise<void>` | Switch to the first available WebView |
-| `switchToNativeApp` | `() => Promise<void>` | Switch back to the native context |
+| Method              | Signature                      | Description                           |
+| ------------------- | ------------------------------ | ------------------------------------- |
+| `getContexts`       | `() => Promise<string[]>`      | List native and WebView contexts      |
+| `getCurrentContext` | `() => Promise<string>`        | Read the active context ID            |
+| `switchToContext`   | `(contextId) => Promise<void>` | Switch to a specific context          |
+| `switchToWebView`   | `() => Promise<void>`          | Switch to the first available WebView |
+| `switchToNativeApp` | `() => Promise<void>`          | Switch back to the native context     |
 
 ### Cleanup
 
-| Method | Signature | Description |
-| ------ | --------- | ----------- |
+| Method       | Signature             | Description                                        |
+| ------------ | --------------------- | -------------------------------------------------- |
 | `disconnect` | `() => Promise<void>` | Release the session and clean up runtime resources |
 
 ## `validateFlows(path)`
@@ -2872,6 +2936,19 @@ interface FlowConfig {
   platforms?:  Array<"web" | "android" | "ios">;
   timeout?:    number;
   autoLaunch?: boolean;
+  launchOptions?: LaunchOptions;
+}
+
+interface LaunchOptions {
+  clearState?: boolean;
+  clearKeychain?: boolean;
+  deepLink?: string;
+  launchArguments?: Record<string, unknown>;
+  deviceState?: {
+    language?: string;
+    locale?: string;
+    timeZone?: string;
+  };
 }
 ```
 
@@ -2886,6 +2963,7 @@ interface SpanaConfig {
   };
   platforms?:  Array<"web" | "android" | "ios">;
   flowDir?:    string;
+  launchOptions?: LaunchOptions;
   reporters?:  string[];
   defaults?: {
     waitTimeout?:   number;
@@ -3823,14 +3901,14 @@ export default provider;
 
 ### Interface responsibilities
 
-| API | Responsibility |
-| --- | -------------- |
-| `name()` | Human-readable provider name |
-| `createHelper()` | Build a helper for capability mutation and lifecycle cleanup |
+| API                     | Responsibility                                                     |
+| ----------------------- | ------------------------------------------------------------------ |
+| `name()`                | Human-readable provider name                                       |
+| `createHelper()`        | Build a helper for capability mutation and lifecycle cleanup       |
 | `prepareCapabilities()` | Add provider-specific desired capabilities before session creation |
-| `cleanup()` | Tear down uploads, tunnels, or temporary state after the run |
-| `extractMeta()` | Pull provider metadata from the created session for reporting |
-| `reportResult()` | Mark the remote session passed or failed |
+| `cleanup()`             | Tear down uploads, tunnels, or temporary state after the run       |
+| `extractMeta()`         | Pull provider metadata from the created session for reporting      |
+| `reportResult()`        | Mark the remote session passed or failed                           |
 
 ## CI example
 
@@ -3858,10 +3936,10 @@ spana is designed for CI from the ground up. It ships as a single npm package (`
 
 ## Exit codes
 
-| Code | Meaning |
-| ---- | ------- |
+| Code | Meaning           |
+| ---- | ----------------- |
 | `0`  | Command succeeded |
-| `1`  | Command failed |
+| `1`  | Command failed    |
 
 ## Reporters for CI
 

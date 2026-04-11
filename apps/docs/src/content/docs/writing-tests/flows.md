@@ -40,6 +40,9 @@ export default flow(
     platforms: ["android", "ios"],
     timeout: 60000,
     autoLaunch: true,
+    launchOptions: {
+      deepLink: "myapp://checkout",
+    },
   },
   async ({ app, expect, platform }) => {
     // ...
@@ -73,6 +76,7 @@ interface FlowConfig {
   platforms?: Platform[];
   timeout?: number;
   autoLaunch?: boolean;
+  launchOptions?: LaunchOptions;
   artifacts?: ArtifactConfig;
   defaults?: FlowDefaults;
   when?: WhenCondition;
@@ -84,15 +88,39 @@ interface WhenCondition {
 }
 ```
 
-| Option       | Type             | Default        | Description                                           |
-| ------------ | ---------------- | -------------- | ----------------------------------------------------- |
-| `tags`       | `string[]`       | —              | Tag strings for `--tag` filtering at the CLI          |
-| `platforms`  | `Platform[]`     | all configured | Restrict this flow to specific platforms only         |
-| `timeout`    | `number`         | config default | Flow-level timeout in milliseconds                    |
-| `autoLaunch` | `boolean`        | `true`         | Automatically launch the app before the flow starts   |
-| `artifacts`  | `ArtifactConfig` | config default | Override capture behavior for this single flow        |
-| `defaults`   | `FlowDefaults`   | config default | Override wait / typing / stability defaults per flow  |
-| `when`       | `WhenCondition`  | —              | Runtime conditions that control whether the flow runs |
+| Option          | Type             | Default        | Description                                                      |
+| --------------- | ---------------- | -------------- | ---------------------------------------------------------------- |
+| `tags`          | `string[]`       | —              | Tag strings for `--tag` filtering at the CLI                     |
+| `platforms`     | `Platform[]`     | all configured | Restrict this flow to specific platforms only                    |
+| `timeout`       | `number`         | config default | Flow-level timeout in milliseconds                               |
+| `autoLaunch`    | `boolean`        | `true`         | Automatically launch the app before the flow starts              |
+| `launchOptions` | `LaunchOptions`  | config default | Override launch defaults for this flow and for manual app.launch |
+| `artifacts`     | `ArtifactConfig` | config default | Override capture behavior for this single flow                   |
+| `defaults`      | `FlowDefaults`   | config default | Override wait / typing / stability defaults per flow             |
+| `when`          | `WhenCondition`  | —              | Runtime conditions that control whether the flow runs            |
+
+### Per-flow launch overrides
+
+`FlowConfig.launchOptions` is merged on top of the project `launchOptions`, and explicit `app.launch(opts)` calls are merged last.
+
+```ts
+export default flow(
+  "launch in French",
+  {
+    autoLaunch: true,
+    launchOptions: {
+      deepLink: "myapp://checkout",
+      deviceState: {
+        language: "fr",
+        locale: "fr_CA",
+      },
+    },
+  },
+  async ({ expect }) => {
+    await expect({ testID: "checkout-screen" }).toBeVisible();
+  },
+);
+```
 
 ### Conditional execution with `when`
 

@@ -369,7 +369,12 @@ import { flow } from "spana-test";
 
 flow(
   "checkout",
-  { timeout: 30000, tags: ["smoke"], artifacts: { captureSteps: true } },
+  {
+    timeout: 30000,
+    tags: ["smoke"],
+    artifacts: { captureSteps: true },
+    launchOptions: { deepLink: "myapp://checkout" },
+  },
   async ({ app }) => {
     // ...
   },
@@ -382,21 +387,23 @@ interface FlowConfig {
   platforms?: Array<"web" | "android" | "ios">;
   timeout?: number;
   autoLaunch?: boolean;
+  launchOptions?: LaunchOptions;
   artifacts?: ArtifactConfig;
   defaults?: FlowDefaults;
   when?: WhenCondition;
 }
 ```
 
-| Option       | Default | Description                                                         |
-| ------------ | ------- | ------------------------------------------------------------------- |
-| `tags`       | `[]`    | Tags for CLI filtering with `--tag`                                 |
-| `platforms`  | —       | Restrict a flow to specific platforms                               |
-| `timeout`    | —       | Overall flow timeout in ms                                          |
-| `autoLaunch` | `true`  | Automatically launch the app before the flow starts                 |
-| `artifacts`  | —       | Per-flow artifact overrides                                         |
-| `defaults`   | —       | Per-flow wait, typing, cache, and idle timing overrides             |
-| `when`       | —       | Runtime conditions such as `platform` or environment-variable gates |
+| Option          | Default | Description                                                         |
+| --------------- | ------- | ------------------------------------------------------------------- |
+| `tags`          | `[]`    | Tags for CLI filtering with `--tag`                                 |
+| `platforms`     | —       | Restrict a flow to specific platforms                               |
+| `timeout`       | —       | Overall flow timeout in ms                                          |
+| `autoLaunch`    | `true`  | Automatically launch the app before the flow starts                 |
+| `launchOptions` | —       | Per-flow launch defaults merged on top of project `launchOptions`   |
+| `artifacts`     | —       | Per-flow artifact overrides                                         |
+| `defaults`      | —       | Per-flow wait, typing, cache, and idle timing overrides             |
+| `when`          | —       | Runtime conditions such as `platform` or environment-variable gates |
 
 The per-flow `artifacts` object is merged with the global `artifacts` config, so you only need to specify the fields you want to override. For example, enabling `captureSteps` on a single flow:
 
@@ -412,7 +419,7 @@ flow(
 
 ## `launchOptions`
 
-Default launch options applied to every flow. Individual flows can override these via `app.launch()`.
+Default launch options applied to each flow launch. `FlowConfig.launchOptions` overrides these defaults for one flow, and explicit `app.launch(opts)` calls are merged on top of both.
 
 ```ts
 launchOptions?: LaunchOptions
@@ -434,24 +441,33 @@ interface LaunchOptions {
   clearKeychain?: boolean;
   deepLink?: string;
   launchArguments?: Record<string, unknown>;
+  deviceState?: DeviceStateConfig;
+}
+
+interface DeviceStateConfig {
+  language?: string;
+  locale?: string;
+  timeZone?: string;
 }
 ```
 
-| Option            | Default | Description                                           |
-| ----------------- | ------- | ----------------------------------------------------- |
-| `clearState`      | `false` | Clear app data/storage before launch                  |
-| `clearKeychain`   | `false` | Clear the iOS keychain before launch (simulator only) |
-| `deepLink`        | —       | Open the app via a deep link URL                      |
-| `launchArguments` | —       | Key-value pairs passed as launch arguments to the app |
+| Option            | Default | Description                                                                       |
+| ----------------- | ------- | --------------------------------------------------------------------------------- |
+| `clearState`      | `false` | Clear app data/storage before launch                                              |
+| `clearKeychain`   | `false` | Clear the iOS keychain before launch (simulator only)                             |
+| `deepLink`        | —       | Open the app via a deep link URL                                                  |
+| `launchArguments` | —       | Key-value pairs passed as launch arguments to the app                             |
+| `deviceState`     | —       | Launch-time language / locale / time-zone overrides where the runtime can honor them |
 
 #### Platform behavior
 
-| Option            | Web                          | Android                                | iOS                           |
-| ----------------- | ---------------------------- | -------------------------------------- | ----------------------------- |
-| `clearState`      | Clears cookies, localStorage | `adb shell pm clear`                   | Resets app permissions        |
-| `clearKeychain`   | No-op                        | No-op (warns)                          | `xcrun simctl keychain reset` |
-| `launchArguments` | No-op                        | Passed as `--es` extras via `am start` | Not yet supported (planned)   |
-| `deepLink`        | Navigates to URL             | `adb shell am start -d <url>`          | `xcrun simctl openurl` / WDA  |
+| Option            | Web                                 | Android                                                      | iOS                                                                      |
+| ----------------- | ----------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `clearState`      | Clears cookies, localStorage        | `adb shell pm clear`                                         | Resets app permissions                                                   |
+| `clearKeychain`   | No-op                               | No-op (warns)                                                | `xcrun simctl keychain reset`                                            |
+| `launchArguments` | No-op                               | Passed as `--es` extras via `am start`                       | Appium iOS: process args via `mobile: launchApp`; local WDA: warns + ignores |
+| `deviceState`     | Warns + ignores                     | Appium: session-start caps; local Android: warns + ignores   | Appium: session caps + launch-time process config; local WDA: warns + ignores |
+| `deepLink`        | Navigates to URL                    | `adb shell am start -d <url>`                                | `xcrun simctl openurl` / WDA                                             |
 
 Android `launchArguments` are string extras. For example:
 
@@ -464,15 +480,38 @@ await app.launch({
 });
 ```
 
-On web, `launchArguments` are ignored because Playwright launches a browser page rather than an installed app process. On iOS, launch arguments are not wired yet, so prefer deep links, app state setup, or environment-specific builds.
+`deviceState` is for launch-time localization and time-zone setup. It does **not** mutate the device clock mid-run. In Appium mode, suite-level `launchOptions.deviceState` is also mapped into session capabilities so defaults apply even when Appium keeps `autoLaunch` off. Common locale forms such as `fr_CA` / `fr-CA` are normalized for Appium, but Android still needs both language and region information available.
 
 #### Per-flow usage
 
-When `autoLaunch` is `false`, call `app.launch()` manually with options:
+Use `FlowConfig.launchOptions` when one flow needs a different launch profile than the project defaults:
+
+```ts
+flow(
+  "checkout in French",
+  {
+    autoLaunch: true,
+    launchOptions: {
+      clearState: true,
+      deepLink: "myapp://checkout",
+      deviceState: {
+        language: "fr",
+        locale: "fr_CA",
+        timeZone: "America/Toronto",
+      },
+    },
+  },
+  async ({ app }) => {
+    // ...
+  },
+);
+```
+
+When `autoLaunch` is `false`, you can still call `app.launch()` manually. The project and per-flow defaults are merged first, then the manual call wins:
 
 ```ts
 flow("onboarding", { autoLaunch: false }, async ({ app }) => {
-  await app.launch({ clearState: true, deepLink: "myapp://welcome" });
+  await app.launch({ deepLink: "myapp://welcome" });
   // ...
 });
 ```

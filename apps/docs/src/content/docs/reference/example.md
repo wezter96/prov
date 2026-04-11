@@ -83,6 +83,19 @@ interface FlowConfig {
   platforms?:  Array<"web" | "android" | "ios">;
   timeout?:    number;
   autoLaunch?: boolean;
+  launchOptions?: LaunchOptions;
+}
+
+interface LaunchOptions {
+  clearState?: boolean;
+  clearKeychain?: boolean;
+  deepLink?: string;
+  launchArguments?: Record<string, unknown>;
+  deviceState?: {
+    language?: string;
+    locale?: string;
+    timeZone?: string;
+  };
 }
 ```
 
@@ -97,6 +110,7 @@ interface SpanaConfig {
   };
   platforms?:  Array<"web" | "android" | "ios">;
   flowDir?:    string;
+  launchOptions?: LaunchOptions;
   reporters?:  string[];
   defaults?: {
     waitTimeout?:   number;
