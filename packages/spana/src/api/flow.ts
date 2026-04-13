@@ -3,6 +3,7 @@ import type { ArtifactConfig } from "../schemas/config.js";
 import type { LaunchOptions } from "../drivers/raw-driver.js";
 import type { PromiseApp } from "./app.js";
 import type { PromiseExpectation } from "./expect.js";
+import type { Sessions } from "../core/session-manager.js";
 
 export interface WhenCondition {
   /** Only run on these platforms */
@@ -40,6 +41,7 @@ export interface FlowContext<T extends string = string, R extends string = strin
   app: PromiseApp<T, R>;
   expect: (selector: ExtendedSelector<T>) => PromiseExpectation<T>;
   platform: Platform;
+  sessions: Sessions;
 }
 
 export type FlowFn<T extends string = string, R extends string = string> = (
