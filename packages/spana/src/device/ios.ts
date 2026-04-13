@@ -377,6 +377,72 @@ export function hasAppOnPhysicalDevice(udid: string, bundleId: string): boolean 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Network control helpers (pfctl / dnctl)
+// ---------------------------------------------------------------------------
+// WARNING: These functions affect the entire host Mac's network stack.
+// iOS simulators share the host network — there is no per-simulator isolation.
+// Requires sudo.
+
+/** pfctl anchor name used by spana for network rules */
+export const SPANA_ANCHOR = "com.spana.network";
+
+/**
+ * Block or unblock all outbound network traffic using pfctl.
+ * When enabled, adds a "block out all" rule to the spana anchor.
+ * When disabled, flushes all rules from the spana anchor.
+ */
+export function pfctlSetOffline(enable: boolean): void {
+  if (enable) {
+    execSync(`echo "block out all\n" | sudo pfctl -a ${SPANA_ANCHOR} -f -`, { stdio: "ignore" });
+    try {
+      execSync("sudo pfctl -e 2>/dev/null", { stdio: "ignore" });
+    } catch {
+      // May already be enabled
+    }
+  } else {
+    try {
+      execSync(`sudo pfctl -a ${SPANA_ANCHOR} -F all`, { stdio: "ignore" });
+    } catch {
+      // Ignore errors
+    }
+  }
+}
+
+/**
+ * Throttle network using dnctl pipe and pfctl dummynet rules.
+ * Configures bandwidth and delay for all outbound traffic.
+ */
+export function pfctlSetThrottle(throughputKbps: number, delayMs: number): void {
+  execSync(`sudo dnctl pipe 1 config bw ${throughputKbps}Kbit/s delay ${delayMs}ms`, {
+    stdio: "ignore",
+  });
+  execSync(`echo "dummynet out all pipe 1\n" | sudo pfctl -a ${SPANA_ANCHOR} -f -`, {
+    stdio: "ignore",
+  });
+  try {
+    execSync("sudo pfctl -e 2>/dev/null", { stdio: "ignore" });
+  } catch {
+    // May already be enabled
+  }
+}
+
+/**
+ * Reset all network modifications — flush pfctl anchor rules and dnctl pipes.
+ */
+export function pfctlResetNetwork(): void {
+  try {
+    execSync(`sudo pfctl -a ${SPANA_ANCHOR} -F all`, { stdio: "ignore" });
+  } catch {
+    // Ignore errors
+  }
+  try {
+    execSync("sudo dnctl -q flush", { stdio: "ignore" });
+  } catch {
+    // Ignore errors
+  }
+}
+
 /** Reset simulator keychain (removes all stored passwords and certificates) */
 export function resetSimulatorKeychain(udid: string): void {
   execSync(`xcrun simctl keychain ${udid} reset`, { stdio: "ignore" });
