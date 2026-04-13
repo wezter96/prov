@@ -6,6 +6,7 @@ const mockFlowCtx: FlowContext = {
   app: {} as any,
   expect: {} as any,
   platform: "web",
+  sessions: {} as any,
 };
 
 beforeEach(() => {
