@@ -132,6 +132,15 @@ mock.module("../../device/ios.js", () => ({
   resetSimulatorKeychain(udid: string) {
     wdaState.events.push(["resetSimulatorKeychain", udid]);
   },
+  pfctlSetOffline(enable: boolean) {
+    wdaState.events.push(["pfctlSetOffline", enable]);
+  },
+  pfctlSetThrottle(throughputKbps: number, delayMs: number) {
+    wdaState.events.push(["pfctlSetThrottle", throughputKbps, delayMs]);
+  },
+  pfctlResetNetwork() {
+    wdaState.events.push(["pfctlResetNetwork"]);
+  },
 }));
 
 let importCounter = 0;
@@ -254,6 +263,56 @@ describe("WDA driver adapter", () => {
       expect(result.left).toBeInstanceOf(DriverError);
       expect(result.left.message).toContain("Tap failed: Error: tap exploded");
     }
+  });
+
+  test("setNetworkConditions with offline on simulator calls pfctlSetOffline", async () => {
+    const { createWDADriver } = await importFreshDriver();
+    const driver = await Effect.runPromise(
+      createWDADriver("localhost", 8100, "com.example.app", "SIM-1"),
+    );
+
+    await Effect.runPromise(driver.setNetworkConditions({ offline: true }));
+
+    expect(wdaState.events).toContainEqual(["pfctlSetOffline", true]);
+  });
+
+  test("setNetworkConditions with profile on simulator calls pfctlSetThrottle", async () => {
+    const { createWDADriver } = await importFreshDriver();
+    const driver = await Effect.runPromise(
+      createWDADriver("localhost", 8100, "com.example.app", "SIM-1"),
+    );
+
+    await Effect.runPromise(driver.setNetworkConditions({ profile: "3g" }));
+
+    expect(wdaState.events).toContainEqual(["pfctlSetThrottle", 1500, 100]);
+  });
+
+  test("setNetworkConditions on physical device throws", async () => {
+    const { createWDADriver } = await importFreshDriver();
+    const driver = await Effect.runPromise(
+      createWDADriver("192.168.1.10", 8100, "com.example.app"),
+    );
+
+    const result = await Effect.runPromise(
+      Effect.either(driver.setNetworkConditions({ profile: "3g" })),
+    );
+
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left") {
+      expect(result.left).toBeInstanceOf(DriverError);
+      expect(result.left.message).toContain("not supported on physical iOS devices");
+    }
+  });
+
+  test("setNetworkConditions with empty object resets network", async () => {
+    const { createWDADriver } = await importFreshDriver();
+    const driver = await Effect.runPromise(
+      createWDADriver("localhost", 8100, "com.example.app", "SIM-1"),
+    );
+
+    await Effect.runPromise(driver.setNetworkConditions({}));
+
+    expect(wdaState.events).toContainEqual(["pfctlResetNetwork"]);
   });
 
   test("wraps session initialization failures in DriverError", async () => {

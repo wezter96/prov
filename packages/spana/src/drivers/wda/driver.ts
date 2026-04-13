@@ -9,7 +9,12 @@ import {
   launchWithUrlOnSimulator,
   terminateOnSimulator,
   resetSimulatorKeychain,
+  pfctlSetOffline,
+  pfctlSetThrottle,
+  pfctlResetNetwork,
 } from "../../device/ios.js";
+import type { NetworkConditions } from "../raw-driver.js";
+import { resolveNetworkConditions } from "../network-profiles.js";
 
 /**
  * Converts a millisecond duration (spana convention) to seconds (WDA convention).
@@ -499,6 +504,60 @@ export function createWDADriver(
                   "WebView context switching requires Appium mode. Use --driver appium with an Appium server that supports XCUITest.",
               }),
             ),
+
+      // -----------------------------------------------------------------------
+      // Network simulation
+      // -----------------------------------------------------------------------
+      setNetworkConditions: (conditions: NetworkConditions) =>
+        Effect.tryPromise({
+          try: async () => {
+            if (!simulatorUdid) {
+              throw new DriverError({
+                message:
+                  "Network simulation is not supported on physical iOS devices. Use a cloud provider (BrowserStack, SauceLabs) for network profiles.",
+              });
+            }
+
+            const hasProfile = !!conditions.profile;
+            const hasOffline = conditions.offline !== undefined;
+            const hasCustom =
+              conditions.latencyMs !== undefined ||
+              conditions.downloadThroughputKbps !== undefined ||
+              conditions.uploadThroughputKbps !== undefined;
+
+            // Reset case: no profile, no offline, no custom values
+            if (!hasProfile && !hasOffline && !hasCustom) {
+              pfctlResetNetwork();
+              return;
+            }
+
+            // Offline case
+            if (hasOffline && conditions.offline) {
+              pfctlSetOffline(true);
+              return;
+            }
+
+            // Throttling case (profile or custom values)
+            if (hasProfile || hasCustom) {
+              const resolved = resolveNetworkConditions(conditions);
+              if (resolved.offline) {
+                pfctlSetOffline(true);
+                return;
+              }
+              const throughput =
+                resolved.downloadThroughputKbps === -1 ? 0 : resolved.downloadThroughputKbps;
+              pfctlSetThrottle(throughput, resolved.latencyMs);
+              return;
+            }
+
+            // Non-throttling online (offline explicitly set to false)
+            pfctlSetOffline(false);
+          },
+          catch: (e) => {
+            if (e instanceof DriverError) return e;
+            return new DriverError({ message: `Set network conditions failed: ${e}` });
+          },
+        }),
     };
 
     return service;
